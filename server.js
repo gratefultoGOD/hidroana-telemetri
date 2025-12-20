@@ -170,14 +170,14 @@ function stopMQTT() {
 }
 
 // ============================================
-// HTTP MODE (Araç bize POST yapar)
+// HTTP MODE (Araç bize GET isteği yapar)
 // ============================================
 let httpModeActive = false;
 
 function startHTTP() {
     httpModeActive = true;
     console.log('🌐 HTTP modu aktif - Araçtan veri bekleniyor...');
-    console.log('📡 Endpoint: POST /api/vehicle/telemetry');
+    console.log('📡 Endpoint: GET /api/vehicle/telemetry?h=...&x=...&y=...');
 }
 
 function stopHTTP() {
@@ -342,39 +342,50 @@ app.delete('/api/telemetry/clear', requireAuth, (req, res) => {
 });
 
 // ============================================
-// ARAÇTAN VERİ ALMA ENDPOINT'İ (HTTP modu)
+// ARAÇTAN VERİ ALMA ENDPOINT'İ (HTTP modu - GET ile query string)
+// Format: ?h=%d&x=%.6f&y=%.6f&gp=%d&gs=%d&fv=%.2f&fa=%.2f&fw=%.2f&fet=%.2f&fit=%.2f&kz=10000&bv=%.2f&bc=%.2f&bw=%.2f&bwh=%.2f&t1=%.1f&t2=%.1f&t3=%.1f&soc=%.2f&ke=%.2f&jv=%.2f&jc=%.2f&jw=%.2f&jwh=%.2f&id=1
 // ============================================
-app.post('/api/vehicle/telemetry', (req, res) => {
+app.get('/api/vehicle/telemetry', (req, res) => {
     if (DATA_SOURCE !== 'HTTP') {
         return res.status(400).json({ error: 'HTTP modu aktif değil' });
     }
-    
-    try {
-        const data = req.body;
-        console.log('📦 HTTP VERİ:', JSON.stringify(data));
-        processIncomingData(data);
-        res.json({ success: true, message: 'Veri alındı' });
-    } catch (error) {
-        console.error('❌ HTTP veri işleme hatası:', error);
-        res.status(500).json({ error: 'Veri işlenemedi' });
-    }
-});
 
-// Araç için alternatif endpoint (star-separated format)
-app.post('/api/vehicle/raw', (req, res) => {
-    if (DATA_SOURCE !== 'HTTP') {
-        return res.status(400).json({ error: 'HTTP modu aktif değil' });
-    }
-    
     try {
-        const rawMessage = req.body.data || req.body.raw || '';
-        console.log('📦 HTTP HAM VERİ:', rawMessage);
-        const data = parseStarSeparatedData(rawMessage);
+        const q = req.query;
+        const data = {
+            h: q.h || null,
+            x: q.x || null,
+            y: q.y || null,
+            gp: q.gp || null,
+            gs: q.gs || null,
+            fv: q.fv || null,
+            fa: q.fa || null,
+            fw: q.fw || null,
+            fet: q.fet || null,
+            fit: q.fit || null,
+            kz: q.kz || null,
+            bv: q.bv || null,
+            bc: q.bc || null,
+            bw: q.bw || null,
+            bwh: q.bwh || null,
+            t1: q.t1 || null,
+            t2: q.t2 || null,
+            t3: q.t3 || null,
+            soc: q.soc || null,
+            ke: q.ke || null,
+            jv: q.jv || null,
+            jc: q.jc || null,
+            jw: q.jw || null,
+            jwh: q.jwh || null,
+            id: q.id || null
+        };
+
+        console.log(`📦 HTTP VERİ: Hız=${data.h} km/h, SOC=${data.soc}%, GPS=${data.y},${data.x}`);
         processIncomingData(data);
-        res.json({ success: true, message: 'Veri alındı' });
+        res.send('OK');
     } catch (error) {
         console.error('❌ HTTP veri işleme hatası:', error);
-        res.status(500).json({ error: 'Veri işlenemedi' });
+        res.status(500).send('ERROR');
     }
 });
 
@@ -416,8 +427,8 @@ app.get('/api/source/config', requireAuth, (req, res) => {
             topic: MQTT_TOPIC
         },
         http: {
-            endpoint: '/api/vehicle/telemetry',
-            description: 'Araç bu endpoint\'e POST yapar'
+            endpoint: 'GET /api/vehicle/telemetry',
+            format: '?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&fet=&fit=&kz=&bv=&bc=&bw=&bwh=&t1=&t2=&t3=&soc=&ke=&jv=&jc=&jw=&jwh=&id='
         }
     });
 });

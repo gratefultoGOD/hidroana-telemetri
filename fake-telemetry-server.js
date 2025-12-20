@@ -1,6 +1,6 @@
 /**
  * Fake Telemetry Client
- * Araç gibi davranarak ana sunucuya telemetri verisi gönderir
+ * Araç gibi davranarak ana sunucuya GET isteği ile telemetri verisi gönderir
  * Ana sunucu HTTP modunda olmalı!
  */
 
@@ -12,12 +12,14 @@ let state = {
     h: 25,          // Hız (km/h)
     x: 32.8597,     // Longitude (İstanbul)
     y: 39.9334,     // Latitude
+    gp: 1,          // GPS fix
     gs: 85,         // GSM sinyal
     fv: 42.5,       // Fuel cell voltage
     fa: 12.3,       // Fuel cell current
     fw: 520,        // Fuel cell watt
     fet: 45,        // Fuel cell external temp
     fit: 52,        // Fuel cell internal temp
+    kz: 10000,      // Sabit değer
     bv: 48.2,       // Battery voltage
     bc: 15.5,       // Battery current
     bw: 745,        // Battery watt
@@ -30,7 +32,8 @@ let state = {
     jv: 48.1,       // Joulemeter voltage
     jc: 14.2,       // Joulemeter current
     jw: 683,        // Joulemeter watt
-    jwh: 1250       // Joulemeter watt-hour
+    jwh: 1250,      // Joulemeter watt-hour
+    id: 1           // Araç ID
 };
 
 // Rastgele değişim fonksiyonu
@@ -44,6 +47,7 @@ function updateState() {
     state.h = vary(state.h, 5, 0, 120);
     state.x = vary(state.x, 0.0001, 32.5, 33.0);
     state.y = vary(state.y, 0.0001, 39.7, 40.2);
+    state.gp = Math.round(vary(state.gp, 0.5, 0, 3));
     state.gs = Math.round(vary(state.gs, 5, 50, 100));
     state.fv = vary(state.fv, 1, 35, 55);
     state.fa = vary(state.fa, 0.5, 5, 25);
@@ -65,22 +69,24 @@ function updateState() {
     state.jwh = vary(state.jwh, 10, 0, 5000);
 }
 
-// Veriyi JSON formatında hazırla
-function getData() {
-    return {
-        h: state.h.toFixed(0),
+// Query string oluştur (araç formatı)
+function buildQueryString() {
+    const params = new URLSearchParams({
+        h: Math.round(state.h),
         x: state.x.toFixed(6),
         y: state.y.toFixed(6),
-        gs: state.gs.toString(),
+        gp: state.gp,
+        gs: state.gs,
         fv: state.fv.toFixed(2),
         fa: state.fa.toFixed(2),
         fw: state.fw.toFixed(2),
-        fet: state.fet.toFixed(1),
-        fit: state.fit.toFixed(1),
+        fet: state.fet.toFixed(2),
+        fit: state.fit.toFixed(2),
+        kz: state.kz,
         bv: state.bv.toFixed(2),
         bc: state.bc.toFixed(2),
         bw: state.bw.toFixed(2),
-        bwh: state.bwh.toFixed(1),
+        bwh: state.bwh.toFixed(2),
         t1: state.t1.toFixed(1),
         t2: state.t2.toFixed(1),
         t3: state.t3.toFixed(1),
@@ -89,27 +95,26 @@ function getData() {
         jv: state.jv.toFixed(2),
         jc: state.jc.toFixed(2),
         jw: state.jw.toFixed(2),
-        jwh: state.jwh.toFixed(1)
-    };
+        jwh: state.jwh.toFixed(2),
+        id: state.id
+    });
+    return params.toString();
 }
 
-// Sunucuya veri gönder
+// Sunucuya veri gönder (GET isteği)
 async function sendData() {
     updateState();
-    const data = getData();
-    
+    const queryString = buildQueryString();
+    const url = `${TARGET_URL}?${queryString}`;
+
     try {
-        const response = await fetch(TARGET_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        
+        const response = await fetch(url);
+        const text = await response.text();
+
         if (response.ok) {
-            console.log(`📤 Gönderildi: Hız=${data.h} km/h, SOC=${data.soc}%`);
+            console.log(`📤 Gönderildi: Hız=${Math.round(state.h)} km/h, SOC=${state.soc.toFixed(2)}%`);
         } else {
-            const err = await response.json();
-            console.log(`⚠️  Sunucu yanıtı: ${err.error || response.status}`);
+            console.log(`⚠️  Sunucu yanıtı: ${text}`);
         }
     } catch (error) {
         console.error(`❌ Bağlantı hatası: ${error.message}`);
@@ -119,6 +124,7 @@ async function sendData() {
 console.log(`\n🚗 Fake Telemetry Client Başlatıldı`);
 console.log(`📡 Hedef: ${TARGET_URL}`);
 console.log(`⏱️  Gönderim aralığı: ${SEND_INTERVAL}ms`);
+console.log(`📋 Format: GET ?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&...`);
 console.log(`\n⚠️  Ana sunucunun HTTP modunda olduğundan emin olun!\n`);
 
 // Periyodik gönderim
