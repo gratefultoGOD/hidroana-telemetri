@@ -1,0 +1,175 @@
+backend  + frontend mqtt + login + cookies + direction [+]
+fake veri gönderen client ve broker kur ve bunlarla frontend'i haberleştir. [+] //şuan backend'e ihtiyaç yok.
+MQTT (mosquitto) araştır. yeni haberleşme protokolü. Frontend ve backend'de implantasyon [+]
+sürekli üzerime gelen sinekler gibi :)
+
+1.login ekranı ekle. telemetri sistemine [+]
+2.database olarak json kullanıyorlar ama optimize et.
+3.haritada direction'da göster [+]
+4.hidroana youtube kanalında telemetri videosu [?]
+
+https://areeweb.polito.it/didattica/h2polito/en/ arayüzlerine bak.
+
+1.11.2025 TO-DO:
+    5.Dış dünyaya aç. [+]
+    6.responsive yap. [+]
+    7.mqtt entegrasyonu [+]
+    8. grafiksiz anlık değerler ve average'ları direk haritada tam ekran olarak yazdırabiliriz. Mobil için. 
+    9.timestsamp'leri günlük log olarak ayarla.
+BROKER <-(VERİ)-(AUTH)->  BACKEND --(WS bağlantısı ile)-> FRONTEND
+
+22.11.2025
+QOS: 1 
+plots proportional to time with millisecond
+plots refresh interval: 0.5 second
+vehicle data from data topic:
+{
+  h: '2',
+  x: '3',
+  y: '4',
+  gs: '6',
+  fv: '1',
+  fa: '11',
+  fw: '11',
+  fet: '2',
+  fit: '23',
+  bv: '111',
+  bc: '13',
+  bw: '42',
+  bwh: '13',
+  t1: '31',
+  t2: '113',
+  t3: '331',
+  soc: '13',
+  ke: '33',
+  jv: '76',
+  jc: '43',
+  jw: '33',
+  jwh: '11'
+}
+
+plots and their values from json data topic:
+h: anlık hız
+x:  Longitude
+y: Latitude
+gs: GSM sinyal kalitesi
+fv: yakıt hücresi voltajı
+fa: yakıt hücresi akımı
+fw: yakıt hücresi watt
+fet: yakıt hücresi dış sıcaklığı
+fit: yakıt hücresi iç sıcaklığı
+bv: batarya voltaj
+bc: batarya akım
+bw: batarya watt
+bwh: batarya watt saat
+t1: batarya sıcaklığı 1
+t2: batarya sıcaklığı 2
+t3: batarya sıcaklığı 3
+soc: batarya soc
+ke: batarya kalan enerji
+jv: joulemetre voltaj
+jc: joulmetre akım
+jw: joulmetre watt
+jwh: joulmetre watt saat
+
+bu veriler için grafikler oluştur
+arayüzü revize et
+fullmap sayfasını onar ve anasayfaya butonunu koy
+deploy etmek için CPANEL node.js öğren
+------------------------------------------------------------------------------------
+
+araç verileri csv formatında backend'de txt dosyasına kaydedilsin. 
+Yeni ve hızlı iletişim protokolü araştır
+Cihan'a broker tarafını detaylıca sor. (sunucu'da nasıl kayıt alınıyor? sunucu kayıt esnasında dar boğaz yapıyor mu? broker hosting dünyam'da mı)
+IIS ile deploy edilmiş herhalde
+deploy'a çalış
+
+
+WINDOWS telemetri ve test uygulaması:
+http ve mqtt protokol değiştirebilme 
+verilerin hızlı alınması ve sunucuda nizami bir şekilde depolanması firebasede olabilir
+ | mesela test verilerini test başına yeni dosyalar olarak arşivleme
+ | aynı zamanda csv formatında kayıt
+araçlar arası hızlı geçiş (veriler değişiyor) (dorlion ve prototip)
+shell ve teknofest verileri farklı
+proto'da http urban'da MQTT kullanılacak 
+shell tarafında supercapacitor aç kapa emri verebilme uygulama tarafında (veri gönderme) 
+  | HTTP cevap dön 
+  | supercapacitor buton'un durumu döndürülcek (açık / kapalı) 1 0 döndür
+
+aynı telemetri verileri gibi ekranda gösterme
+
+uygulama fikirleri düşün (daha neler yapabiliriz)
+android sonra
+
+prototipte batarya verileri opsiyonel
+
+
+testi başlat bitir butonu
+test kronometresi ekle
+uygulamaya login ekranı
+//fullmap (opsiyonel) 
+tam ekran
+grafiklere gerek yok uygulamada
+GSM sinyali küçült
+logo ekle (siteye ve app'e)
+hiyerarşik listeleme
+speed maks 50kmh. ölçeklendir
+urban'da super capacitor butonu görünmez
+bağlantı kopmalarına dikkat et
+app'in sol yanına üç çizgi
+  | geçmiş veriler
+  | 
+
+verileri bölümlendir. 
+
+IIS ile http isteklerini yönetiyorlarmış (çok saçma)
+
+HTTP ve MQTT geçişi site'de olacak mı ? 
+HTTP server'ı hangisi (bunu node.js ile de yapabiliriz)
+hem mqtt hem HTTP hem de site'yi serve edebiliriz.
+
+HTTP'de ham veri geliyor onu json'a çeviriyoruz.
+
+sunucu hangi modda (HTTP mi? MQTT mi?)
+bağlantı kopukluklarını otomatik kontrol et. 
+
+gereksiz verileri küçült veya yok et (hem uygulama hem sitede)
+
+
+// ============================================
+// ARAÇTAN VERİ ALMA ENDPOINT'İ (HTTP modu)
+// ============================================
+app.post('/api/vehicle/telemetry', (req, res) => {
+    if (DATA_SOURCE !== 'HTTP') {
+        return res.status(400).json({ error: 'HTTP modu aktif değil' });
+    }
+    
+    try {
+        const data = req.body;
+        console.log('📦 HTTP VERİ:', JSON.stringify(data));
+        processIncomingData(data);
+        res.json({ success: true, message: 'Veri alındı' });
+    } catch (error) {
+        console.error('❌ HTTP veri işleme hatası:', error);
+        res.status(500).json({ error: 'Veri işlenemedi' });
+    }
+});
+
+// Araç için alternatif endpoint (star-separated format)
+app.post('/api/vehicle/raw', (req, res) => {
+    if (DATA_SOURCE !== 'HTTP') {
+        return res.status(400).json({ error: 'HTTP modu aktif değil' });
+    }
+    
+    try {
+        const rawMessage = req.body.data || req.body.raw || '';
+        console.log('📦 HTTP HAM VERİ:', rawMessage);
+        const data = parseStarSeparatedData(rawMessage);
+        processIncomingData(data);
+        res.json({ success: true, message: 'Veri alındı' });
+    } catch (error) {
+        console.error('❌ HTTP veri işleme hatası:', error);
+        res.status(500).json({ error: 'Veri işlenemedi' });
+    }
+});

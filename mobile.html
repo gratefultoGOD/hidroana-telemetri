@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hidroana Telemetri - Mobil</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #000; overflow: hidden; height: 100vh; width: 100vw; position: fixed; }
+        #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; }
+        
+        .overlay { position: absolute; z-index: 1000; pointer-events: none; }
+        .panel { background: rgba(0,0,0,0.8); color: white; padding: 5px 7px; border-radius: 5px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); font-size: 9px; pointer-events: auto; }
+        
+        /* Top Left - Speed */
+        .top-left { top: 5px; left: 5px; }
+        .speed-box { background: linear-gradient(135deg, rgba(0,255,136,0.95), rgba(0,180,90,0.95)); color: #000; padding: 5px 10px; border-radius: 6px; text-align: center; border: none; }
+        .speed-value { font-size: 22px; font-weight: bold; line-height: 1; }
+        .speed-unit { font-size: 9px; opacity: 0.8; }
+        .speed-avg { font-size: 8px; opacity: 0.7; margin-top: 2px; }
+        
+        /* Top Center - Status */
+        .top-center { top: 5px; left: 50%; transform: translateX(-50%); }
+        .status-panel { display: flex; align-items: center; gap: 5px; font-size: 10px; }
+        .source-toggle { display: flex; gap: 2px; margin-left: 5px; }
+        .src-btn { padding: 2px 6px; border: none; border-radius: 3px; font-size: 8px; font-weight: bold; cursor: pointer; background: rgba(255,255,255,0.2); color: #888; }
+        .src-btn.active { background: #00ff88; color: #000; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 6px #00ff88; }
+        .status-dot.offline { background: #ff4444; box-shadow: 0 0 6px #ff4444; }
+        
+        /* Top Right - Count */
+        .top-right { top: 5px; right: 5px; }
+        
+        /* Left Panel - Below speed */
+        .left-top { top: 70px; left: 5px; }
+        .gps-panel { font-size: 8px; }
+        .gps-panel span { color: #00ff88; }
+        
+        .left-panel { top: 115px; left: 5px; max-width: 120px; }
+        
+        /* Right Panel */
+        .right-panel { top: 5px; right: 5px; margin-top: 35px; max-width: 120px; }
+        
+        .panel-title { font-weight: bold; margin-bottom: 3px; padding-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,0.2); font-size: 9px; }
+        .fuel-panel .panel-title, .fuel-panel .val { color: #ff6b35; }
+        .joule-panel .panel-title, .joule-panel .val { color: #d4a0ff; }
+        .battery-panel .panel-title, .battery-panel .val { color: #00d4ff; }
+        
+        .data-row { display: flex; justify-content: space-between; margin: 1px 0; }
+        .lbl { color: #777; font-size: 8px; }
+        .val { font-weight: bold; font-size: 9px; }
+        .avg { font-size: 7px; color: #666; }
+        
+        /* Bottom Left - Battery */
+        .bottom-left { bottom: 5px; left: 5px; max-width: 280px; }
+        .battery-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+        .battery-item { text-align: center; background: rgba(0,0,0,0.3); padding: 2px; border-radius: 2px; }
+        .battery-item .lbl { font-size: 7px; display: block; }
+        .battery-item .val { font-size: 9px; display: block; }
+        .battery-item .avg { font-size: 6px; }
+        
+        /* Bottom Right - SOC */
+        .bottom-right { bottom: 5px; right: 5px; }
+        .soc-panel { text-align: center; min-width: 70px; }
+        .soc-label { font-size: 8px; color: #888; }
+        .soc-value { font-size: 24px; font-weight: bold; color: #00ff88; line-height: 1.1; }
+        .soc-bar { height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-top: 3px; overflow: hidden; }
+        .soc-fill { height: 100%; background: #00ff88; border-radius: 3px; transition: width 0.5s, background 0.3s; }
+        .soc-avg { font-size: 7px; color: #888; margin-top: 2px; }
+        
+        .portrait-warning { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; color: white; }
+        @media (orientation: portrait) { .portrait-warning { display: flex; } }
+    </style>
+</head>
+<body>
+    <div class="portrait-warning">
+        <div style="font-size:48px;margin-bottom:16px;">📱↔️</div>
+        <div style="font-size:18px;">Lütfen cihazınızı yatay çevirin</div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Top Left - Speed -->
+    <div class="overlay top-left">
+        <div class="panel speed-box">
+            <div class="speed-value" id="speed">0</div>
+            <div class="speed-unit">km/h</div>
+            <div class="speed-avg" id="speedAvg">15s:-- Ort:--</div>
+        </div>
+    </div>
+
+    <!-- GPS Info - Below Speed -->
+    <div class="overlay left-top">
+        <div class="panel gps-panel">
+            <div>LAT: <span id="lat">--</span></div>
+            <div>LNG: <span id="lng">--</span></div>
+            <div>GSM: <span id="gsm">--</span></div>
+        </div>
+    </div>
+
+    <!-- Top Center - Status -->
+    <div class="overlay top-center">
+        <div class="panel status-panel">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Bağlanıyor</span>
+            <span style="color:#666;font-size:8px;" id="lastUpdate"></span>
+            <span class="source-toggle">
+                <button class="src-btn active" id="mqttBtn" onclick="switchSource('MQTT')">M</button>
+                <button class="src-btn" id="httpBtn" onclick="switchSource('HTTP')">H</button>
+            </span>
+        </div>
+    </div>
+
+    <!-- Top Right - Count -->
+    <div class="overlay top-right">
+        <div class="panel">
+            <div>Kayıt: <span class="val" style="color:#00ff88;" id="dataCount">0</span></div>
+        </div>
+    </div>
+
+    <!-- Left - Fuel Cell -->
+    <div class="overlay left-panel">
+        <div class="panel fuel-panel">
+            <div class="panel-title">⚡ YAKIT HÜCRESİ</div>
+            <div class="data-row"><span class="lbl">Voltaj</span><span class="val" id="fv">--</span>V</div>
+            <div class="avg" id="fvAvg"></div>
+            <div class="data-row"><span class="lbl">Akım</span><span class="val" id="fa">--</span>A</div>
+            <div class="avg" id="faAvg"></div>
+            <div class="data-row"><span class="lbl">Güç</span><span class="val" id="fw">--</span>W</div>
+            <div class="avg" id="fwAvg"></div>
+            <div class="data-row"><span class="lbl">Dış°C</span><span class="val" id="fet">--</span></div>
+            <div class="avg" id="fetAvg"></div>
+            <div class="data-row"><span class="lbl">İç°C</span><span class="val" id="fit">--</span></div>
+            <div class="avg" id="fitAvg"></div>
+        </div>
+    </div>
+
+    <!-- Right - Joulemeter -->
+    <div class="overlay right-panel">
+        <div class="panel joule-panel">
+            <div class="panel-title">⚙️ JOULMETRE</div>
+            <div class="data-row"><span class="lbl">Voltaj</span><span class="val" id="jv">--</span>V</div>
+            <div class="avg" id="jvAvg"></div>
+            <div class="data-row"><span class="lbl">Akım</span><span class="val" id="jc">--</span>A</div>
+            <div class="avg" id="jcAvg"></div>
+            <div class="data-row"><span class="lbl">Güç</span><span class="val" id="jw">--</span>W</div>
+            <div class="avg" id="jwAvg"></div>
+            <div class="data-row"><span class="lbl">Enerji</span><span class="val" id="jwh">--</span>Wh</div>
+            <div class="avg" id="jwhAvg"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Left - Battery -->
+    <div class="overlay bottom-left">
+        <div class="panel battery-panel">
+            <div class="panel-title">🔋 BATARYA</div>
+            <div class="battery-grid">
+                <div class="battery-item"><span class="lbl">Voltaj</span><span class="val" id="bv">--</span><span class="avg" id="bvAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Akım</span><span class="val" id="bc">--</span><span class="avg" id="bcAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Güç</span><span class="val" id="bw">--</span><span class="avg" id="bwAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Enerji</span><span class="val" id="bwh">--</span><span class="avg" id="bwhAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Kalan</span><span class="val" id="ke">--</span><span class="avg" id="keAvg"></span></div>
+                <div class="battery-item"><span class="lbl">T1</span><span class="val" id="t1">--</span><span class="avg" id="t1Avg"></span></div>
+                <div class="battery-item"><span class="lbl">T2</span><span class="val" id="t2">--</span><span class="avg" id="t2Avg"></span></div>
+                <div class="battery-item"><span class="lbl">T3</span><span class="val" id="t3">--</span><span class="avg" id="t3Avg"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Right - SOC -->
+    <div class="overlay bottom-right">
+        <div class="panel soc-panel">
+            <div class="soc-label">SOC</div>
+            <div class="soc-value" id="soc">--%</div>
+            <div class="soc-bar"><div class="soc-fill" id="socFill"></div></div>
+            <div class="soc-avg" id="socAvg"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map, marker, currentBearing = 0;
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.7128, -74.006], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            updateMarker([40.7128, -74.006]);
+        }
+
+        function updateMarker(pos) {
+            const icon = L.divIcon({
+                className: 'vehicle-marker',
+                html: `<div style="transform:rotate(${currentBearing}deg);transition:transform 0.3s;">
+                    <svg width="28" height="28" viewBox="0 0 28 28">
+                        <path d="M14 2 L22 22 L14 17 L6 22 Z" fill="#00ff88" stroke="#000" stroke-width="1.5"/>
+                    </svg></div>`,
+                iconSize: [28, 28], iconAnchor: [14, 14]
+            });
+            if (marker) { marker.setLatLng(pos); marker.setIcon(icon); }
+            else { marker = L.marker(pos, { icon }).addTo(map); }
+        }
+
+        function calcBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+        }
+
+        function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+        function updateDisplay(d) {
+            setText('speed', Math.round(parseFloat(d.h) || 0));
+            setText('lat', parseFloat(d.y || 0).toFixed(5));
+            setText('lng', parseFloat(d.x || 0).toFixed(5));
+            setText('gsm', d.gs || '--');
+            setText('fv', d.fv || '--'); setText('fa', d.fa || '--'); setText('fw', d.fw || '--');
+            setText('fet', d.fet || '--'); setText('fit', d.fit || '--');
+            setText('bv', d.bv || '--'); setText('bc', d.bc || '--'); setText('bw', d.bw || '--');
+            setText('bwh', d.bwh || '--'); setText('ke', d.ke || '--');
+            setText('t1', d.t1 || '--'); setText('t2', d.t2 || '--'); setText('t3', d.t3 || '--');
+            setText('jv', d.jv || '--'); setText('jc', d.jc || '--'); setText('jw', d.jw || '--'); setText('jwh', d.jwh || '--');
+            
+            const soc = parseFloat(d.soc) || 0;
+            setText('soc', soc + '%');
+            const fill = document.getElementById('socFill');
+            if (fill) { fill.style.width = Math.min(soc, 100) + '%'; fill.style.background = soc > 50 ? '#00ff88' : soc > 20 ? '#ffaa00' : '#ff4444'; }
+
+            if (d.x && d.y) {
+                const newPos = [parseFloat(d.y), parseFloat(d.x)];
+                if (marker) {
+                    const old = marker.getLatLng();
+                    if (Math.abs(old.lat - newPos[0]) > 0.00001 || Math.abs(old.lng - newPos[1]) > 0.00001)
+                        currentBearing = calcBearing(old.lat, old.lng, newPos[0], newPos[1]);
+                }
+                updateMarker(newPos);
+                map.panTo(newPos);
+            }
+            setOnline();
+            setText('lastUpdate', new Date().toLocaleTimeString('tr-TR'));
+        }
+
+        function updateAverages(avg) {
+            if (!avg) return;
+            const a = avg.allTime;
+            const r = avg.last15Seconds;
+            
+            setText('speedAvg', `15s:${r.h||'--'} Ort:${a.h||'--'}`);
+            setText('fvAvg', `15s:${r.fv||'--'} Ort:${a.fv||'--'}`);
+            setText('faAvg', `15s:${r.fa||'--'} Ort:${a.fa||'--'}`);
+            setText('fwAvg', `15s:${r.fw||'--'} Ort:${a.fw||'--'}`);
+            setText('fetAvg', `15s:${r.fet||'--'} Ort:${a.fet||'--'}`);
+            setText('fitAvg', `15s:${r.fit||'--'} Ort:${a.fit||'--'}`);
+            setText('bvAvg', `${r.bv||'--'}/${a.bv||'--'}`);
+            setText('bcAvg', `${r.bc||'--'}/${a.bc||'--'}`);
+            setText('bwAvg', `${r.bw||'--'}/${a.bw||'--'}`);
+            setText('bwhAvg', `${r.bwh||'--'}/${a.bwh||'--'}`);
+            setText('keAvg', `${r.ke||'--'}/${a.ke||'--'}`);
+            setText('t1Avg', `${r.t1||'--'}/${a.t1||'--'}`);
+            setText('t2Avg', `${r.t2||'--'}/${a.t2||'--'}`);
+            setText('t3Avg', `${r.t3||'--'}/${a.t3||'--'}`);
+            setText('socAvg', `15s:${r.soc||'--'}% Ort:${a.soc||'--'}%`);
+            setText('jvAvg', `15s:${r.jv||'--'} Ort:${a.jv||'--'}`);
+            setText('jcAvg', `15s:${r.jc||'--'} Ort:${a.jc||'--'}`);
+            setText('jwAvg', `15s:${r.jw||'--'} Ort:${a.jw||'--'}`);
+            setText('jwhAvg', `15s:${r.jwh||'--'} Ort:${a.jwh||'--'}`);
+        }
+
+        function setOnline() { document.getElementById('statusDot')?.classList.remove('offline'); setText('statusText', 'Bağlı'); }
+        function setOffline() { document.getElementById('statusDot')?.classList.add('offline'); setText('statusText', 'Bağlantı Yok'); }
+
+        async function fetchData() {
+            try {
+                const res = await fetch('/api/telemetry');
+                if (res.ok) updateDisplay(await res.json()); else setOffline();
+            } catch { setOffline(); }
+        }
+
+        async function fetchAverages() {
+            try {
+                const res = await fetch('/api/telemetry/averages');
+                if (res.ok) updateAverages(await res.json());
+            } catch {}
+        }
+
+        async function fetchCount() {
+            try {
+                const res = await fetch('/api/telemetry/count');
+                if (res.ok) { const d = await res.json(); setText('dataCount', d.count); }
+            } catch {}
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            fetchData(); fetchCount(); fetchAverages();
+            setInterval(fetchData, 1000);
+            setInterval(fetchAverages, 2000);
+            setInterval(fetchCount, 5000);
+            document.addEventListener('click', () => document.documentElement.requestFullscreen?.(), { once: true });
+        });
+
+        window.addEventListener('orientationchange', () => setTimeout(() => map?.invalidateSize(), 100));
+        window.addEventListener('resize', () => map?.invalidateSize());
+
+        // Kaynak geçişi
+        function switchSource(source) {
+            fetch('/api/source/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('mqttBtn').classList.toggle('active', source === 'MQTT');
+                    document.getElementById('httpBtn').classList.toggle('active', source === 'HTTP');
+                }
+            })
+            .catch(() => {});
+        }
+
+        // Mevcut kaynağı kontrol et
+        fetch('/api/source/status')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('mqttBtn').classList.toggle('active', data.source === 'MQTT');
+                document.getElementById('httpBtn').classList.toggle('active', data.source === 'HTTP');
+            })
+            .catch(() => {});
+    </script>
+</body>
+</html>

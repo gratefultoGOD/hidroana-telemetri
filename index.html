@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidroana Telemetri</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="/logo.ico">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Hidroana Telemetri</h1>
+            <div class="status-indicators">
+                <span class="status-badge" id="mqttStatus">
+                    <span class="status-dot"></span>
+                    <span>Bağlanıyor...</span>
+                </span>
+                <span class="gsm-signal" id="gsmSignal" title="GSM Sinyal Kalitesi">
+                    <svg width="20" height="16" viewBox="0 0 20 16">
+                        <rect class="bar bar-1" x="0" y="12" width="4" height="4"/>
+                        <rect class="bar bar-2" x="5" y="8" width="4" height="8"/>
+                        <rect class="bar bar-3" x="10" y="4" width="4" height="12"/>
+                        <rect class="bar bar-4" x="15" y="0" width="4" height="16"/>
+                    </svg>
+                    <span id="gsmValue">--</span>
+                </span>
+            </div>
+            <span class="coordinate-container" id="coordinate-label">Koordinatlar: --</span>
+            <div class="user-info" id="userInfo">
+                <span id="username"></span>
+                <button class="logout-btn" onclick="logout()">Çıkış</button>
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterView('all', this)">Tümü</button>
+                <button class="filter-btn" onclick="filterView('speed', this)">Hız</button>
+                <button class="filter-btn" onclick="filterView('fuel', this)">Yakıt Hücresi</button>
+                <button class="filter-btn" onclick="filterView('battery', this)">Batarya</button>
+                <button class="filter-btn" onclick="filterView('joule', this)">Joulmetre</button>
+                <button class="filter-btn" onclick="window.location.href='/fullmap'">Mobil Görünüm</button>
+
+            </div>
+            <div class="export-buttons">
+                <div class="source-toggle" title="Veri Kaynağı">
+                    <span class="source-label">Kaynak:</span>
+                    <button class="source-btn active" id="mqttBtn" onclick="switchSource('MQTT')">MQTT</button>
+                    <button class="source-btn" id="httpBtn" onclick="switchSource('HTTP')">HTTP</button>
+                </div>
+                <button class="export-btn server-csv" onclick="downloadServerCSV()" title="Sunucuda toplanan tüm verileri indir">
+                    📥 Tüm Veriler (<span id="dataCount">0</span>)
+                </button>
+                <button class="export-btn" onclick="clearServerData()" title="Sunucudaki verileri temizle">🗑️</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Column -->
+            <div class="left-charts">
+                <!-- Speedometer -->
+                <div class="stat-card speedometer-card collapsible speed-related" data-card-id="speedometer">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Anlık Hız</span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="speedometer"></canvas>
+                        <div class="speed-value" id="speedValue">0 km/h</div>
+                    </div>
+                </div>
+
+                <!-- Fuel Cell Voltage -->
+                <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="fvChart"></canvas></div>
+                </div>
+                <!-- Fuel Cell Current -->
+                <div class="chart-container collapsible fuel-related" data-card-id="fa-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="faChart"></canvas></div>
+                </div>
+                <!-- Fuel Cell Watt -->
+                <div class="chart-container collapsible fuel-related" data-card-id="fw-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="fwChart"></canvas></div>
+                </div>
+                <!-- Fuel Cell Temperature -->
+                <div class="chart-container collapsible fuel-related" data-card-id="ftemp-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span id="ftempAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="ftempChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Center Section -->
+            <div class="center-section">
+                <div class="map-section" data-card-id="map">
+                    <div class="drag-handle">⋮⋮</div>
+                    <div id="map"></div>
+                </div>
+                <!-- Battery Stats -->
+                <div class="stats-row battery-related">
+                    <div class="mini-stat-card">
+                        <div class="mini-stat-icon">🔋</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">SOC</span>
+                            <span class="mini-stat-value" id="socValue">--%</span>
+                        </div>
+                        <div class="soc-bar"><div class="soc-fill" id="socFill"></div></div>
+                    </div>
+                    <div class="mini-stat-card">
+                        <div class="mini-stat-icon">⚡</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Kalan Enerji</span>
+                            <span class="mini-stat-value" id="keValue">-- kWh</span>
+                        </div>
+                    </div>
+                    <div class="mini-stat-card">
+                        <div class="mini-stat-icon">🔌</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Batarya Güç</span>
+                            <span class="mini-stat-value" id="bwValue">-- W</span>
+                        </div>
+                    </div>
+                    <div class="mini-stat-card">
+                        <div class="mini-stat-icon">📊</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Batarya Wh</span>
+                            <span class="mini-stat-value" id="bwhValue">-- Wh</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- SOC Chart -->
+                <div class="chart-container collapsible battery-related" data-card-id="soc-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">SOC (Şarj Durumu) <span id="socAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="socChart"></canvas></div>
+                </div>
+                <!-- Battery Remaining Energy Chart -->
+                <div class="chart-container collapsible battery-related" data-card-id="ke-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Batarya Kalan Enerji <span id="keAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="keChart"></canvas></div>
+                </div>
+                <!-- Battery Power Chart -->
+                <div class="chart-container collapsible battery-related" data-card-id="bw-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="bwChart"></canvas></div>
+                </div>
+                <!-- Battery Watt-Hour Chart -->
+                <div class="chart-container collapsible battery-related" data-card-id="bwh-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Batarya Watt Saat <span id="bwhAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="bwhChart"></canvas></div>
+                </div>
+                <!-- Battery Voltage & Current -->
+                <div class="chart-container collapsible battery-related" data-card-id="battery-vc-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Batarya Voltaj & Akım</span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="batteryVCChart"></canvas></div>
+                </div>
+                <!-- Battery Temperature -->
+                <div class="chart-container collapsible battery-related" data-card-id="battery-temp-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3)</span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="batteryTempChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="right-charts">
+                <!-- Joulemeter Stats -->
+                <div class="stats-row joule-related">
+                    <div class="mini-stat-card wide">
+                        <div class="mini-stat-icon">⚡</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Joulmetre Güç</span>
+                            <span class="mini-stat-value" id="jwValue">-- W</span>
+                        </div>
+                    </div>
+                    <div class="mini-stat-card wide">
+                        <div class="mini-stat-icon">📈</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Joulmetre Wh</span>
+                            <span class="mini-stat-value" id="jwhValue">-- Wh</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Joulemeter Voltage -->
+                <div class="chart-container collapsible joule-related" data-card-id="jv-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="jvChart"></canvas></div>
+                </div>
+                <!-- Joulemeter Current -->
+                <div class="chart-container collapsible joule-related" data-card-id="jc-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="jcChart"></canvas></div>
+                </div>
+                <!-- Joulemeter Watt -->
+                <div class="chart-container collapsible joule-related" data-card-id="jw-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwAvgLabel" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="jwChart"></canvas></div>
+                </div>
+                <!-- Joulemeter Watt-Hour -->
+                <div class="chart-container collapsible joule-related" data-card-id="jwh-chart">
+                    <div class="card-header">
+                        <div class="card-header-left"><span class="card-title">Joulmetre Watt Saat <span id="jwhAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                    </div>
+                    <div class="card-content"><canvas id="jwhChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        fetch('/api/auth/check')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    window.location.href = '/login';
+                } else {
+                    document.getElementById('username').textContent = '👤 ' + data.user.username;
+                }
+            })
+            .catch(() => { window.location.href = '/login'; });
+
+        function logout() {
+            if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
+                fetch('/api/logout', { method: 'POST' })
+                    .then(() => { window.location.href = '/login'; })
+                    .catch(() => { window.location.href = '/login'; });
+            }
+        }
+
+        // Sunucudan CSV indir
+        function downloadServerCSV() {
+            window.location.href = '/api/telemetry/csv';
+        }
+
+        // Sunucudaki verileri temizle
+        function clearServerData() {
+            if (confirm('Sunucuda toplanan tüm veriler silinecek. Emin misiniz?')) {
+                fetch('/api/telemetry/clear', { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        alert(`${data.clearedCount} kayıt silindi.`);
+                        updateDataCount();
+                    })
+                    .catch(err => alert('Hata: ' + err.message));
+            }
+        }
+
+        // Veri sayısını güncelle
+        function updateDataCount() {
+            fetch('/api/telemetry/count')
+                .then(res => res.json())
+                .then(data => {
+                    const countEl = document.getElementById('dataCount');
+                    if (countEl) countEl.textContent = data.count;
+                })
+                .catch(() => {});
+        }
+
+        // Her 5 saniyede veri sayısını güncelle
+        setInterval(updateDataCount, 5000);
+        updateDataCount();
+
+        // Veri kaynağı geçişi
+        function switchSource(source) {
+            fetch('/api/source/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    updateSourceButtons(source);
+                } else {
+                    alert('Hata: ' + data.error);
+                }
+            })
+            .catch(err => alert('Bağlantı hatası: ' + err.message));
+        }
+
+        function updateSourceButtons(source) {
+            document.getElementById('mqttBtn').classList.toggle('active', source === 'MQTT');
+            document.getElementById('httpBtn').classList.toggle('active', source === 'HTTP');
+        }
+
+        // Başlangıçta mevcut kaynağı kontrol et
+        function checkCurrentSource() {
+            fetch('/api/source/status')
+                .then(res => res.json())
+                .then(data => {
+                    updateSourceButtons(data.source);
+                })
+                .catch(() => {});
+        }
+        checkCurrentSource();
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>

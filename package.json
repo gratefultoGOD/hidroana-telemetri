@@ -1,0 +1,24 @@
+{
+  "name": "hidroana-telemetri",
+  "version": "1.0.0",
+  "description": "Hidroana Telemetri Sistemi - Backend ve Frontend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "create-user": "node create-user.js",
+    "publisher": "node mqtt-publisher.js"
+  },
+  "keywords": [
+    "telemetry",
+    "hidroana",
+    "mqtt"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "mqtt": "^5.14.1",
+    "serve-favicon": "^2.5.1"
+  }
+}
