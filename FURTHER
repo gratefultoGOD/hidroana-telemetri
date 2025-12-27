@@ -156,6 +156,9 @@ app.post('/api/vehicle/telemetry', (req, res) => {
     }
 });
 
+araçtan veriler get isteğiyle alınıyor.
+log kaydı alma 
+
 // Araç için alternatif endpoint (star-separated format)
 app.post('/api/vehicle/raw', (req, res) => {
     if (DATA_SOURCE !== 'HTTP') {
@@ -173,3 +176,18 @@ app.post('/api/vehicle/raw', (req, res) => {
         res.status(500).json({ error: 'Veri işlenemedi' });
     }
 });
+
+PM2 auto start server.js sistemine bak
+sunucu yavaş, memory durumunu izle, gerekirse logları sil
+log kaydı tutmak vs. onların yazılımı gelecek inşaallah.
+eski backend kodu incelenecek
+
+uygulama kısmında sadece kronometreli test verileri olacak. [+] 
+araçtan veri alırken en sonda bir key konacak o key kontrol edilecek key = [+]
+araç verisine capacitor verisi döndürülecek [+]
+api endpointlerini kısalt [+]
+kalan enerji birimi ne ? 
+genel ortalama hesaplanmıyor ? nereden itibaren hesaplayalım ? 
+verileri kaydetme [+]
+silmeyi kapat
+testler senkronizasyonu bozuluyor. düzelt

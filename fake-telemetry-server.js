@@ -4,7 +4,9 @@
  * Ana sunucu HTTP modunda olmalı!
  */
 
-const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/api/vehicle/telemetry';
+//const TARGET_URL = process.env.TARGET_URL || 'http://78.135.85.247/api/vehicle/telemetry';
+
+const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
 const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
 
 // Başlangıç değerleri
@@ -96,7 +98,8 @@ function buildQueryString() {
         jc: state.jc.toFixed(2),
         jw: state.jw.toFixed(2),
         jwh: state.jwh.toFixed(2),
-        id: state.id
+        id: state.id,
+        key: '066c4e702e'
     });
     return params.toString();
 }
@@ -112,7 +115,8 @@ async function sendData() {
         const text = await response.text();
 
         if (response.ok) {
-            console.log(`📤 Gönderildi: Hız=${Math.round(state.h)} km/h, SOC=${state.soc.toFixed(2)}%`);
+            //console.log(`📤 Gönderildi: Hız=${Math.round(state.h)} km/h, SOC=${state.soc.toFixed(2)}%`);
+            console.log(text);
         } else {
             console.log(`⚠️  Sunucu yanıtı: ${text}`);
         }

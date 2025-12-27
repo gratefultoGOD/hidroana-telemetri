@@ -14,10 +14,17 @@ const PORT = process.env.PORT || 3000;
 let DATA_SOURCE = process.env.DATA_SOURCE || 'MQTT'; // 'MQTT' veya 'HTTP'
 
 // MQTT Configuration
-const MQTT_BROKER_URL = 'mqtt://45.94.4.153:2341';
+/*const MQTT_BROKER_URL = 'mqtt://45.94.4.153:2341';
 const MQTT_OPTIONS = {
     username: 'hidroana',
     password: 'hidro2626'
+};*/
+
+
+const MQTT_BROKER_URL = 'mqtts://7b53477c154b4e65a96dbaa8ca717dfc.s1.eu.hivemq.cloud';
+const MQTT_OPTIONS = {
+    username: 'admin',
+    password: 'Admin123'
 };
 const MQTT_TOPIC = 'data';
 
@@ -25,10 +32,174 @@ const MQTT_TOPIC = 'data';
 
 // Son alınan telemetri verisi
 let latestTelemetryData = null;
+let key = '066c4e702e'
 
-// Tüm telemetri verilerini sakla (CSV için)
-let allTelemetryData = [];
-const MAX_DATA_POINTS = 100000;
+// CSV dosya ayarları
+const DATA_DIR = path.join(__dirname, 'telemetry_data');
+const TEST_DIR = path.join(__dirname, 'test_data');
+let pendingData = []; // Dosyaya yazılmayı bekleyen veriler (max 5)
+const FLUSH_THRESHOLD = 5; // Her 5 veride dosyaya yaz
+
+// Test modu ayarları
+let testMode = {
+    active: false,
+    startTime: null,
+    testName: null,
+    pendingTestData: []
+};
+
+// Data klasörlerini oluştur
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(TEST_DIR)) {
+    fs.mkdirSync(TEST_DIR, { recursive: true });
+}
+
+// Günlük dosya adı oluştur (DD-MM-YYYY_verileri.csv)
+function getDailyFileName(date = new Date()) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}_verileri.csv`;
+}
+
+// CSV başlıkları
+const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
+
+// Dosyaya veri yaz
+function flushDataToFile() {
+    if (pendingData.length === 0) return;
+    
+    const fileName = getDailyFileName();
+    const filePath = path.join(DATA_DIR, fileName);
+    
+    // Dosya yoksa başlık ekle
+    const fileExists = fs.existsSync(filePath);
+    
+    let csvContent = '';
+    if (!fileExists) {
+        csvContent = '\uFEFF' + CSV_HEADERS.join(';') + '\n';
+    }
+    
+    // Verileri CSV formatına çevir
+    pendingData.forEach(data => {
+        const row = CSV_HEADERS.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
+        csvContent += row.join(';') + '\n';
+    });
+    
+    // Dosyaya ekle
+    fs.appendFileSync(filePath, csvContent, 'utf8');
+    console.log(`💾 ${pendingData.length} veri dosyaya yazıldı: ${fileName}`);
+    
+    pendingData = []; // Belleği temizle
+}
+
+// Test verilerini dosyaya yaz
+const TEST_CSV_HEADERS = ['test_time', 'date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
+
+function flushTestDataToFile() {
+    if (!testMode.active || testMode.pendingTestData.length === 0) return;
+    
+    const filePath = path.join(TEST_DIR, testMode.testName);
+    const fileExists = fs.existsSync(filePath);
+    
+    let csvContent = '';
+    if (!fileExists) {
+        csvContent = '\uFEFF' + TEST_CSV_HEADERS.join(';') + '\n';
+    }
+    
+    testMode.pendingTestData.forEach(data => {
+        const row = TEST_CSV_HEADERS.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
+        csvContent += row.join(';') + '\n';
+    });
+    
+    fs.appendFileSync(filePath, csvContent, 'utf8');
+    console.log(`🧪 ${testMode.pendingTestData.length} test verisi kaydedildi: ${testMode.testName}`);
+    
+    testMode.pendingTestData = [];
+}
+
+// Test dosyalarının listesini al
+function getTestFiles() {
+    if (!fs.existsSync(TEST_DIR)) return [];
+    
+    const files = fs.readdirSync(TEST_DIR)
+        .filter(f => f.endsWith('.csv'))
+        .map(f => {
+            const filePath = path.join(TEST_DIR, f);
+            const stats = fs.statSync(filePath);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const lines = content.split('\n').filter(line => line.trim());
+            const dataCount = Math.max(0, lines.length - 1);
+            
+            // Dosya adından tarih ve saat bilgisini çıkar
+            // Format: test_DD-MM-YYYY_HH-MM-SS.csv
+            const match = f.match(/test_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.csv/);
+            let dateStr = '', timeStr = '';
+            if (match) {
+                dateStr = match[1];
+                timeStr = match[2].replace(/-/g, ':');
+            }
+            
+            return {
+                fileName: f,
+                date: dateStr,
+                time: timeStr,
+                dataCount: dataCount,
+                fileSize: stats.size,
+                lastModified: stats.mtime
+            };
+        })
+        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+    
+    return files;
+}
+
+// Mevcut günün veri sayısını al
+function getTodayDataCount() {
+    const fileName = getDailyFileName();
+    const filePath = path.join(DATA_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) return 0;
+    
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n').filter(line => line.trim());
+    return Math.max(0, lines.length - 1); // Başlık satırını çıkar
+}
+
+// Tüm günlerin listesini al
+function getAvailableDays() {
+    if (!fs.existsSync(DATA_DIR)) return [];
+    
+    const files = fs.readdirSync(DATA_DIR)
+        .filter(f => f.endsWith('_verileri.csv'))
+        .map(f => {
+            const filePath = path.join(DATA_DIR, f);
+            const stats = fs.statSync(filePath);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const lines = content.split('\n').filter(line => line.trim());
+            const dataCount = Math.max(0, lines.length - 1);
+            
+            // Dosya adından tarihi çıkar (DD-MM-YYYY_verileri.csv)
+            const datePart = f.replace('_verileri.csv', '');
+            
+            return {
+                fileName: f,
+                date: datePart,
+                dataCount: dataCount,
+                fileSize: stats.size,
+                lastModified: stats.mtime
+            };
+        })
+        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+    
+    return files;
+}
+
+// Son 15 saniyenin verilerini bellekte tut (ortalama hesaplama için)
+let recentData = [];
+const RECENT_DATA_WINDOW = 15000; // 15 saniye
 
 // Bağlantı durumu
 let connectionStatus = {
@@ -41,29 +212,30 @@ let connectionStatus = {
 // Ortalama hesaplama için veri alanları
 const numericFields = ['h', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
 
-// Ortalama hesaplama fonksiyonu
+// Ortalama hesaplama fonksiyonu (sadece son 15 saniye için)
 function calculateAverages() {
     const now = Date.now();
-    const fifteenSecondsAgo = now - 15000;
-    const recentData = allTelemetryData.filter(d => d.timestamp >= fifteenSecondsAgo);
+    const fifteenSecondsAgo = now - RECENT_DATA_WINDOW;
+    
+    // Eski verileri temizle
+    recentData = recentData.filter(d => d.timestamp >= fifteenSecondsAgo);
     
     const averages = {
-        allTime: {},
+        allTime: {}, // Artık dosyadan hesaplanmıyor, sadece bugünkü veri sayısı
         last15Seconds: {},
-        allTimeCount: allTelemetryData.length,
+        allTimeCount: getTodayDataCount() + pendingData.length,
         last15SecondsCount: recentData.length
     };
     
     numericFields.forEach(field => {
-        const allValues = allTelemetryData.map(d => parseFloat(d[field])).filter(v => !isNaN(v));
-        averages.allTime[field] = allValues.length > 0 
-            ? (allValues.reduce((a, b) => a + b, 0) / allValues.length).toFixed(2) 
-            : null;
-        
+        // Son 15 saniye ortalaması
         const recentValues = recentData.map(d => parseFloat(d[field])).filter(v => !isNaN(v));
         averages.last15Seconds[field] = recentValues.length > 0 
             ? (recentValues.reduce((a, b) => a + b, 0) / recentValues.length).toFixed(2) 
             : null;
+        
+        // Genel ortalama artık hesaplanmıyor (bellek tasarrufu)
+        averages.allTime[field] = null;
     });
     
     return averages;
@@ -97,10 +269,32 @@ function processIncomingData(data) {
         ...latestTelemetryData
     };
     
-    allTelemetryData.push(dataWithTimestamp);
+    // Son 15 saniye verilerine ekle (ortalama için)
+    recentData.push(dataWithTimestamp);
     
-    if (allTelemetryData.length > MAX_DATA_POINTS) {
-        allTelemetryData = allTelemetryData.slice(-MAX_DATA_POINTS);
+    // Dosyaya yazılacak verilere ekle
+    pendingData.push(dataWithTimestamp);
+    
+    // 5 veri birikince dosyaya yaz
+    if (pendingData.length >= FLUSH_THRESHOLD) {
+        flushDataToFile();
+    }
+    
+    // Test modu aktifse test verilerini de kaydet
+    if (testMode.active && testMode.startTime) {
+        const elapsedMs = now.getTime() - testMode.startTime;
+        const testTime = formatTestTime(elapsedMs);
+        
+        const testDataWithTime = {
+            test_time: testTime,
+            ...dataWithTimestamp
+        };
+        
+        testMode.pendingTestData.push(testDataWithTime);
+        
+        if (testMode.pendingTestData.length >= FLUSH_THRESHOLD) {
+            flushTestDataToFile();
+        }
     }
     
     connectionStatus.connected = true;
@@ -109,7 +303,19 @@ function processIncomingData(data) {
     
     const speed = latestTelemetryData.h || 'N/A';
     const soc = latestTelemetryData.soc || 'N/A';
-    console.log(`📥 [${DATA_SOURCE}] Veri alındı: Hız=${speed} km/h, SOC=${soc}% | Toplam: ${allTelemetryData.length}`);
+    const todayCount = getTodayDataCount() + pendingData.length;
+    const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
+    console.log(`📥 [${DATA_SOURCE}] Veri alındı: Hız=${speed} km/h, SOC=${soc}% | Bugün: ${todayCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+}
+
+// Test zamanını formatla (HH:MM:SS.mmm)
+function formatTestTime(ms) {
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    const milliseconds = ms % 1000;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 }
 
 // ============================================
@@ -173,6 +379,7 @@ function stopMQTT() {
 // HTTP MODE (Araç bize GET isteği yapar)
 // ============================================
 let httpModeActive = false;
+let supercapacitor = false;
 
 function startHTTP() {
     httpModeActive = true;
@@ -322,11 +529,14 @@ app.get('/api/telemetry', requireAuth, (req, res) => {
 });
 
 app.get('/api/telemetry/count', requireAuth, (req, res) => {
+    const todayCount = getTodayDataCount() + pendingData.length;
+    const days = getAvailableDays();
+    
     res.json({ 
-        count: allTelemetryData.length,
-        maxCount: MAX_DATA_POINTS,
-        oldestData: allTelemetryData.length > 0 ? allTelemetryData[0].date + ' ' + allTelemetryData[0].time : null,
-        newestData: allTelemetryData.length > 0 ? allTelemetryData[allTelemetryData.length - 1].date + ' ' + allTelemetryData[allTelemetryData.length - 1].time : null
+        count: todayCount,
+        pendingCount: pendingData.length,
+        todayFile: getDailyFileName(),
+        availableDays: days.length
     });
 });
 
@@ -334,10 +544,224 @@ app.get('/api/telemetry/averages', requireAuth, (req, res) => {
     res.json(calculateAverages());
 });
 
+// Mevcut günlerin listesi
+app.get('/api/telemetry/days', requireAuth, (req, res) => {
+    const days = getAvailableDays();
+    res.json({ days });
+});
+
+// ============================================
+// TEST MODU API ENDPOINTS
+// ============================================
+
+// Test başlat
+app.post('/api/test/start', requireAuth, (req, res) => {
+    if (testMode.active) {
+        return res.status(400).json({ error: 'Zaten aktif bir test var', testName: testMode.testName });
+    }
+    
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    testMode.active = true;
+    testMode.startTime = now.getTime();
+    testMode.testName = `test_${day}-${month}-${year}_${hours}-${minutes}-${seconds}.csv`;
+    testMode.pendingTestData = [];
+    
+    console.log(`🧪 Test başlatıldı: ${testMode.testName}`);
+    
+    res.json({
+        success: true,
+        message: 'Test başlatıldı',
+        testName: testMode.testName,
+        startTime: now.toISOString()
+    });
+});
+
+// Test durdur
+app.post('/api/test/stop', requireAuth, (req, res) => {
+    if (!testMode.active) {
+        return res.status(400).json({ error: 'Aktif test yok' });
+    }
+    
+    // Bekleyen test verilerini kaydet
+    if (testMode.pendingTestData.length > 0) {
+        flushTestDataToFile();
+    }
+    
+    const endTime = Date.now();
+    const duration = endTime - testMode.startTime;
+    const testName = testMode.testName;
+    
+    // Test dosyasındaki veri sayısını al
+    const filePath = path.join(TEST_DIR, testName);
+    let dataCount = 0;
+    if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n').filter(line => line.trim());
+        dataCount = Math.max(0, lines.length - 1);
+    }
+    
+    console.log(`🧪 Test durduruldu: ${testName} | Süre: ${formatTestTime(duration)} | Veri: ${dataCount}`);
+    
+    testMode.active = false;
+    testMode.startTime = null;
+    testMode.testName = null;
+    testMode.pendingTestData = [];
+    
+    res.json({
+        success: true,
+        message: 'Test durduruldu',
+        testName: testName,
+        duration: formatTestTime(duration),
+        durationMs: duration,
+        dataCount: dataCount
+    });
+});
+
+// Test durumu
+app.get('/api/test/status', requireAuth, (req, res) => {
+    if (!testMode.active) {
+        return res.json({
+            active: false
+        });
+    }
+    
+    const elapsed = Date.now() - testMode.startTime;
+    
+    res.json({
+        active: true,
+        testName: testMode.testName,
+        startTime: new Date(testMode.startTime).toISOString(),
+        elapsed: elapsed,
+        elapsedFormatted: formatTestTime(elapsed),
+        pendingData: testMode.pendingTestData.length
+    });
+});
+
+// Test dosyalarını listele
+app.get('/api/test/files', requireAuth, (req, res) => {
+    const files = getTestFiles();
+    res.json({ files });
+});
+
+// Test dosyasını indir
+app.get('/api/test/download/:fileName', requireAuth, (req, res) => {
+    const fileName = req.params.fileName;
+    
+    // Güvenlik kontrolü
+    if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+    
+    const filePath = path.join(TEST_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+    
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.sendFile(filePath);
+});
+
+// Test dosyasını sil
+app.delete('/api/test/delete/:fileName', requireAuth, (req, res) => {
+    const fileName = req.params.fileName;
+    
+    if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+    
+    const filePath = path.join(TEST_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+    
+    fs.unlinkSync(filePath);
+    console.log(`🗑️ Test dosyası silindi: ${fileName}`);
+    res.json({ success: true, message: `${fileName} silindi` });
+});
+
+// Belirli bir günün verisini indir
+app.get('/api/telemetry/download/:fileName', requireAuth, (req, res) => {
+    const fileName = req.params.fileName;
+    
+    // Güvenlik kontrolü - sadece csv dosyaları
+    if (!fileName.endsWith('_verileri.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+    
+    const filePath = path.join(DATA_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+    
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.sendFile(filePath);
+});
+
+// Bugünün verisini indir (bekleyen veriler dahil)
+app.get('/api/telemetry/download-today', requireAuth, (req, res) => {
+    // Önce bekleyen verileri dosyaya yaz
+    flushDataToFile();
+    
+    const fileName = getDailyFileName();
+    const filePath = path.join(DATA_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Bugün henüz veri toplanmadı' });
+    }
+    
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.sendFile(filePath);
+});
+
+// Belirli bir günün verisini sil
+app.delete('/api/telemetry/delete/:fileName', requireAuth, (req, res) => {
+    const fileName = req.params.fileName;
+    
+    if (!fileName.endsWith('_verileri.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+    
+    const filePath = path.join(DATA_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+    
+    fs.unlinkSync(filePath);
+    console.log(`🗑️ Dosya silindi: ${fileName}`);
+    res.json({ success: true, message: `${fileName} silindi` });
+});
+
 app.delete('/api/telemetry/clear', requireAuth, (req, res) => {
-    const clearedCount = allTelemetryData.length;
-    allTelemetryData = [];
-    console.log(`🗑️ Telemetri verileri temizlendi. Silinen kayıt: ${clearedCount}`);
+    // Bugünün dosyasını sil ve bekleyen verileri temizle
+    const fileName = getDailyFileName();
+    const filePath = path.join(DATA_DIR, fileName);
+    
+    let clearedCount = pendingData.length;
+    pendingData = [];
+    recentData = [];
+    
+    if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n').filter(line => line.trim());
+        clearedCount += Math.max(0, lines.length - 1);
+        fs.unlinkSync(filePath);
+    }
+    
+    console.log(`🗑️ Bugünün verileri temizlendi. Silinen kayıt: ${clearedCount}`);
     res.json({ success: true, clearedCount });
 });
 
@@ -345,7 +769,8 @@ app.delete('/api/telemetry/clear', requireAuth, (req, res) => {
 // ARAÇTAN VERİ ALMA ENDPOINT'İ (HTTP modu - GET ile query string)
 // Format: ?h=%d&x=%.6f&y=%.6f&gp=%d&gs=%d&fv=%.2f&fa=%.2f&fw=%.2f&fet=%.2f&fit=%.2f&kz=10000&bv=%.2f&bc=%.2f&bw=%.2f&bwh=%.2f&t1=%.1f&t2=%.1f&t3=%.1f&soc=%.2f&ke=%.2f&jv=%.2f&jc=%.2f&jw=%.2f&jwh=%.2f&id=1
 // ============================================
-app.get('/api/vehicle/telemetry', (req, res) => {
+app.get('/data', (req, res) => {
+
     if (DATA_SOURCE !== 'HTTP') {
         return res.status(400).json({ error: 'HTTP modu aktif değil' });
     }
@@ -377,33 +802,71 @@ app.get('/api/vehicle/telemetry', (req, res) => {
             jc: q.jc || null,
             jw: q.jw || null,
             jwh: q.jwh || null,
-            id: q.id || null
+            id: q.id || null,
+            key: q.key || null
         };
 
-        console.log(`📦 HTTP VERİ: Hız=${data.h} km/h, SOC=${data.soc}%, GPS=${data.y},${data.x}`);
-        processIncomingData(data);
-        res.send('OK');
+        if(data.key == key && data.key != null){
+            processIncomingData(data);
+            res.status(200).send(supercapacitor ? '1' : '0');
+            console.log(`📦 HTTP VERİ: Hız=${data.h} km/h, SOC=${data.soc}%, GPS=${data.y},${data.x}`);
+
+        }else{
+            return res.status(503).json({error:'unauthorized acces'});
+            console.log('unauthorized acces detected');
+        }
+        
     } catch (error) {
         console.error('❌ HTTP veri işleme hatası:', error);
         res.status(500).send('ERROR');
     }
 });
 
-// CSV export
+
+
+app.get('/capacitor',requireAuth,(req,res) => {
+    action = req.query;
+
+    if(action.turn == '1'){
+        supercapacitor = true;
+        return res.status(200).json(1);
+    }else if(action.turn == '0'){
+        supercapacitor = false;
+        return res.status(200).json(0);
+    }
+    // Sadece turn parametresi yoksa mevcut durumu döndür
+    return res.status(200).json(supercapacitor ? 1 : 0);
+});
+
+
+// CSV export - Tüm günlerin verilerini birleştir
 app.get('/api/telemetry/csv', requireAuth, (req, res) => {
-    if (allTelemetryData.length === 0) {
+    // Önce bekleyen verileri dosyaya yaz
+    flushDataToFile();
+    
+    const days = getAvailableDays();
+    
+    if (days.length === 0) {
         return res.status(404).json({ error: 'Henüz veri toplanmadı' });
     }
-    const headers = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
-    let csv = headers.join(';') + '\n';
-    allTelemetryData.forEach(data => {
-        const row = headers.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
-        csv += row.join(';') + '\n';
+    
+    let csv = '\uFEFF' + CSV_HEADERS.join(';') + '\n';
+    
+    // Tüm dosyaları birleştir
+    days.forEach(day => {
+        const filePath = path.join(DATA_DIR, day.fileName);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n').filter(line => line.trim());
+        // İlk satır (başlık) hariç ekle
+        lines.slice(1).forEach(line => {
+            if (line.trim()) csv += line + '\n';
+        });
     });
-    const filename = `telemetry_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+    
+    const filename = `telemetry_tum_veriler_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send('\uFEFF' + csv);
+    res.send(csv);
 });
 
 // ============================================
@@ -476,6 +939,24 @@ try { app.use(favicon(path.join(__dirname, 'logo.ico'))); } catch (e) {}
 app.listen(PORT, () => {
     console.log(`\n🚀 Hidroana Telemetri Sunucusu Başlatıldı`);
     console.log(`📍 Adres: http://localhost:${PORT}`);
-    console.log(`🔐 Login: http://localhost:${PORT}/login\n`);
+    console.log(`🔐 Login: http://localhost:${PORT}/login`);
+    console.log(`📁 Veri klasörü: ${DATA_DIR}\n`);
     initDataSource();
+});
+
+// Sunucu kapanırken bekleyen verileri kaydet
+process.on('SIGINT', () => {
+    console.log('\n⚠️ Sunucu kapatılıyor...');
+    if (pendingData.length > 0) {
+        console.log(`💾 ${pendingData.length} bekleyen veri kaydediliyor...`);
+        flushDataToFile();
+    }
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    if (pendingData.length > 0) {
+        flushDataToFile();
+    }
+    process.exit(0);
 });

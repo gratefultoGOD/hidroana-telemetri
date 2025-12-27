@@ -29,6 +29,12 @@
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 6px #00ff88; }
         .status-dot.offline { background: #ff4444; box-shadow: 0 0 6px #ff4444; }
         
+        /* Test Controls */
+        .test-btn { padding: 3px 8px; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; background: #00ff88; color: #000; font-weight: bold; }
+        .test-btn.active { background: #ff4444; color: white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.4); } 50% { box-shadow: 0 0 0 6px rgba(255,68,68,0); } }
+        .test-timer { font-family: monospace; font-size: 10px; font-weight: bold; color: #ff4444; background: rgba(255,68,68,0.2); padding: 2px 6px; border-radius: 3px; }
+        
         /* Top Right - Count */
         .top-right { top: 5px; right: 5px; }
         
@@ -112,10 +118,14 @@
         </div>
     </div>
 
-    <!-- Top Right - Count -->
+    <!-- Top Right - Count & Test -->
     <div class="overlay top-right">
-        <div class="panel">
+        <div class="panel" style="display:flex;flex-direction:column;gap:4px;">
             <div>Kayıt: <span class="val" style="color:#00ff88;" id="dataCount">0</span></div>
+            <div style="display:flex;align-items:center;gap:4px;">
+                <button class="test-btn" id="testBtn" onclick="toggleTest()">Test</button>
+                <span class="test-timer" id="testTimer" style="display:none;">00:00</span>
+            </div>
         </div>
     </div>
 
@@ -327,6 +337,80 @@
             .then(data => {
                 document.getElementById('mqttBtn').classList.toggle('active', data.source === 'MQTT');
                 document.getElementById('httpBtn').classList.toggle('active', data.source === 'HTTP');
+            })
+            .catch(() => {});
+        
+        // Test modu
+        let testActive = false;
+        let testTimerInterval = null;
+        let testStartTime = null;
+        
+        function toggleTest() {
+            if (testActive) {
+                fetch('/api/test/stop', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            testActive = false;
+                            stopTestTimer();
+                            updateTestUI(false);
+                        }
+                    })
+                    .catch(() => {});
+            } else {
+                fetch('/api/test/start', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            testActive = true;
+                            testStartTime = Date.now();
+                            updateTestUI(true);
+                            startTestTimer();
+                        }
+                    })
+                    .catch(() => {});
+            }
+        }
+        
+        function updateTestUI(active) {
+            const btn = document.getElementById('testBtn');
+            const timer = document.getElementById('testTimer');
+            if (active) {
+                btn.textContent = '⏹️';
+                btn.classList.add('active');
+                timer.style.display = 'inline-block';
+            } else {
+                btn.textContent = '🧪';
+                btn.classList.remove('active');
+                timer.style.display = 'none';
+                timer.textContent = '00:00';
+            }
+        }
+        
+        function startTestTimer() {
+            testTimerInterval = setInterval(() => {
+                const elapsed = Date.now() - testStartTime;
+                const mins = Math.floor(elapsed / 60000);
+                const secs = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('testTimer').textContent = 
+                    `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+            }, 1000);
+        }
+        
+        function stopTestTimer() {
+            if (testTimerInterval) { clearInterval(testTimerInterval); testTimerInterval = null; }
+        }
+        
+        // Sayfa yüklendiğinde test durumunu kontrol et
+        fetch('/api/test/status')
+            .then(res => res.json())
+            .then(data => {
+                if (data.active) {
+                    testActive = true;
+                    testStartTime = Date.now() - data.elapsed;
+                    updateTestUI(true);
+                    startTestTimer();
+                }
             })
             .catch(() => {});
     </script>
