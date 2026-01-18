@@ -4,10 +4,10 @@
  * Ana sunucu HTTP modunda olmalı!
  */
 
-//const TARGET_URL = process.env.TARGET_URL || 'http://78.135.85.247/api/vehicle/telemetry';
+//const TARGET_URL = process.env.TARGET_URL || 'http://telemetri.hidroana.com/data';
 
 const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
-const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
+const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 250; // ms
 
 // Başlangıç değerleri
 let state = {
@@ -47,14 +47,14 @@ function vary(value, range, min = 0, max = Infinity) {
 // Veriyi güncelle (gerçekçi değişimler)
 function updateState() {
     state.h = vary(state.h, 5, 0, 120);
-    state.x = vary(state.x, 0.0001, 32.5, 33.0);
-    state.y = vary(state.y, 0.0001, 39.7, 40.2);
+    state.x = vary(state.x, 0.0001, 32.5, 100.0);
+    state.y = vary(state.y, 0.0001, 39.7, 100.2);
     state.gp = Math.round(vary(state.gp, 0.5, 0, 3));
     state.gs = Math.round(vary(state.gs, 5, 50, 100));
-    state.fv = vary(state.fv, 1, 35, 55);
-    state.fa = vary(state.fa, 0.5, 5, 25);
+    state.fv = vary(state.fv, 1, 35, 100);
+    state.fa = vary(state.fa, 0.5, 5, 100);
     state.fw = state.fv * state.fa;
-    state.fet = vary(state.fet, 2, 20, 70);
+    state.fet = vary(state.fet, 2, 20, 100);
     state.fit = vary(state.fit, 2, 30, 80);
     state.bv = vary(state.bv, 0.5, 42, 54);
     state.bc = vary(state.bc, 1, 0, 50);

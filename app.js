@@ -69,6 +69,9 @@ let allTimeHistory = {
 // Connection status
 let isConnected = false;
 let lastDataTime = null;
+let lastReceivedTimestamp = null;
+let lastDataHash = null;
+let lastDataCounter = null;
 
 // Initialize map
 function initMap() {
@@ -399,6 +402,19 @@ async function updateVehicleData() {
     if (!data) {
         console.log('Veri bekleniyor...');
         return;
+    }
+
+    // Veri counter kontrolü - sadece yeni veri geldiğinde işle
+    if (data.dataCounter !== undefined) {
+        console.log(`📊 Veri counter: ${data.dataCounter}, Son: ${lastDataCounter}`);
+        if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
+            // Aynı veri counter'ı, yeni veri gelmemiş
+            console.log('⏸️ Aynı veri, grafikler güncellenmedi');
+            return;
+        }
+        // Yeni veri geldi, counter'ı güncelle
+        lastDataCounter = data.dataCounter;
+        console.log('✅ Yeni veri, grafikler güncelleniyor');
     }
 
     const time = new Date().toLocaleTimeString();

@@ -331,14 +331,27 @@
             .catch(() => {});
         }
 
-        // Mevcut kaynağı kontrol et
-        fetch('/api/source/status')
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('mqttBtn').classList.toggle('active', data.source === 'MQTT');
-                document.getElementById('httpBtn').classList.toggle('active', data.source === 'HTTP');
-            })
-            .catch(() => {});
+        // Mevcut kaynağı ve bağlantı durumunu kontrol et
+        function checkSourceStatus() {
+            fetch('/api/source/status')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('mqttBtn').classList.toggle('active', data.source === 'MQTT');
+                    document.getElementById('httpBtn').classList.toggle('active', data.source === 'HTTP');
+                    
+                    // Bağlantı durumunu güncelle
+                    if (data.connected) {
+                        setOnline();
+                    } else {
+                        setOffline();
+                    }
+                })
+                .catch(() => {});
+        }
+        
+        checkSourceStatus();
+        // Her 2 saniyede kontrol et
+        setInterval(checkSourceStatus, 2000);
         
         // Test modu
         let testActive = false;

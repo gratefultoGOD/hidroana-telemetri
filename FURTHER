@@ -191,3 +191,7 @@ genel ortalama hesaplanmıyor ? nereden itibaren hesaplayalım ?
 verileri kaydetme [+]
 silmeyi kapat
 testler senkronizasyonu bozuluyor. düzelt
+
+verileri senkronize et grafiklerle
+veri gelmeyi bıraktığında grafikler dursun
+keyi güçlendir

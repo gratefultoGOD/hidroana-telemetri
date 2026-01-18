@@ -779,10 +779,36 @@
                 .then(res => res.json())
                 .then(data => {
                     updateSourceButtons(data.source);
+                    // Bağlantı durumunu güncelle
+                    updateConnectionStatusFromServer(data);
                 })
                 .catch(() => {});
         }
+        
+        function updateConnectionStatusFromServer(data) {
+            const statusEl = document.getElementById('mqttStatus');
+            if (!statusEl) return;
+            
+            const dot = statusEl.querySelector('.status-dot');
+            const text = statusEl.querySelector('span:last-child');
+            if (!dot || !text) return;
+
+            if (data.connected) {
+                dot.style.background = '#43e97b';
+                text.textContent = 'Bağlı';
+                statusEl.classList.add('connected');
+                statusEl.classList.remove('disconnected');
+            } else {
+                dot.style.background = '#ff4444';
+                text.textContent = 'Bağlantı Yok';
+                statusEl.classList.remove('connected');
+                statusEl.classList.add('disconnected');
+            }
+        }
+        
         checkCurrentSource();
+        // Her 2 saniyede bağlantı durumunu kontrol et
+        setInterval(checkCurrentSource, 2000);
     </script>
     <script src="app.js"></script>
 </body>
