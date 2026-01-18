@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
+const fsPromises = require('fs').promises;  // Asenkron dosya işlemleri için
 const mqtt = require('mqtt');
 const favicon = require('serve-favicon');
 
@@ -11,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // ============================================
 // VERI KAYNAĞI AYARLARI (MQTT veya HTTP)
 // ============================================
-let DATA_SOURCE = process.env.DATA_SOURCE || 'MQTT'; // 'MQTT' veya 'HTTP'
+let DATA_SOURCE = process.env.DATA_SOURCE || 'HTTP'; // 'MQTT' veya 'HTTP'
 
 // MQTT Configuration
 /*const MQTT_BROKER_URL = 'mqtt://45.94.4.153:2341';
@@ -33,6 +34,7 @@ const MQTT_TOPIC = 'data';
 // Son alınan telemetri verisi
 let latestTelemetryData = null;
 let key = '066c4e702e'
+let dataCounter = 0; // Her yeni veri geldiğinde artar
 
 // CSV dosya ayarları
 const DATA_DIR = path.join(__dirname, 'telemetry_data');
@@ -67,63 +69,92 @@ function getDailyFileName(date = new Date()) {
 // CSV başlıkları
 const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
 
-// Dosyaya veri yaz
-function flushDataToFile() {
+// Dosyaya veri yaz - ASENKRON (non-blocking)
+let isFlushingData = false;  // Eşzamanlı yazma kontrolü
+
+async function flushDataToFile() {
     if (pendingData.length === 0) return;
-    
+    if (isFlushingData) return;  // Zaten yazılıyorsa bekle
+
+    isFlushingData = true;
+
+    const dataToWrite = [...pendingData];  // Kopyasını al
+    pendingData = [];  // Hemen temizle (yeni veriler birikebilir)
+
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
-    
-    // Dosya yoksa başlık ekle
-    const fileExists = fs.existsSync(filePath);
-    
-    let csvContent = '';
-    if (!fileExists) {
-        csvContent = '\uFEFF' + CSV_HEADERS.join(';') + '\n';
+
+    try {
+        // Dosya yoksa başlık ekle
+        const fileExists = fs.existsSync(filePath);
+
+        let csvContent = '';
+        if (!fileExists) {
+            csvContent = '\uFEFF' + CSV_HEADERS.join(';') + '\n';
+        }
+
+        // Verileri CSV formatına çevir
+        dataToWrite.forEach(data => {
+            const row = CSV_HEADERS.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
+            csvContent += row.join(';') + '\n';
+        });
+
+        // Dosyaya ASENKRON ekle - event loop'u bloklamaz
+        await fsPromises.appendFile(filePath, csvContent, 'utf8');
+        console.log(`💾 ${dataToWrite.length} veri dosyaya yazıldı: ${fileName}`);
+    } catch (error) {
+        console.error('❌ Dosya yazma hatası:', error);
+        // Hata durumunda verileri geri ekle
+        pendingData = [...dataToWrite, ...pendingData];
+    } finally {
+        isFlushingData = false;
     }
-    
-    // Verileri CSV formatına çevir
-    pendingData.forEach(data => {
-        const row = CSV_HEADERS.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
-        csvContent += row.join(';') + '\n';
-    });
-    
-    // Dosyaya ekle
-    fs.appendFileSync(filePath, csvContent, 'utf8');
-    console.log(`💾 ${pendingData.length} veri dosyaya yazıldı: ${fileName}`);
-    
-    pendingData = []; // Belleği temizle
 }
 
 // Test verilerini dosyaya yaz
 const TEST_CSV_HEADERS = ['test_time', 'date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
 
-function flushTestDataToFile() {
+let isFlushingTestData = false;  // Eşzamanlı yazma kontrolü
+
+async function flushTestDataToFile() {
     if (!testMode.active || testMode.pendingTestData.length === 0) return;
-    
-    const filePath = path.join(TEST_DIR, testMode.testName);
-    const fileExists = fs.existsSync(filePath);
-    
-    let csvContent = '';
-    if (!fileExists) {
-        csvContent = '\uFEFF' + TEST_CSV_HEADERS.join(';') + '\n';
-    }
-    
-    testMode.pendingTestData.forEach(data => {
-        const row = TEST_CSV_HEADERS.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
-        csvContent += row.join(';') + '\n';
-    });
-    
-    fs.appendFileSync(filePath, csvContent, 'utf8');
-    console.log(`🧪 ${testMode.pendingTestData.length} test verisi kaydedildi: ${testMode.testName}`);
-    
+    if (isFlushingTestData) return;
+
+    isFlushingTestData = true;
+
+    const dataToWrite = [...testMode.pendingTestData];
     testMode.pendingTestData = [];
+
+    const filePath = path.join(TEST_DIR, testMode.testName);
+
+    try {
+        const fileExists = fs.existsSync(filePath);
+
+        let csvContent = '';
+        if (!fileExists) {
+            csvContent = '\uFEFF' + TEST_CSV_HEADERS.join(';') + '\n';
+        }
+
+        dataToWrite.forEach(data => {
+            const row = TEST_CSV_HEADERS.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
+            csvContent += row.join(';') + '\n';
+        });
+
+        // ASENKRON dosya yazma
+        await fsPromises.appendFile(filePath, csvContent, 'utf8');
+        console.log(`🧪 ${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
+    } catch (error) {
+        console.error('❌ Test dosyası yazma hatası:', error);
+        testMode.pendingTestData = [...dataToWrite, ...testMode.pendingTestData];
+    } finally {
+        isFlushingTestData = false;
+    }
 }
 
 // Test dosyalarının listesini al
 function getTestFiles() {
     if (!fs.existsSync(TEST_DIR)) return [];
-    
+
     const files = fs.readdirSync(TEST_DIR)
         .filter(f => f.endsWith('.csv'))
         .map(f => {
@@ -132,7 +163,7 @@ function getTestFiles() {
             const content = fs.readFileSync(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
-            
+
             // Dosya adından tarih ve saat bilgisini çıkar
             // Format: test_DD-MM-YYYY_HH-MM-SS.csv
             const match = f.match(/test_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.csv/);
@@ -141,7 +172,7 @@ function getTestFiles() {
                 dateStr = match[1];
                 timeStr = match[2].replace(/-/g, ':');
             }
-            
+
             return {
                 fileName: f,
                 date: dateStr,
@@ -152,7 +183,7 @@ function getTestFiles() {
             };
         })
         .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
-    
+
     return files;
 }
 
@@ -160,9 +191,9 @@ function getTestFiles() {
 function getTodayDataCount() {
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) return 0;
-    
+
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n').filter(line => line.trim());
     return Math.max(0, lines.length - 1); // Başlık satırını çıkar
@@ -171,7 +202,7 @@ function getTodayDataCount() {
 // Tüm günlerin listesini al
 function getAvailableDays() {
     if (!fs.existsSync(DATA_DIR)) return [];
-    
+
     const files = fs.readdirSync(DATA_DIR)
         .filter(f => f.endsWith('_verileri.csv'))
         .map(f => {
@@ -180,10 +211,10 @@ function getAvailableDays() {
             const content = fs.readFileSync(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
-            
+
             // Dosya adından tarihi çıkar (DD-MM-YYYY_verileri.csv)
             const datePart = f.replace('_verileri.csv', '');
-            
+
             return {
                 fileName: f,
                 date: datePart,
@@ -193,7 +224,7 @@ function getAvailableDays() {
             };
         })
         .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
-    
+
     return files;
 }
 
@@ -216,28 +247,28 @@ const numericFields = ['h', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'b
 function calculateAverages() {
     const now = Date.now();
     const fifteenSecondsAgo = now - RECENT_DATA_WINDOW;
-    
+
     // Eski verileri temizle
     recentData = recentData.filter(d => d.timestamp >= fifteenSecondsAgo);
-    
+
     const averages = {
         allTime: {}, // Artık dosyadan hesaplanmıyor, sadece bugünkü veri sayısı
         last15Seconds: {},
         allTimeCount: getTodayDataCount() + pendingData.length,
         last15SecondsCount: recentData.length
     };
-    
+
     numericFields.forEach(field => {
         // Son 15 saniye ortalaması
         const recentValues = recentData.map(d => parseFloat(d[field])).filter(v => !isNaN(v));
-        averages.last15Seconds[field] = recentValues.length > 0 
-            ? (recentValues.reduce((a, b) => a + b, 0) / recentValues.length).toFixed(2) 
+        averages.last15Seconds[field] = recentValues.length > 0
+            ? (recentValues.reduce((a, b) => a + b, 0) / recentValues.length).toFixed(2)
             : null;
-        
+
         // Genel ortalama artık hesaplanmıyor (bellek tasarrufu)
         averages.allTime[field] = null;
     });
-    
+
     return averages;
 }
 
@@ -259,53 +290,57 @@ function parseStarSeparatedData(rawMessage) {
 
 // Veriyi işle ve kaydet
 function processIncomingData(data) {
-    latestTelemetryData = data;
-    
+    dataCounter++; // Her yeni veri geldiğinde counter'ı artır
+
     const now = new Date();
     const dataWithTimestamp = {
+        ...data, // Önce gelen veriyi spread et
         date: now.toISOString().split('T')[0],
         time: now.toTimeString().split(' ')[0] + '.' + now.getMilliseconds().toString().padStart(3, '0'),
         timestamp: now.getTime(),
-        ...latestTelemetryData
+        receivedAt: now.getTime(), // Frontend için veri alım zamanı
+        dataCounter: dataCounter // Frontend için veri sayacı
     };
-    
+
+    latestTelemetryData = dataWithTimestamp; // Sonra güncelle
+
     // Son 15 saniye verilerine ekle (ortalama için)
     recentData.push(dataWithTimestamp);
-    
+
     // Dosyaya yazılacak verilere ekle
     pendingData.push(dataWithTimestamp);
-    
+
     // 5 veri birikince dosyaya yaz
     if (pendingData.length >= FLUSH_THRESHOLD) {
         flushDataToFile();
     }
-    
+
     // Test modu aktifse test verilerini de kaydet
     if (testMode.active && testMode.startTime) {
         const elapsedMs = now.getTime() - testMode.startTime;
         const testTime = formatTestTime(elapsedMs);
-        
+
         const testDataWithTime = {
             test_time: testTime,
             ...dataWithTimestamp
         };
-        
+
         testMode.pendingTestData.push(testDataWithTime);
-        
+
         if (testMode.pendingTestData.length >= FLUSH_THRESHOLD) {
             flushTestDataToFile();
         }
     }
-    
+
     connectionStatus.connected = true;
     connectionStatus.lastUpdate = now.toISOString();
     connectionStatus.error = null;
-    
+
     const speed = latestTelemetryData.h || 'N/A';
     const soc = latestTelemetryData.soc || 'N/A';
     const todayCount = getTodayDataCount() + pendingData.length;
     const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
-    console.log(`📥 [${DATA_SOURCE}] Veri alındı: Hız=${speed} km/h, SOC=${soc}% | Bugün: ${todayCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+    console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${todayCount} | Bekleyen: ${pendingData.length}${testInfo}`);
 }
 
 // Test zamanını formatla (HH:MM:SS.mmm)
@@ -314,7 +349,7 @@ function formatTestTime(ms) {
     const minutes = Math.floor((ms % 3600000) / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     const milliseconds = ms % 1000;
-    
+
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 }
 
@@ -324,46 +359,46 @@ function formatTestTime(ms) {
 let mqttClient = null;
 
 function startMQTT() {
-    console.log('🔌 MQTT broker\'a bağlanılıyor...');
+    console.log('MQTT broker bağlanılıyor...');
     mqttClient = mqtt.connect(MQTT_BROKER_URL, MQTT_OPTIONS);
-    
+
     mqttClient.on('connect', () => {
-        console.log('✅ MQTT broker\'a bağlandı!');
+        console.log('MQTT broker bağlandı!');
         connectionStatus.connected = true;
         mqttClient.subscribe(MQTT_TOPIC, { qos: 1 }, (error) => {
             if (error) {
-                console.error('❌ Topic\'e abone olma hatası:', error);
+                console.error('Topice abone olma hatası:', error);
             } else {
-                console.log(`📡 Topic\'e abone olundu: ${MQTT_TOPIC}`);
+                console.log(`📡 Topice abone olundu: ${MQTT_TOPIC}`);
             }
         });
     });
-    
+
     mqttClient.on('message', (topic, message) => {
         try {
             const rawMessage = message.toString().trim();
-            console.log('📦 HAM VERİ:', rawMessage);
+            console.log(' HAM VERİ:', rawMessage);
             const data = parseStarSeparatedData(rawMessage);
             processIncomingData(data);
         } catch (error) {
-            console.error('❌ Mesaj parse hatası:', error);
-            console.error('📝 Ham veri:', message.toString());
+            console.error('Mesaj parse hatası:', error);
+            console.error(' Ham veri:', message.toString());
         }
     });
-    
+
     mqttClient.on('error', (error) => {
-        console.error('❌ MQTT bağlantı hatası:', error.message);
+        console.error('MQTT bağlantı hatası:', error.message);
         connectionStatus.connected = false;
         connectionStatus.error = error.message;
     });
-    
+
     mqttClient.on('offline', () => {
-        console.log('⚠️  MQTT bağlantısı kesildi');
+        console.log(' MQTT bağlantısı kesildi');
         connectionStatus.connected = false;
     });
-    
+
     mqttClient.on('reconnect', () => {
-        console.log('🔄 MQTT yeniden bağlanıyor...');
+        console.log('MQTT yeniden bağlanıyor...');
     });
 }
 
@@ -371,7 +406,7 @@ function stopMQTT() {
     if (mqttClient) {
         mqttClient.end();
         mqttClient = null;
-        console.log('🔌 MQTT bağlantısı kapatıldı');
+        console.log(' MQTT bağlantısı kapatıldı');
     }
 }
 
@@ -383,13 +418,13 @@ let supercapacitor = false;
 
 function startHTTP() {
     httpModeActive = true;
-    console.log('🌐 HTTP modu aktif - Araçtan veri bekleniyor...');
-    console.log('📡 Endpoint: GET /api/vehicle/telemetry?h=...&x=...&y=...');
+    console.log('HTTP modu aktif - Araçtan veri bekleniyor...');
+    console.log('Endpoint: GET /api/vehicle/telemetry?h=...&x=...&y=...');
 }
 
 function stopHTTP() {
     httpModeActive = false;
-    console.log('🌐 HTTP modu kapatıldı');
+    console.log('HTTP modu kapatıldı');
 }
 
 // ============================================
@@ -399,42 +434,107 @@ function switchDataSource(newSource) {
     if (newSource !== 'MQTT' && newSource !== 'HTTP') {
         return { success: false, error: 'Geçersiz kaynak. MQTT veya HTTP olmalı.' };
     }
-    
+
     if (newSource === DATA_SOURCE) {
         return { success: true, message: `Zaten ${newSource} modunda` };
     }
-    
+
     // Mevcut kaynağı durdur
     if (DATA_SOURCE === 'MQTT') {
         stopMQTT();
     } else {
         stopHTTP();
     }
-    
+
     // Yeni kaynağı başlat
     DATA_SOURCE = newSource;
     connectionStatus.source = newSource;
     connectionStatus.connected = false;
-    
+
     if (newSource === 'MQTT') {
         startMQTT();
     } else {
         startHTTP();
     }
-    
-    console.log(`🔄 Veri kaynağı değiştirildi: ${newSource}`);
+
+    console.log(`Veri kaynağı değiştirildi: ${newSource}`);
     return { success: true, message: `Veri kaynağı ${newSource} olarak değiştirildi` };
 }
 
 // Başlangıçta veri kaynağını başlat
 function initDataSource() {
-    console.log(`\n📊 Veri kaynağı: ${DATA_SOURCE}`);
+    console.log(`\n Veri kaynağı: ${DATA_SOURCE}`);
     if (DATA_SOURCE === 'MQTT') {
         startMQTT();
     } else {
         startHTTP();
     }
 }
+
+// ============================================
+// OPTİMİZE EDİLMİŞ /data ENDPOINT (Middleware'lerden ÖNCE)
+// 2G GSM için minimum gecikme - middleware bypass
+// ============================================
+app.get('/data', (req, res) => {
+    // Performans ölçümü
+    const startTime = process.hrtime.bigint();
+
+    if (DATA_SOURCE !== 'HTTP') {
+        return res.status(400).send('DISABLED');
+    }
+
+    const q = req.query;
+
+    // KEY kontrolünü hemen yap
+    if (q.key !== key || !q.key) {
+        console.log('⚠️ Unauthorized access detected');
+        return res.status(401).send('UNAUTHORIZED');
+    }
+
+    // ÖNCE CEVABI GÖNDER - minimum latency için kritik
+    res.removeHeader('X-Powered-By');
+    res.setHeader('Content-Length', 1);
+    res.status(200).send(supercapacitor ? '1' : '0');
+
+    // Performans logla
+    const endTime = process.hrtime.bigint();
+    const durationMs = Number(endTime - startTime) / 1e6;
+
+    // SONRA asenkron olarak veriyi işle (non-blocking)
+    setImmediate(() => {
+        const data = {
+            h: q.h || null,
+            x: q.x || null,
+            y: q.y || null,
+            gp: q.gp || null,
+            gs: q.gs || null,
+            fv: q.fv || null,
+            fa: q.fa || null,
+            fw: q.fw || null,
+            fet: q.fet || null,
+            fit: q.fit || null,
+            kz: q.kz || null,
+            bv: q.bv || null,
+            bc: q.bc || null,
+            bw: q.bw || null,
+            bwh: q.bwh || null,
+            t1: q.t1 || null,
+            t2: q.t2 || null,
+            t3: q.t3 || null,
+            soc: q.soc || null,
+            ke: q.ke || null,
+            jv: q.jv || null,
+            jc: q.jc || null,
+            jw: q.jw || null,
+            jwh: q.jwh || null,
+            id: q.id || null,
+            key: q.key || null
+        };
+
+        processIncomingData(data);
+        console.log(`⚡ /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);
+    });
+});
 
 // ============================================
 // EXPRESS MIDDLEWARE
@@ -521,18 +621,33 @@ app.get('/api/auth/check', (req, res) => {
 
 // Telemetri endpoints
 app.get('/api/telemetry', requireAuth, (req, res) => {
-    if (latestTelemetryData) {
-        res.json(latestTelemetryData);
-    } else {
-        res.status(503).json({ error: 'Henüz veri alınmadı' });
+    if (!latestTelemetryData) {
+        return res.status(503).json({ error: 'Henüz veri alınmadı' });
     }
+
+    // Son veri alım zamanını kontrol et (5 saniyeden eski mi?)
+    const now = Date.now();
+    const lastDataTime = latestTelemetryData.receivedAt || 0;
+    const timeSinceLastData = now - lastDataTime;
+
+    // 5 saniyeden fazla veri gelmemişse bağlantı kesildi
+    if (timeSinceLastData > 5000) {
+        console.log(`⚠️ Veri akışı kesildi (${timeSinceLastData}ms önce)`);
+        return res.status(503).json({
+            error: 'Veri akışı kesildi',
+            lastDataTime: lastDataTime,
+            timeSinceLastData: timeSinceLastData
+        });
+    }
+
+    res.json(latestTelemetryData);
 });
 
 app.get('/api/telemetry/count', requireAuth, (req, res) => {
     const todayCount = getTodayDataCount() + pendingData.length;
     const days = getAvailableDays();
-    
-    res.json({ 
+
+    res.json({
         count: todayCount,
         pendingCount: pendingData.length,
         todayFile: getDailyFileName(),
@@ -559,7 +674,7 @@ app.post('/api/test/start', requireAuth, (req, res) => {
     if (testMode.active) {
         return res.status(400).json({ error: 'Zaten aktif bir test var', testName: testMode.testName });
     }
-    
+
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -567,14 +682,14 @@ app.post('/api/test/start', requireAuth, (req, res) => {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    
+
     testMode.active = true;
     testMode.startTime = now.getTime();
     testMode.testName = `test_${day}-${month}-${year}_${hours}-${minutes}-${seconds}.csv`;
     testMode.pendingTestData = [];
-    
-    console.log(`🧪 Test başlatıldı: ${testMode.testName}`);
-    
+
+    console.log(`Test başlatıldı: ${testMode.testName}`);
+
     res.json({
         success: true,
         message: 'Test başlatıldı',
@@ -588,16 +703,16 @@ app.post('/api/test/stop', requireAuth, (req, res) => {
     if (!testMode.active) {
         return res.status(400).json({ error: 'Aktif test yok' });
     }
-    
+
     // Bekleyen test verilerini kaydet
     if (testMode.pendingTestData.length > 0) {
         flushTestDataToFile();
     }
-    
+
     const endTime = Date.now();
     const duration = endTime - testMode.startTime;
     const testName = testMode.testName;
-    
+
     // Test dosyasındaki veri sayısını al
     const filePath = path.join(TEST_DIR, testName);
     let dataCount = 0;
@@ -606,14 +721,14 @@ app.post('/api/test/stop', requireAuth, (req, res) => {
         const lines = content.split('\n').filter(line => line.trim());
         dataCount = Math.max(0, lines.length - 1);
     }
-    
-    console.log(`🧪 Test durduruldu: ${testName} | Süre: ${formatTestTime(duration)} | Veri: ${dataCount}`);
-    
+
+    console.log(`Test durduruldu: ${testName} | Süre: ${formatTestTime(duration)} | Veri: ${dataCount}`);
+
     testMode.active = false;
     testMode.startTime = null;
     testMode.testName = null;
     testMode.pendingTestData = [];
-    
+
     res.json({
         success: true,
         message: 'Test durduruldu',
@@ -631,9 +746,9 @@ app.get('/api/test/status', requireAuth, (req, res) => {
             active: false
         });
     }
-    
+
     const elapsed = Date.now() - testMode.startTime;
-    
+
     res.json({
         active: true,
         testName: testMode.testName,
@@ -653,18 +768,18 @@ app.get('/api/test/files', requireAuth, (req, res) => {
 // Test dosyasını indir
 app.get('/api/test/download/:fileName', requireAuth, (req, res) => {
     const fileName = req.params.fileName;
-    
+
     // Güvenlik kontrolü
     if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
-    
+
     const filePath = path.join(TEST_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
-    
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(filePath);
@@ -673,17 +788,17 @@ app.get('/api/test/download/:fileName', requireAuth, (req, res) => {
 // Test dosyasını sil
 app.delete('/api/test/delete/:fileName', requireAuth, (req, res) => {
     const fileName = req.params.fileName;
-    
+
     if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
-    
+
     const filePath = path.join(TEST_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
-    
+
     fs.unlinkSync(filePath);
     console.log(`🗑️ Test dosyası silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
@@ -692,18 +807,18 @@ app.delete('/api/test/delete/:fileName', requireAuth, (req, res) => {
 // Belirli bir günün verisini indir
 app.get('/api/telemetry/download/:fileName', requireAuth, (req, res) => {
     const fileName = req.params.fileName;
-    
+
     // Güvenlik kontrolü - sadece csv dosyaları
     if (!fileName.endsWith('_verileri.csv') || fileName.includes('..') || fileName.includes('/')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
-    
+
     const filePath = path.join(DATA_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
-    
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(filePath);
@@ -713,14 +828,14 @@ app.get('/api/telemetry/download/:fileName', requireAuth, (req, res) => {
 app.get('/api/telemetry/download-today', requireAuth, (req, res) => {
     // Önce bekleyen verileri dosyaya yaz
     flushDataToFile();
-    
+
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Bugün henüz veri toplanmadı' });
     }
-    
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.sendFile(filePath);
@@ -729,17 +844,17 @@ app.get('/api/telemetry/download-today', requireAuth, (req, res) => {
 // Belirli bir günün verisini sil
 app.delete('/api/telemetry/delete/:fileName', requireAuth, (req, res) => {
     const fileName = req.params.fileName;
-    
+
     if (!fileName.endsWith('_verileri.csv') || fileName.includes('..') || fileName.includes('/')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
-    
+
     const filePath = path.join(DATA_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
-    
+
     fs.unlinkSync(filePath);
     console.log(`🗑️ Dosya silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
@@ -749,88 +864,36 @@ app.delete('/api/telemetry/clear', requireAuth, (req, res) => {
     // Bugünün dosyasını sil ve bekleyen verileri temizle
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
-    
+
     let clearedCount = pendingData.length;
     pendingData = [];
     recentData = [];
-    
+
     if (fs.existsSync(filePath)) {
         const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
         clearedCount += Math.max(0, lines.length - 1);
         fs.unlinkSync(filePath);
     }
-    
-    console.log(`🗑️ Bugünün verileri temizlendi. Silinen kayıt: ${clearedCount}`);
+
+    console.log(`Bugünün verileri temizlendi. Silinen kayıt: ${clearedCount}`);
     res.json({ success: true, clearedCount });
 });
 
 // ============================================
-// ARAÇTAN VERİ ALMA ENDPOINT'İ (HTTP modu - GET ile query string)
-// Format: ?h=%d&x=%.6f&y=%.6f&gp=%d&gs=%d&fv=%.2f&fa=%.2f&fw=%.2f&fet=%.2f&fit=%.2f&kz=10000&bv=%.2f&bc=%.2f&bw=%.2f&bwh=%.2f&t1=%.1f&t2=%.1f&t3=%.1f&soc=%.2f&ke=%.2f&jv=%.2f&jc=%.2f&jw=%.2f&jwh=%.2f&id=1
+// /data ENDPOINT YUKARI TAŞINDI (Middleware optimizasyonu)
+// Bkz: Satır ~443 - EXPRESS MIDDLEWARE bölümünden önce
 // ============================================
-app.get('/data', (req, res) => {
-
-    if (DATA_SOURCE !== 'HTTP') {
-        return res.status(400).json({ error: 'HTTP modu aktif değil' });
-    }
-
-    try {
-        const q = req.query;
-        const data = {
-            h: q.h || null,
-            x: q.x || null,
-            y: q.y || null,
-            gp: q.gp || null,
-            gs: q.gs || null,
-            fv: q.fv || null,
-            fa: q.fa || null,
-            fw: q.fw || null,
-            fet: q.fet || null,
-            fit: q.fit || null,
-            kz: q.kz || null,
-            bv: q.bv || null,
-            bc: q.bc || null,
-            bw: q.bw || null,
-            bwh: q.bwh || null,
-            t1: q.t1 || null,
-            t2: q.t2 || null,
-            t3: q.t3 || null,
-            soc: q.soc || null,
-            ke: q.ke || null,
-            jv: q.jv || null,
-            jc: q.jc || null,
-            jw: q.jw || null,
-            jwh: q.jwh || null,
-            id: q.id || null,
-            key: q.key || null
-        };
-
-        if(data.key == key && data.key != null){
-            processIncomingData(data);
-            res.status(200).send(supercapacitor ? '1' : '0');
-            console.log(`📦 HTTP VERİ: Hız=${data.h} km/h, SOC=${data.soc}%, GPS=${data.y},${data.x}`);
-
-        }else{
-            return res.status(503).json({error:'unauthorized acces'});
-            console.log('unauthorized acces detected');
-        }
-        
-    } catch (error) {
-        console.error('❌ HTTP veri işleme hatası:', error);
-        res.status(500).send('ERROR');
-    }
-});
 
 
 
-app.get('/capacitor',requireAuth,(req,res) => {
+app.get('/capacitor', requireAuth, (req, res) => {
     action = req.query;
 
-    if(action.turn == '1'){
+    if (action.turn == '1') {
         supercapacitor = true;
         return res.status(200).json(1);
-    }else if(action.turn == '0'){
+    } else if (action.turn == '0') {
         supercapacitor = false;
         return res.status(200).json(0);
     }
@@ -843,15 +906,15 @@ app.get('/capacitor',requireAuth,(req,res) => {
 app.get('/api/telemetry/csv', requireAuth, (req, res) => {
     // Önce bekleyen verileri dosyaya yaz
     flushDataToFile();
-    
+
     const days = getAvailableDays();
-    
+
     if (days.length === 0) {
         return res.status(404).json({ error: 'Henüz veri toplanmadı' });
     }
-    
+
     let csv = '\uFEFF' + CSV_HEADERS.join(';') + '\n';
-    
+
     // Tüm dosyaları birleştir
     days.forEach(day => {
         const filePath = path.join(DATA_DIR, day.fileName);
@@ -862,7 +925,7 @@ app.get('/api/telemetry/csv', requireAuth, (req, res) => {
             if (line.trim()) csv += line + '\n';
         });
     });
-    
+
     const filename = `telemetry_tum_veriler_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -873,7 +936,20 @@ app.get('/api/telemetry/csv', requireAuth, (req, res) => {
 // VERI KAYNAGI API (MQTT/HTTP geçişi)
 // ============================================
 app.get('/api/source/status', requireAuth, (req, res) => {
-    res.json(connectionStatus);
+    // Son veri alım zamanını kontrol et
+    const now = Date.now();
+    const lastDataTime = latestTelemetryData?.receivedAt || 0;
+    const timeSinceLastData = now - lastDataTime;
+
+    // 5 saniyeden fazla veri gelmemişse bağlantı kesildi olarak işaretle
+    const isDataFlowing = timeSinceLastData <= 5000 && latestTelemetryData;
+
+    res.json({
+        ...connectionStatus,
+        connected: isDataFlowing,
+        timeSinceLastData: timeSinceLastData,
+        lastDataTime: lastDataTime
+    });
 });
 
 app.post('/api/source/switch', requireAuth, (req, res) => {
@@ -884,15 +960,7 @@ app.post('/api/source/switch', requireAuth, (req, res) => {
 
 app.get('/api/source/config', requireAuth, (req, res) => {
     res.json({
-        currentSource: DATA_SOURCE,
-        mqtt: {
-            brokerUrl: MQTT_BROKER_URL,
-            topic: MQTT_TOPIC
-        },
-        http: {
-            endpoint: 'GET /api/vehicle/telemetry',
-            format: '?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&fet=&fit=&kz=&bv=&bc=&bw=&bwh=&t1=&t2=&t3=&soc=&ke=&jv=&jc=&jw=&jwh=&id='
-        }
+        currentSource: DATA_SOURCE
     });
 });
 
@@ -931,32 +999,39 @@ app.get('/', (req, res) => {
     }
 });
 
-try { app.use(favicon(path.join(__dirname, 'logo.ico'))); } catch (e) {}
+try { app.use(favicon(path.join(__dirname, 'logo.ico'))); } catch (e) { }
 
 // ============================================
 // SERVER BAŞLAT
 // ============================================
 app.listen(PORT, () => {
-    console.log(`\n🚀 Hidroana Telemetri Sunucusu Başlatıldı`);
-    console.log(`📍 Adres: http://localhost:${PORT}`);
-    console.log(`🔐 Login: http://localhost:${PORT}/login`);
-    console.log(`📁 Veri klasörü: ${DATA_DIR}\n`);
+    console.log(`\n Hidroana Telemetri Sunucusu Başlatıldı`);
+    console.log(`Adres: http://localhost:${PORT}`);
+    console.log(`Login: http://localhost:${PORT}/login`);
+    console.log(`Veri klasörü: ${DATA_DIR}\n`);
     initDataSource();
 });
 
-// Sunucu kapanırken bekleyen verileri kaydet
-process.on('SIGINT', () => {
-    console.log('\n⚠️ Sunucu kapatılıyor...');
-    if (pendingData.length > 0) {
-        console.log(`💾 ${pendingData.length} bekleyen veri kaydediliyor...`);
-        flushDataToFile();
+// Sunucu kapanırken bekleyen verileri kaydet (ASENKRON)
+process.on('SIGINT', async () => {
+    console.log('\n⏹️ Sunucu kapatılıyor...');
+    if (pendingData.length > 0 || testMode.pendingTestData.length > 0) {
+        console.log(`📝 ${pendingData.length} bekleyen veri kaydediliyor...`);
+        await flushDataToFile();
+        if (testMode.active) {
+            await flushTestDataToFile();
+        }
     }
+    console.log('✅ Veriler kaydedildi. Çıkış yapılıyor...');
     process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     if (pendingData.length > 0) {
-        flushDataToFile();
+        await flushDataToFile();
+    }
+    if (testMode.active && testMode.pendingTestData.length > 0) {
+        await flushTestDataToFile();
     }
     process.exit(0);
 });
