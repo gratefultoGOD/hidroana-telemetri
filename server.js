@@ -15,18 +15,18 @@ const PORT = process.env.PORT || 3000;
 let DATA_SOURCE = process.env.DATA_SOURCE || 'HTTP'; // 'MQTT' veya 'HTTP'
 
 // MQTT Configuration
-/*const MQTT_BROKER_URL = 'mqtt://45.94.4.153:2341';
+const MQTT_BROKER_URL = 'mqtt://45.94.4.153:1883';
 const MQTT_OPTIONS = {
     username: 'hidroana',
     password: 'hidro2626'
-};*/
+};
 
-
+/*
 const MQTT_BROKER_URL = 'mqtts://7b53477c154b4e65a96dbaa8ca717dfc.s1.eu.hivemq.cloud';
 const MQTT_OPTIONS = {
     username: 'admin',
     password: 'Admin123'
-};
+};*/
 const MQTT_TOPIC = 'data';
 
 // HTTP Configuration (Araçtan veri alma - araç bize POST yapar)
