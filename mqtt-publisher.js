@@ -2,12 +2,12 @@
 const mqtt = require('mqtt');
 
 // HiveMQ Cloud broker settings
-const BROKER_URL = 'mqtt://7b53477c154b4e65a96dbaa8ca717dfc.s1.eu.hivemq.cloud:8883';
+const BROKER_URL = 'mqtt://45.94.4.153:1883';
 const BROKER_OPTIONS = {
-    username: 'admin',
-    password: 'Admin123',
-    protocol: 'mqtts',
-    port: 8883
+    username: 'hidroana',
+    password: 'hidro2626',
+    //protocol: 'mqtts',
+    port: 1883
 };
 
 const TOPIC = 'data';
@@ -72,11 +72,11 @@ function varyValue(base, variance, min, max) {
 function sendTelemetryData() {
     // Move along route
     const oldPosition = route[routeIndex];
-    
+
     if (routeIndex >= route.length - 1) direction = -1;
     else if (routeIndex <= 0) direction = 1;
     routeIndex += direction;
-    
+
     const newPosition = route[routeIndex];
 
     // Update simulated state
@@ -118,16 +118,16 @@ function sendTelemetryData() {
         jwh: String(simState.jwh.toFixed(1))        // Joulemeter watt-hour (Wh)
     };
 
-//    const message = JSON.stringify(telemetryData);
+    //    const message = JSON.stringify(telemetryData);
     let message = "01_";
 
-    for(let key in telemetryData){
+    for (let key in telemetryData) {
         message += telemetryData[key] + "*"
     }
 
-    message = message.slice(0,-1);
+    message = message.slice(0, -1);
 
-    
+
     client.publish(TOPIC, message, { qos: 1 }, (error) => {
         if (error) {
             console.error('❌ Veri gönderme hatası:', error);

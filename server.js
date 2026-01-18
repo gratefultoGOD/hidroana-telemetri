@@ -419,7 +419,7 @@ let supercapacitor = false;
 function startHTTP() {
     httpModeActive = true;
     console.log('HTTP modu aktif - Araçtan veri bekleniyor...');
-    console.log('Endpoint: GET /api/vehicle/telemetry?h=...&x=...&y=...');
+    console.log('Endpoint: GET /api/telemetry?h=...&x=...&y=...');
 }
 
 function stopHTTP() {
@@ -528,7 +528,7 @@ app.get('/data', (req, res) => {
             jw: q.jw || null,
             jwh: q.jwh || null,
             id: q.id || null,
-            key: q.key || null
+            //key: q.key || null
         };
 
         processIncomingData(data);
