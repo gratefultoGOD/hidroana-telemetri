@@ -39,8 +39,8 @@ let dataCounter = 0; // Her yeni veri geldiğinde artar
 // CSV dosya ayarları
 const DATA_DIR = path.join(__dirname, 'telemetry_data');
 const TEST_DIR = path.join(__dirname, 'test_data');
-let pendingData = []; // Dosyaya yazılmayı bekleyen veriler (max 5)
-const FLUSH_THRESHOLD = 5; // Her 5 veride dosyaya yaz
+let pendingData = []; // Dosyaya yazılmayı bekleyen veriler
+const FLUSH_THRESHOLD = 1; // Her veri geldiğinde hemen dosyaya yaz
 
 // Test modu ayarları
 let testMode = {
@@ -144,7 +144,7 @@ async function flushTestDataToFile() {
         await fsPromises.appendFile(filePath, csvContent, 'utf8');
         console.log(`🧪 ${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
     } catch (error) {
-        console.error('❌ Test dosyası yazma hatası:', error);
+        console.error('Test dosyası yazma hatası:', error);
         testMode.pendingTestData = [...dataToWrite, ...testMode.pendingTestData];
     } finally {
         isFlushingTestData = false;
