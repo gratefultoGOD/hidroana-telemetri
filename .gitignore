@@ -13,3 +13,7 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Telemetri verileri (her sunucuda farklı)
+telemetry_data/*.csv
+test_data/*.csv
