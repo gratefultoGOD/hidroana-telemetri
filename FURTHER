@@ -195,3 +195,18 @@ testler senkronizasyonu bozuluyor. düzelt
 verileri senkronize et grafiklerle
 veri gelmeyi bıraktığında grafikler dursun
 keyi güçlendir
+
+
+GSM ve hız ibrelerini optimize et [+]
+GSM
+1-9 zayıf
+10-14 orta
+15-19 iyi
+20-30 mükemmel
+
+HIZ MAX 60 [+]
+
+TEST VERİLERİNİ İSİMLENDİRME [+] test et localde var
+
+WEB ARAYÜZDE ARKA PLANA ALINCA GRAFİK YERİNDE SAYIYOR [test edilecek local de var]
+UYGULAMA ARAYÜZÜNÜ GELİŞTİR

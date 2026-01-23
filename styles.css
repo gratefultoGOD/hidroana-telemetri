@@ -91,8 +91,15 @@ header h1 {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .gsm-signal {
@@ -152,7 +159,8 @@ header h1 {
     transform: translateY(-1px);
 }
 
-.filter-buttons, .export-buttons {
+.filter-buttons,
+.export-buttons {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
@@ -216,11 +224,24 @@ header h1 {
     position: relative;
 }
 
-.main-content > .left-charts { flex: 1; min-width: 200px; }
-.main-content > .center-section { flex: 1.5; min-width: 300px; }
-.main-content > .right-charts { flex: 1; min-width: 200px; }
+.main-content>.left-charts {
+    flex: 1;
+    min-width: 200px;
+}
 
-.left-charts, .right-charts, .center-section {
+.main-content>.center-section {
+    flex: 1.5;
+    min-width: 300px;
+}
+
+.main-content>.right-charts {
+    flex: 1;
+    min-width: 200px;
+}
+
+.left-charts,
+.right-charts,
+.center-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -362,7 +383,8 @@ header h1 {
 }
 
 /* Card Styles */
-.stat-card, .chart-container {
+.stat-card,
+.chart-container {
     background: var(--bg-card);
     padding: var(--card-padding);
     border-radius: 12px;
@@ -374,7 +396,8 @@ header h1 {
     position: relative;
 }
 
-.stat-card:hover, .chart-container:hover {
+.stat-card:hover,
+.chart-container:hover {
     box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
     transform: translateY(-2px);
 }
@@ -414,7 +437,9 @@ header h1 {
     user-select: none;
 }
 
-.card-header:active { cursor: grabbing; }
+.card-header:active {
+    cursor: grabbing;
+}
 
 .card-header-left {
     display: flex;
@@ -477,7 +502,10 @@ header h1 {
 }
 
 /* Collapsible States */
-.collapsible.collapsed .card-content { display: none; }
+.collapsible.collapsed .card-content {
+    display: none;
+}
+
 .collapsible.collapsed {
     padding: 8px 12px !important;
     min-height: auto !important;
@@ -517,7 +545,9 @@ header h1 {
     transition: none !important;
 }
 
-.resizing * { pointer-events: none; }
+.resizing * {
+    pointer-events: none;
+}
 
 /* Column Resize */
 .column-resize-handle {
@@ -530,7 +560,9 @@ header h1 {
     flex-shrink: 0;
 }
 
-.column-resize-handle:hover { background: rgba(102, 126, 234, 0.05); }
+.column-resize-handle:hover {
+    background: rgba(102, 126, 234, 0.05);
+}
 
 .resize-indicator {
     width: 3px;
@@ -549,9 +581,10 @@ header h1 {
 
 /* Responsive Design */
 @media (max-width: 1200px) {
-    .main-content > .left-charts,
-    .main-content > .center-section,
-    .main-content > .right-charts {
+
+    .main-content>.left-charts,
+    .main-content>.center-section,
+    .main-content>.right-charts {
         flex: 1;
     }
 }
@@ -574,20 +607,30 @@ header h1 {
         gap: 10px;
     }
 
-    .column-resize-handle { display: none !important; }
+    .column-resize-handle {
+        display: none !important;
+    }
 
-    .main-content > .left-charts,
-    .main-content > .center-section,
-    .main-content > .right-charts {
+    .main-content>.left-charts,
+    .main-content>.center-section,
+    .main-content>.right-charts {
         flex: none;
         width: 100%;
         min-width: 0;
         overflow-y: visible;
     }
 
-    .main-content > .center-section { order: -1; }
-    .main-content > .left-charts { order: 0; }
-    .main-content > .right-charts { order: 1; }
+    .main-content>.center-section {
+        order: -1;
+    }
+
+    .main-content>.left-charts {
+        order: 0;
+    }
+
+    .main-content>.right-charts {
+        order: 1;
+    }
 
     .map-section {
         flex: none !important;
@@ -595,11 +638,15 @@ header h1 {
         min-height: 350px !important;
     }
 
-    .chart-container { min-height: 220px; }
+    .chart-container {
+        min-height: 220px;
+    }
 }
 
 @media (max-width: 768px) {
-    body { padding: 8px; }
+    body {
+        padding: 8px;
+    }
 
     header {
         flex-direction: column;
@@ -607,9 +654,14 @@ header h1 {
         padding: 10px;
     }
 
-    header h1 { font-size: 18px; }
+    header h1 {
+        font-size: 18px;
+    }
 
-    .status-indicators { width: 100%; justify-content: center; }
+    .status-indicators {
+        width: 100%;
+        justify-content: center;
+    }
 
     .coordinate-container {
         width: 100%;
@@ -623,12 +675,14 @@ header h1 {
         justify-content: center;
     }
 
-    .filter-buttons, .export-buttons {
+    .filter-buttons,
+    .export-buttons {
         width: 100%;
         justify-content: center;
     }
 
-    .filter-btn, .export-btn {
+    .filter-btn,
+    .export-btn {
         padding: 5px 10px;
         font-size: 11px;
     }
@@ -650,40 +704,69 @@ header h1 {
         min-height: 300px !important;
     }
 
-    .stat-card, .chart-container { padding: 10px; }
+    .stat-card,
+    .chart-container {
+        padding: 10px;
+    }
 
-    .card-title { font-size: 10px; }
+    .card-title {
+        font-size: 10px;
+    }
 
     .speedometer-card canvas {
         max-width: 120px !important;
         max-height: 120px !important;
     }
 
-    .speed-value { font-size: 18px; }
+    .speed-value {
+        font-size: 18px;
+    }
 
-    .chart-container canvas { max-height: 150px; }
+    .chart-container canvas {
+        max-height: 150px;
+    }
 }
 
 @media (max-width: 480px) {
-    body { padding: 5px; }
+    body {
+        padding: 5px;
+    }
 
-    header { padding: 8px; }
-    header h1 { font-size: 16px; }
+    header {
+        padding: 8px;
+    }
 
-    .status-badge, .gsm-signal {
+    header h1 {
+        font-size: 16px;
+    }
+
+    .status-badge,
+    .gsm-signal {
         padding: 4px 8px;
         font-size: 10px;
     }
 
-    .filter-btn, .export-btn {
+    .filter-btn,
+    .export-btn {
         padding: 4px 8px;
         font-size: 10px;
     }
 
-    .mini-stat-card { padding: 10px; }
-    .mini-stat-icon { font-size: 20px; }
-    .mini-stat-label { font-size: 9px; }
-    .mini-stat-value { font-size: 14px; }
+    .mini-stat-card {
+        padding: 10px;
+    }
+
+    .mini-stat-icon {
+        font-size: 20px;
+    }
+
+    .mini-stat-label {
+        font-size: 9px;
+    }
+
+    .mini-stat-value {
+        font-size: 14px;
+    }
 
     .map-section {
         height: 250px !important;
@@ -695,10 +778,17 @@ header h1 {
         max-height: 100px !important;
     }
 
-    .speed-value { font-size: 16px; }
+    .speed-value {
+        font-size: 16px;
+    }
 
-    .chart-container { min-height: 180px; }
-    .chart-container canvas { max-height: 130px; }
+    .chart-container {
+        min-height: 180px;
+    }
+
+    .chart-container canvas {
+        max-height: 130px;
+    }
 }
 
 /* Custom Scrollbar for Webkit */
@@ -729,8 +819,13 @@ header h1 {
 
 /* Animation for data updates */
 @keyframes dataUpdate {
-    0% { background-color: rgba(102, 126, 234, 0.1); }
-    100% { background-color: transparent; }
+    0% {
+        background-color: rgba(102, 126, 234, 0.1);
+    }
+
+    100% {
+        background-color: transparent;
+    }
 }
 
 .data-updated {
@@ -749,11 +844,15 @@ header h1 {
         border-bottom: 1px solid #ddd;
     }
 
-    .logout-btn, .export-buttons, .filter-buttons {
+    .logout-btn,
+    .export-buttons,
+    .filter-buttons {
         display: none !important;
     }
 
-    .stat-card, .chart-container, .map-section {
+    .stat-card,
+    .chart-container,
+    .map-section {
         box-shadow: none;
         border: 1px solid #ddd;
         break-inside: avoid;

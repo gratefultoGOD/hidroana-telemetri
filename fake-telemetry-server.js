@@ -15,7 +15,7 @@ let state = {
     x: 32.8597,     // Longitude (İstanbul)
     y: 39.9334,     // Latitude
     gp: 1,          // GPS fix
-    gs: 85,         // GSM sinyal
+    gs: 1,         // GSM sinyal
     fv: 42.5,       // Fuel cell voltage
     fa: 12.3,       // Fuel cell current
     fw: 520,        // Fuel cell watt
@@ -41,7 +41,7 @@ let state = {
 // Rastgele değişim fonksiyonu
 function vary(value, range, min = 0, max = Infinity) {
     const change = (Math.random() - 0.5) * range;
-    return Math.max(min, Math.min(max, value + change));
+    return Math.max(min, Math.min(max, value + change * 10));
 }
 
 // Veriyi güncelle (gerçekçi değişimler)
@@ -50,7 +50,8 @@ function updateState() {
     state.x = vary(state.x, 0.0001, 32.5, 100.0);
     state.y = vary(state.y, 0.0001, 39.7, 100.2);
     state.gp = Math.round(vary(state.gp, 0.5, 0, 3));
-    state.gs = Math.round(vary(state.gs, 5, 50, 100));
+    //state.gs = Math.round(vary(state.gs, 0, 30));
+    state.gs = 1;
     state.fv = vary(state.fv, 1, 35, 100);
     state.fa = vary(state.fa, 0.5, 5, 100);
     state.fw = state.fv * state.fa;
@@ -132,5 +133,5 @@ console.log(`📋 Format: GET ?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&...`);
 console.log(`\n⚠️  Ana sunucunun HTTP modunda olduğundan emin olun!\n`);
 
 // Periyodik gönderim
-setInterval(sendData, SEND_INTERVAL);
-sendData(); // İlk gönderim
+//setInterval(sendData, SEND_INTERVAL);
+sendData();

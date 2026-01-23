@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/x-icon" href="/logo.ico">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -19,10 +21,10 @@
                 </span>
                 <span class="gsm-signal" id="gsmSignal" title="GSM Sinyal Kalitesi">
                     <svg width="20" height="16" viewBox="0 0 20 16">
-                        <rect class="bar bar-1" x="0" y="12" width="4" height="4"/>
-                        <rect class="bar bar-2" x="5" y="8" width="4" height="8"/>
-                        <rect class="bar bar-3" x="10" y="4" width="4" height="12"/>
-                        <rect class="bar bar-4" x="15" y="0" width="4" height="16"/>
+                        <rect class="bar bar-1" x="0" y="12" width="4" height="4" />
+                        <rect class="bar bar-2" x="5" y="8" width="4" height="8" />
+                        <rect class="bar bar-3" x="10" y="4" width="4" height="12" />
+                        <rect class="bar bar-4" x="15" y="0" width="4" height="16" />
                     </svg>
                     <span id="gsmValue">--</span>
                 </span>
@@ -52,7 +54,7 @@
                     <span class="test-timer" id="testTimer" style="display:none;">00:00:00</span>
                 </div>
                 <button class="export-btn" onclick="showTestFilesModal()" title="Test kayıtlarını görüntüle">
-                     Testler
+                    Testler
                 </button>
                 <button class="export-btn" onclick="showDaysModal()" title="Günlük kayıtları görüntüle">
                     📅 Kayıtlar
@@ -71,7 +73,8 @@
                 <div class="stat-card speedometer-card collapsible speed-related" data-card-id="speedometer">
                     <div class="card-header">
                         <div class="card-header-left"><span class="card-title">Anlık Hız</span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content">
                         <canvas id="speedometer"></canvas>
@@ -82,32 +85,40 @@
                 <!-- Fuel Cell Voltage -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="fvChart"></canvas></div>
                 </div>
                 <!-- Fuel Cell Current -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fa-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="faChart"></canvas></div>
                 </div>
                 <!-- Fuel Cell Watt -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="fwChart"></canvas></div>
                 </div>
                 <!-- Fuel Cell Temperature -->
                 <div class="chart-container collapsible fuel-related" data-card-id="ftemp-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span id="ftempAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span
+                                    id="ftempAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="ftempChart"></canvas></div>
                 </div>
@@ -127,7 +138,9 @@
                             <span class="mini-stat-label">SOC</span>
                             <span class="mini-stat-value" id="socValue">--%</span>
                         </div>
-                        <div class="soc-bar"><div class="soc-fill" id="socFill"></div></div>
+                        <div class="soc-bar">
+                            <div class="soc-fill" id="socFill"></div>
+                        </div>
                     </div>
                     <div class="mini-stat-card">
                         <div class="mini-stat-icon">⚡</div>
@@ -154,32 +167,40 @@
                 <!-- SOC Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="soc-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">SOC (Şarj Durumu) <span id="socAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">SOC (Şarj Durumu) <span id="socAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="socChart"></canvas></div>
                 </div>
                 <!-- Battery Remaining Energy Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="ke-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Kalan Enerji <span id="keAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Kalan Enerji <span id="keAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="keChart"></canvas></div>
                 </div>
                 <!-- Battery Power Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="bw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="bwChart"></canvas></div>
                 </div>
                 <!-- Battery Watt-Hour Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="bwh-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Watt Saat <span id="bwhAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Watt Saat <span id="bwhAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="bwhChart"></canvas></div>
                 </div>
@@ -187,15 +208,18 @@
                 <div class="chart-container collapsible battery-related" data-card-id="battery-vc-chart">
                     <div class="card-header">
                         <div class="card-header-left"><span class="card-title">Batarya Voltaj & Akım</span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="batteryVCChart"></canvas></div>
                 </div>
                 <!-- Battery Temperature -->
                 <div class="chart-container collapsible battery-related" data-card-id="battery-temp-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3)</span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3)</span>
+                        </div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="batteryTempChart"></canvas></div>
                 </div>
@@ -223,32 +247,40 @@
                 <!-- Joulemeter Voltage -->
                 <div class="chart-container collapsible joule-related" data-card-id="jv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="jvChart"></canvas></div>
                 </div>
                 <!-- Joulemeter Current -->
                 <div class="chart-container collapsible joule-related" data-card-id="jc-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="jcChart"></canvas></div>
                 </div>
                 <!-- Joulemeter Watt -->
                 <div class="chart-container collapsible joule-related" data-card-id="jw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwAvgLabel" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwAvgLabel"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="jwChart"></canvas></div>
                 </div>
                 <!-- Joulemeter Watt-Hour -->
                 <div class="chart-container collapsible joule-related" data-card-id="jwh-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Watt Saat <span id="jwhAvg" class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span></div>
+                        <div class="card-header-left"><span class="card-title">Joulmetre Watt Saat <span id="jwhAvg"
+                                    class="avg-label"></span></span></div>
+                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        </div>
                     </div>
                     <div class="card-content"><canvas id="jwhChart"></canvas></div>
                 </div>
@@ -258,7 +290,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
+
     <!-- Günlük Kayıtlar Modal -->
     <div id="daysModal" class="modal" style="display:none;">
         <div class="modal-content">
@@ -277,7 +309,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Test Dosyaları Modal -->
     <div id="testFilesModal" class="modal" style="display:none;">
         <div class="modal-content">
@@ -295,7 +327,7 @@
             </div>
         </div>
     </div>
-    
+
     <style>
         .modal {
             position: fixed;
@@ -304,11 +336,12 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.6);
+            background-color: rgba(0, 0, 0, 0.6);
             display: flex;
             align-items: center;
             justify-content: center;
         }
+
         .modal-content {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border-radius: 12px;
@@ -316,40 +349,49 @@
             max-width: 600px;
             max-height: 80vh;
             overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
+
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 16px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
+
         .modal-header h2 {
             margin: 0;
             color: #fff;
             font-size: 18px;
         }
+
         .modal-close {
             color: #aaa;
             font-size: 28px;
             cursor: pointer;
             line-height: 1;
         }
-        .modal-close:hover { color: #fff; }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
         .modal-body {
             padding: 20px;
             max-height: 50vh;
             overflow-y: auto;
         }
+
         .modal-footer {
             padding: 16px 20px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             display: flex;
             gap: 10px;
             justify-content: flex-end;
         }
+
         .modal-btn {
             padding: 10px 20px;
             border: none;
@@ -359,45 +401,57 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
+
         .modal-btn.secondary {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
-        .modal-btn:hover { opacity: 0.9; }
+
+        .modal-btn:hover {
+            opacity: 0.9;
+        }
+
         .days-list {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
+
         .day-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 12px 16px;
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
+
         .day-item:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
         }
+
         .day-info {
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
+
         .day-date {
             color: #fff;
             font-weight: 600;
             font-size: 15px;
         }
+
         .day-stats {
             color: #aaa;
             font-size: 12px;
         }
+
         .day-actions {
             display: flex;
             gap: 8px;
         }
+
         .day-btn {
             padding: 6px 12px;
             border: none;
@@ -407,23 +461,34 @@
             background: rgba(102, 126, 234, 0.3);
             color: #667eea;
         }
+
         .day-btn.delete {
             background: rgba(255, 68, 68, 0.2);
             color: #ff4444;
         }
-        .day-btn:hover { opacity: 0.8; }
+
+        .day-btn.rename {
+            background: rgba(67, 233, 123, 0.2);
+            color: #43e97b;
+        }
+
+        .day-btn:hover {
+            opacity: 0.8;
+        }
+
         .no-data {
             text-align: center;
             color: #aaa;
             padding: 40px;
         }
-        
+
         /* Test Controls */
         .test-controls {
             display: flex;
             align-items: center;
             gap: 10px;
         }
+
         .test-btn {
             padding: 8px 16px;
             border: none;
@@ -435,19 +500,30 @@
             font-weight: 600;
             transition: all 0.3s ease;
         }
+
         .test-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
         }
+
         .test-btn.active {
             background: linear-gradient(135deg, #ff4444 0%, #ff6b6b 100%);
             color: white;
             animation: pulse 1.5s infinite;
         }
+
         @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
-            50% { box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px rgba(255, 68, 68, 0);
+            }
         }
+
         .test-timer {
             font-family: 'Courier New', monospace;
             font-size: 16px;
@@ -458,13 +534,14 @@
             border-radius: 6px;
             border: 1px solid rgba(67, 233, 123, 0.3);
         }
+
         .test-timer.active {
             color: #ff4444;
             background: rgba(255, 68, 68, 0.1);
             border-color: rgba(255, 68, 68, 0.3);
         }
     </style>
-    
+
     <script>
         fetch('/api/auth/check')
             .then(res => res.json())
@@ -489,7 +566,7 @@
         function downloadAllCSV() {
             window.location.href = '/api/telemetry/csv';
         }
-        
+
         // Bugünün verisini indir
         function downloadTodayCSV() {
             window.location.href = '/api/telemetry/download-today';
@@ -516,24 +593,24 @@
                     const countEl = document.getElementById('dataCount');
                     if (countEl) countEl.textContent = data.count;
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
-        
+
         // Günlük kayıtlar modalını göster
         function showDaysModal() {
             document.getElementById('daysModal').style.display = 'flex';
             loadDaysList();
         }
-        
+
         function closeDaysModal() {
             document.getElementById('daysModal').style.display = 'none';
         }
-        
+
         // Günlerin listesini yükle
         function loadDaysList() {
             const listEl = document.getElementById('daysList');
             listEl.innerHTML = '<p style="color:#aaa;text-align:center;">Yükleniyor...</p>';
-            
+
             fetch('/api/telemetry/days')
                 .then(res => res.json())
                 .then(data => {
@@ -541,7 +618,7 @@
                         listEl.innerHTML = '<div class="no-data">📭 Henüz kayıt yok</div>';
                         return;
                     }
-                    
+
                     listEl.innerHTML = data.days.map(day => `
                         <div class="day-item">
                             <div class="day-info">
@@ -559,17 +636,17 @@
                     listEl.innerHTML = '<div class="no-data">❌ Yüklenirken hata oluştu</div>';
                 });
         }
-        
+
         function formatFileSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
             return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
-        
+
         function downloadDay(fileName) {
             window.location.href = '/api/telemetry/download/' + encodeURIComponent(fileName);
         }
-        
+
         function deleteDay(fileName, date) {
             if (confirm(`${date} tarihli tüm veriler silinecek. Emin misiniz?`)) {
                 fetch('/api/telemetry/delete/' + encodeURIComponent(fileName), { method: 'DELETE' })
@@ -589,12 +666,12 @@
         // Her 5 saniyede veri sayısını güncelle
         setInterval(updateDataCount, 5000);
         updateDataCount();
-        
+
         // Test modu değişkenleri
         let testActive = false;
         let testTimerInterval = null;
         let testStartTime = null;
-        
+
         // Test başlat/durdur
         function toggleTest() {
             if (testActive) {
@@ -603,7 +680,7 @@
                 startTest();
             }
         }
-        
+
         function startTest() {
             fetch('/api/test/start', { method: 'POST' })
                 .then(res => res.json())
@@ -619,7 +696,7 @@
                 })
                 .catch(err => alert('Bağlantı hatası: ' + err.message));
         }
-        
+
         function stopTest() {
             fetch('/api/test/stop', { method: 'POST' })
                 .then(res => res.json())
@@ -635,11 +712,11 @@
                 })
                 .catch(err => alert('Bağlantı hatası: ' + err.message));
         }
-        
+
         function updateTestUI(active) {
             const btn = document.getElementById('testStartBtn');
             const timer = document.getElementById('testTimer');
-            
+
             if (active) {
                 btn.textContent = '⏹️ Test Durdur';
                 btn.classList.add('active');
@@ -653,28 +730,28 @@
                 timer.textContent = '00:00:00';
             }
         }
-        
+
         function startTestTimer() {
             testTimerInterval = setInterval(() => {
                 const elapsed = Date.now() - testStartTime;
                 document.getElementById('testTimer').textContent = formatTime(elapsed);
             }, 100);
         }
-        
+
         function stopTestTimer() {
             if (testTimerInterval) {
                 clearInterval(testTimerInterval);
                 testTimerInterval = null;
             }
         }
-        
+
         function formatTime(ms) {
             const hours = Math.floor(ms / 3600000);
             const minutes = Math.floor((ms % 3600000) / 60000);
             const seconds = Math.floor((ms % 60000) / 1000);
             return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
-        
+
         // Sayfa yüklendiğinde test durumunu kontrol et
         function checkTestStatus() {
             fetch('/api/test/status')
@@ -687,24 +764,24 @@
                         startTestTimer();
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
         checkTestStatus();
-        
+
         // Test dosyaları modalı
         function showTestFilesModal() {
             document.getElementById('testFilesModal').style.display = 'flex';
             loadTestFilesList();
         }
-        
+
         function closeTestFilesModal() {
             document.getElementById('testFilesModal').style.display = 'none';
         }
-        
+
         function loadTestFilesList() {
             const listEl = document.getElementById('testFilesList');
             listEl.innerHTML = '<p style="color:#aaa;text-align:center;">Yükleniyor...</p>';
-            
+
             fetch('/api/test/files')
                 .then(res => res.json())
                 .then(data => {
@@ -712,14 +789,15 @@
                         listEl.innerHTML = '<div class="no-data">Henüz test kaydı yok</div>';
                         return;
                     }
-                    
+
                     listEl.innerHTML = data.files.map(file => `
                         <div class="day-item">
                             <div class="day-info">
-                                <span class="day-date"> ${file.date} ${file.time}</span>
+                                <span class="day-date"> ${file.fileName.replace('.csv', '')}</span>
                                 <span class="day-stats">${file.dataCount} kayıt • ${formatFileSize(file.fileSize)}</span>
                             </div>
                             <div class="day-actions">
+                                <button class="day-btn rename" onclick="renameTestFile('${file.fileName}')" title="Yeniden Adlandır">✏️</button>
                                 <button class="day-btn" onclick="downloadTestFile('${file.fileName}')">📥 İndir</button>
                                 <button class="day-btn delete" onclick="deleteTestFile('${file.fileName}', '${file.date} ${file.time}')">🗑️</button>
                             </div>
@@ -730,11 +808,37 @@
                     listEl.innerHTML = '<div class="no-data">❌ Yüklenirken hata oluştu</div>';
                 });
         }
-        
+
         function downloadTestFile(fileName) {
             window.location.href = '/api/test/download/' + encodeURIComponent(fileName);
         }
-        
+
+        function renameTestFile(fileName) {
+            // Mevcut dosya adını göster (.csv uzantısını kaldır)
+            const currentName = fileName.replace('.csv', '');
+            const newName = prompt('Yeni dosya adını girin:', currentName);
+
+            if (newName === null || newName.trim() === '') {
+                return; // İptal edildi veya boş bırakıldı
+            }
+
+            fetch('/api/test/rename/' + encodeURIComponent(fileName), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newName: newName.trim() })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        loadTestFilesList();
+                        alert(`Dosya adı değiştirildi:\n${data.newName}`);
+                    } else {
+                        alert('Hata: ' + data.error);
+                    }
+                })
+                .catch(err => alert('Bağlantı hatası: ' + err.message));
+        }
+
         function deleteTestFile(fileName, dateTime) {
             if (confirm(`${dateTime} tarihli test silinecek. Emin misiniz?`)) {
                 fetch('/api/test/delete/' + encodeURIComponent(fileName), { method: 'DELETE' })
@@ -757,15 +861,15 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ source })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    updateSourceButtons(source);
-                } else {
-                    alert('Hata: ' + data.error);
-                }
-            })
-            .catch(err => alert('Bağlantı hatası: ' + err.message));
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        updateSourceButtons(source);
+                    } else {
+                        alert('Hata: ' + data.error);
+                    }
+                })
+                .catch(err => alert('Bağlantı hatası: ' + err.message));
         }
 
         function updateSourceButtons(source) {
@@ -782,13 +886,13 @@
                     // Bağlantı durumunu güncelle
                     updateConnectionStatusFromServer(data);
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
-        
+
         function updateConnectionStatusFromServer(data) {
             const statusEl = document.getElementById('mqttStatus');
             if (!statusEl) return;
-            
+
             const dot = statusEl.querySelector('.status-dot');
             const text = statusEl.querySelector('span:last-child');
             if (!dot || !text) return;
@@ -805,11 +909,12 @@
                 statusEl.classList.add('disconnected');
             }
         }
-        
+
         checkCurrentSource();
         // Her 2 saniyede bağlantı durumunu kontrol et
         setInterval(checkCurrentSource, 2000);
     </script>
     <script src="app.js"></script>
 </body>
+
 </html>

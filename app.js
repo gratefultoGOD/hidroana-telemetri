@@ -73,6 +73,10 @@ let lastReceivedTimestamp = null;
 let lastDataHash = null;
 let lastDataCounter = null;
 
+// Veri Kuyruğu Sistemi - Tab inaktifken gelen verileri saklamak için
+let dataQueue = [];
+const MAX_QUEUE_SIZE = 100; // Maksimum kuyruk boyutu
+
 // Initialize map
 function initMap() {
     const mapEl = document.getElementById('map');
@@ -80,7 +84,7 @@ function initMap() {
         console.error('Map element not found');
         return;
     }
-    
+
     map = L.map('map').setView([40.7128, -74.0060], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -315,12 +319,153 @@ async function fetchTelemetryData() {
     }
 }
 
+// Fetch ve kuyruğa ekleme fonksiyonu - arka planda çalışır
+async function fetchAndQueueData() {
+    const data = await fetchTelemetryData();
+
+    if (!data) return;
+
+    // Veri counter kontrolü - aynı veri duplikasyonunu önle
+    if (data.dataCounter !== undefined) {
+        if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
+            return; // Aynı veri, ekleme
+        }
+        lastDataCounter = data.dataCounter;
+    }
+
+    // Veriyi kuyruğa ekle
+    const queueItem = {
+        data: data,
+        timestamp: new Date()
+    };
+
+    dataQueue.push(queueItem);
+
+    // Kuyruk boyutu kontrolü - eski verileri sil
+    if (dataQueue.length > MAX_QUEUE_SIZE) {
+        dataQueue.shift();
+    }
+
+    console.log(`📥 Veri kuyruğa eklendi. Kuyruk boyutu: ${dataQueue.length}`);
+}
+
+// Kuyruktaki verileri işle
+function processDataQueue() {
+    if (dataQueue.length === 0) {
+        console.log('📭 Kuyruk boş, işlenecek veri yok');
+        return;
+    }
+
+    console.log(`🔄 Kuyruk işleniyor. ${dataQueue.length} veri işlenecek...`);
+
+    // Kuyruktaki tüm verileri işle
+    while (dataQueue.length > 0) {
+        const queueItem = dataQueue.shift();
+        processQueuedData(queueItem.data, queueItem.timestamp);
+    }
+
+    console.log('✅ Kuyruk işleme tamamlandı');
+}
+
+// Kuyruktaki tek bir veriyi işle (updateVehicleData'nın kuyruk versiyonu)
+function processQueuedData(data, queueTimestamp) {
+    const time = queueTimestamp.toLocaleTimeString();
+    const simTime = queueTimestamp;
+
+    // Parse data - handle both direct format and nested format
+    const telemetry = {
+        h: parseFloat(data.h || data.speed || 0),
+        x: parseFloat(data.x || data.longitude || 0),
+        y: parseFloat(data.y || data.latitude || 0),
+        gs: parseFloat(data.gs || data.gsmSignal || 0),
+        fv: parseFloat(data.fv || data.fuelVoltage || 0),
+        fa: parseFloat(data.fa || data.fuelCurrent || 0),
+        fw: parseFloat(data.fw || data.fuelWatt || 0),
+        fet: parseFloat(data.fet || data.fuelExtTemp || 0),
+        fit: parseFloat(data.fit || data.fuelIntTemp || 0),
+        bv: parseFloat(data.bv || data.batteryVoltage || 0),
+        bc: parseFloat(data.bc || data.batteryCurrent || 0),
+        bw: parseFloat(data.bw || data.batteryWatt || 0),
+        bwh: parseFloat(data.bwh || data.batteryWh || 0),
+        t1: parseFloat(data.t1 || data.batteryTemp1 || 0),
+        t2: parseFloat(data.t2 || data.batteryTemp2 || 0),
+        t3: parseFloat(data.t3 || data.batteryTemp3 || 0),
+        soc: parseFloat(data.soc || data.stateOfCharge || 0),
+        ke: parseFloat(data.ke || data.remainingEnergy || 0),
+        jv: parseFloat(data.jv || data.jouleVoltage || 0),
+        jc: parseFloat(data.jc || data.jouleCurrent || 0),
+        jw: parseFloat(data.jw || data.jouleWatt || 0),
+        jwh: parseFloat(data.jwh || data.jouleWh || 0)
+    };
+
+    // Store in history
+    history.timestamp.push(simTime);
+    history.speed.push(telemetry.h);
+    history.fv.push(telemetry.fv);
+    history.fa.push(telemetry.fa);
+    history.fw.push(telemetry.fw);
+    history.fet.push(telemetry.fet);
+    history.fit.push(telemetry.fit);
+    history.bv.push(telemetry.bv);
+    history.bc.push(telemetry.bc);
+    history.bw.push(telemetry.bw);
+    history.bwh.push(telemetry.bwh);
+    history.t1.push(telemetry.t1);
+    history.t2.push(telemetry.t2);
+    history.t3.push(telemetry.t3);
+    history.soc.push(telemetry.soc);
+    history.ke.push(telemetry.ke);
+    history.jv.push(telemetry.jv);
+    history.jc.push(telemetry.jc);
+    history.jw.push(telemetry.jw);
+    history.jwh.push(telemetry.jwh);
+
+    // Store in all-time history
+    Object.keys(allTimeHistory).forEach(key => {
+        if (history[key]) {
+            allTimeHistory[key].push(history[key][history[key].length - 1]);
+        }
+    });
+
+    // Remove data older than 15 seconds
+    const fifteenSecondsAgo = new Date(simTime.getTime() - 15000);
+    while (history.timestamp.length > 0 && history.timestamp[0] < fifteenSecondsAgo) {
+        history.timestamp.shift();
+        Object.keys(history).forEach(key => {
+            if (key !== 'timestamp' && history[key].length > 0) {
+                history[key].shift();
+            }
+        });
+    }
+
+    // Update charts
+    // Fuel cell charts
+    updateChart(fvChart, time, telemetry.fv);
+    updateChart(faChart, time, telemetry.fa);
+    updateChart(fwChart, time, telemetry.fw);
+    updateMultiChart(ftempChart, time, [telemetry.fet, telemetry.fit]);
+
+    // Battery charts
+    updateChart(socChart, time, telemetry.soc);
+    updateChart(keChart, time, telemetry.ke);
+    updateChart(bwChart, time, telemetry.bw);
+    updateChart(bwhChart, time, telemetry.bwh);
+    updateMultiChart(batteryVCChart, time, [telemetry.bv, telemetry.bc]);
+    updateMultiChart(batteryTempChart, time, [telemetry.t1, telemetry.t2, telemetry.t3]);
+
+    // Joulemeter charts
+    updateChart(jvChart, time, telemetry.jv);
+    updateChart(jcChart, time, telemetry.jc);
+    updateChart(jwChart, time, telemetry.jw);
+    updateChart(jwhChart, time, telemetry.jwh);
+}
+
 // Update connection status indicator
 function updateConnectionStatus(connected) {
     isConnected = connected;
     const statusEl = document.getElementById('mqttStatus');
     if (!statusEl) return;
-    
+
     const dot = statusEl.querySelector('.status-dot');
     const text = statusEl.querySelector('span:last-child');
     if (!dot || !text) return;
@@ -343,21 +488,61 @@ function updateGSMSignal(value) {
     const gsmEl = document.getElementById('gsmSignal');
     const gsmValue = document.getElementById('gsmValue');
     if (!gsmEl || !gsmValue) return;
-    
+
     const bars = gsmEl.querySelectorAll('.bar');
     const signal = parseInt(value) || 0;
     gsmValue.textContent = signal;
 
     // Update bar colors based on signal strength
+    /*
     bars.forEach((bar, index) => {
-        if (signal >= (index + 1) * 25) {
+        if (signal >= (index + 1) * 3.75) {
             bar.style.fill = '#43e97b';
         } else {
             bar.style.fill = '#e0e0e0';
         }
-    });
-}
+    });*/
 
+    /*
+        bars.forEach((bar, index) => {
+            if (signal < 10) {
+                bar.style.fill = ''
+            }
+    
+        });
+    */
+    if (signal >= 20 && signal <= 30) {
+        // 4 diş
+        bars[0].style.fill = '#43e97b';
+        bars[1].style.fill = '#43e97b';
+        bars[2].style.fill = '#43e97b';
+        bars[3].style.fill = '#43e97b';
+    } else if (signal >= 15 && signal <= 19) {
+        // 3 diş
+        bars[0].style.fill = '#43e97b';
+        bars[1].style.fill = '#43e97b';
+        bars[2].style.fill = '#43e97b';
+        bars[3].style.fill = '#e0e0e0';
+    } else if (signal >= 10 && signal <= 14) {
+        // 2 diş
+        bars[0].style.fill = '#43e97b';
+        bars[1].style.fill = '#43e97b';
+        bars[2].style.fill = '#e0e0e0';
+        bars[3].style.fill = '#e0e0e0';
+    } else if (signal >= 1 && signal <= 9) {
+        // 1 diş
+        bars[0].style.fill = '#43e97b';
+        bars[1].style.fill = '#e0e0e0';
+        bars[2].style.fill = '#e0e0e0';
+        bars[3].style.fill = '#e0e0e0';
+    } else {
+        // signal === 0 veya geçersiz değer
+        bars[0].style.fill = '#e0e0e0';
+        bars[1].style.fill = '#e0e0e0';
+        bars[2].style.fill = '#e0e0e0';
+        bars[3].style.fill = '#e0e0e0';
+    }
+}
 // Calculate bearing between two points
 function calculateBearing(lat1, lon1, lat2, lon2) {
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -397,8 +582,20 @@ function updateMultiChart(chart, time, values, maxPoints = 15) {
 
 // Main update function
 async function updateVehicleData() {
+    // Sayfa görünür değilse sadece veriyi kuyruğa ekle
+    if (!isPageVisible) {
+        await fetchAndQueueData();
+        return;
+    }
+
+    // Önce kuyrukta bekleyen veriler varsa işle
+    if (dataQueue.length > 0) {
+        console.log(`📋 Önce kuyruktaki ${dataQueue.length} veri işleniyor...`);
+        processDataQueue();
+    }
+
     const data = await fetchTelemetryData();
-    
+
     if (!data) {
         console.log('Veri bekleniyor...');
         return;
@@ -449,7 +646,7 @@ async function updateVehicleData() {
     // Update map position
     if (telemetry.x && telemetry.y) {
         const newPosition = [telemetry.y, telemetry.x]; // lat, lng
-        
+
         // Calculate bearing if we have previous position
         const currentPos = marker.getLatLng();
         if (currentPos.lat !== newPosition[0] || currentPos.lng !== newPosition[1]) {
@@ -480,11 +677,11 @@ async function updateVehicleData() {
     updateGSMSignal(telemetry.gs);
 
     // Update speedometer
-    const speed = Math.min(telemetry.h, 180);
+    const speed = Math.min(telemetry.h, 60);
     if (speedometerChart) {
-        speedometerChart.data.datasets[0].data = [speed, 180 - speed];
+        speedometerChart.data.datasets[0].data = [speed, 60 - speed];
         speedometerChart.data.datasets[0].backgroundColor = [
-            speed > 100 ? '#ff4444' : speed > 60 ? '#ffaa00' : '#667eea',
+            speed > 60 ? '#ff4444' : speed > 45 ? '#ffaa00' : '#667eea',
             '#e0e0e0'
         ];
         speedometerChart.update('none');
@@ -495,7 +692,7 @@ async function updateVehicleData() {
     setElementText('socValue', `${telemetry.soc.toFixed(0)}%`);
     setElementStyle('socFill', 'width', `${Math.min(telemetry.soc, 100)}%`);
     setElementStyle('socFill', 'background', telemetry.soc > 50 ? '#43e97b' : telemetry.soc > 20 ? '#feca57' : '#ff4444');
-    
+
     setElementText('keValue', `${telemetry.ke.toFixed(1)} kWh`);
     setElementText('bwValue', `${telemetry.bw.toFixed(0)} W`);
     setElementText('bwhValue', `${telemetry.bwh.toFixed(1)} Wh`);
@@ -551,7 +748,7 @@ async function updateVehicleData() {
     updateChart(faChart, time, telemetry.fa);
     updateChart(fwChart, time, telemetry.fw);
     updateMultiChart(ftempChart, time, [telemetry.fet, telemetry.fit]);
-    
+
     // Battery charts
     updateChart(socChart, time, telemetry.soc);
     updateChart(keChart, time, telemetry.ke);
@@ -559,7 +756,7 @@ async function updateVehicleData() {
     updateChart(bwhChart, time, telemetry.bwh);
     updateMultiChart(batteryVCChart, time, [telemetry.bv, telemetry.bc]);
     updateMultiChart(batteryTempChart, time, [telemetry.t1, telemetry.t2, telemetry.t3]);
-    
+
     // Joulemeter charts
     updateChart(jvChart, time, telemetry.jv);
     updateChart(jcChart, time, telemetry.jc);
@@ -624,14 +821,14 @@ function toggleCard(element) {
         if (!card.classList.contains('collapsed')) {
             resizeAllCharts();
         }
-    }, 300);
+    }, 100);
 }
 
 // Resize all charts
 function resizeAllCharts() {
     const charts = [speedometerChart, fvChart, faChart, fwChart, ftempChart,
-                    socChart, keChart, bwChart, bwhChart, batteryVCChart, batteryTempChart,
-                    jvChart, jcChart, jwChart, jwhChart];
+        socChart, keChart, bwChart, bwhChart, batteryVCChart, batteryTempChart,
+        jvChart, jcChart, jwChart, jwhChart];
     charts.forEach(chart => {
         if (chart) chart.resize();
     });
@@ -660,7 +857,7 @@ function filterView(view, button) {
         });
     };
 
-    switch(view) {
+    switch (view) {
         case 'all':
             showAll();
             break;
@@ -696,7 +893,7 @@ function initDragAndDrop() {
         const header = card.querySelector('.card-header') || card.querySelector('.drag-handle');
 
         if (header) {
-            header.addEventListener('mousedown', function(e) {
+            header.addEventListener('mousedown', function (e) {
                 if (e.target.classList.contains('toggle-icon') || e.target.closest('.toggle-icon')) return;
                 card.setAttribute('draggable', 'true');
             });
@@ -775,7 +972,7 @@ function handleDrop(e) {
     if (draggedElement && (this.classList.contains('left-charts') ||
         this.classList.contains('center-section') ||
         this.classList.contains('right-charts'))) {
-        
+
         const afterElement = getDragAfterElement(this, e.clientY);
         if (afterElement == null) {
             this.appendChild(draggedElement);
@@ -1032,9 +1229,13 @@ function downloadFile(content, filename, mimeType) {
     link.click();
     URL.revokeObjectURL(url);
 }
+let isPageVisible = !document.hidden;
+let lastUpdateTime = 0;
+let animationFrameId = null;
+
 
 // Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     initMap();
     initSpeedometer();
     initCharts();
@@ -1042,9 +1243,116 @@ document.addEventListener('DOMContentLoaded', function() {
     initCardResize();
     initColumnResize();
 
-    // Update every 1.5 seconds
-    setInterval(updateVehicleData, 500);
+    // Update every 100 milliseconds
+    //setInterval(updateVehicleData, 100);
+    startAnimationLoop();
 
     // Initial status
     updateConnectionStatus(false);
+    setupVisibilityHandler();
 });
+
+
+function startAnimationLoop() {
+    function animate(currentTime) {
+        // Her 100ms'de bir güncelle
+        if (currentTime - lastUpdateTime >= 100) {
+            updateVehicleData();
+            lastUpdateTime = currentTime;
+        }
+
+        // Döngüyü devam ettir
+        animationFrameId = requestAnimationFrame(animate);
+    }
+
+    animationFrameId = requestAnimationFrame(animate);
+}
+
+// Arka planda veri toplama için interval
+let backgroundFetchInterval = null;
+
+// Sayfa görünürlük kontrolü
+function setupVisibilityHandler() {
+    document.addEventListener('visibilitychange', function () {
+        const wasHidden = !isPageVisible;
+        isPageVisible = !document.hidden;
+
+        if (isPageVisible && wasHidden) {
+            console.log('🟢 Sayfa aktif oldu');
+
+            // Arka plan fetch'ini durdur
+            if (backgroundFetchInterval) {
+                clearInterval(backgroundFetchInterval);
+                backgroundFetchInterval = null;
+                console.log('⏹️ Arka plan veri toplama durduruldu');
+            }
+
+            // Kuyruktaki verileri işle - grafikleri SIFIRLAMADAN
+            if (dataQueue.length > 0) {
+                console.log(`📋 Kuyruktaki ${dataQueue.length} veri işleniyor...`);
+                processDataQueue();
+            }
+
+            // Animation loop'u yeniden başlat
+            if (!animationFrameId) {
+                lastUpdateTime = 0;
+                startAnimationLoop();
+            }
+        } else if (!isPageVisible) {
+            console.log('🔴 Sayfa arka planda');
+
+            // Arka planda veri toplamaya devam et (her 100ms'de bir)
+            if (!backgroundFetchInterval) {
+                backgroundFetchInterval = setInterval(fetchAndQueueData, 100);
+                console.log('▶️ Arka plan veri toplama başladı');
+            }
+        }
+    });
+}
+
+// Tüm Chart.js grafiklerini sıfırla (artık sadece gerektiğinde çağrılır)
+function resetAllCharts() {
+    const chartInstances = [
+        'speedometerChart',
+        'fvChart',
+        'faChart',
+        'fwChart',
+        'ftempChart',
+        'socChart',
+        'keChart',
+        'bwChart',
+        'bwhChart',
+        'batteryVCChart',
+        'batteryTempChart',
+        'jvChart',
+        'jcChart',
+        'jwChart',
+        'jwhChart'
+    ];
+
+    chartInstances.forEach(chartName => {
+        if (window[chartName]) {
+            window[chartName].data.labels = [];
+            window[chartName].data.datasets.forEach(dataset => {
+                dataset.data = [];
+            });
+            window[chartName].update('none');
+        }
+    });
+}
+
+// Kuyruk durumunu göster (debug için)
+function getQueueStatus() {
+    return {
+        queueLength: dataQueue.length,
+        isPageVisible: isPageVisible,
+        isBackgroundFetching: backgroundFetchInterval !== null
+    };
+}
+
+// Manuel kuyruk temizleme (gerekirse)
+function clearDataQueue() {
+    const oldLength = dataQueue.length;
+    dataQueue = [];
+    console.log(`🗑️ Kuyruk temizlendi. ${oldLength} veri silindi.`);
+}

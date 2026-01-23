@@ -785,6 +785,62 @@ app.get('/api/test/download/:fileName', requireAuth, (req, res) => {
     res.sendFile(filePath);
 });
 
+// Test dosyasını yeniden adlandır
+app.patch('/api/test/rename/:fileName', requireAuth, (req, res) => {
+    const oldFileName = req.params.fileName;
+    const { newName } = req.body;
+
+    // Güvenlik kontrolü - eski dosya adı
+    if (!oldFileName.endsWith('.csv') || oldFileName.includes('..') || oldFileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+
+    // Güvenlik kontrolü - yeni dosya adı
+    if (!newName || typeof newName !== 'string') {
+        return res.status(400).json({ error: 'Yeni dosya adı gerekli' });
+    }
+
+    // Yeni dosya adını temizle ve formatla
+    let cleanName = newName.trim();
+
+    // .csv uzantısı yoksa ekle
+    if (!cleanName.endsWith('.csv')) {
+        cleanName += '.csv';
+    }
+
+    // Geçersiz karakterleri kontrol et
+    if (cleanName.includes('..') || cleanName.includes('/') || cleanName.includes('\\') || cleanName.includes(':')) {
+        return res.status(400).json({ error: 'Dosya adında geçersiz karakterler var' });
+    }
+
+    const oldFilePath = path.join(TEST_DIR, oldFileName);
+    const newFilePath = path.join(TEST_DIR, cleanName);
+
+    // Eski dosya var mı kontrol et
+    if (!fs.existsSync(oldFilePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+
+    // Yeni isimde dosya zaten var mı kontrol et
+    if (fs.existsSync(newFilePath) && oldFileName !== cleanName) {
+        return res.status(409).json({ error: 'Bu isimde bir dosya zaten mevcut' });
+    }
+
+    try {
+        fs.renameSync(oldFilePath, newFilePath);
+        console.log(`📝 Test dosyası yeniden adlandırıldı: ${oldFileName} → ${cleanName}`);
+        res.json({
+            success: true,
+            message: `Dosya yeniden adlandırıldı`,
+            oldName: oldFileName,
+            newName: cleanName
+        });
+    } catch (error) {
+        console.error('Dosya yeniden adlandırma hatası:', error);
+        res.status(500).json({ error: 'Dosya yeniden adlandırılamadı' });
+    }
+});
+
 // Test dosyasını sil
 app.delete('/api/test/delete/:fileName', requireAuth, (req, res) => {
     const fileName = req.params.fileName;
