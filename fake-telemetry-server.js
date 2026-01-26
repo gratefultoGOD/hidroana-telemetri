@@ -4,16 +4,16 @@
  * Ana sunucu HTTP modunda olmalı!
  */
 
-//const TARGET_URL = process.env.TARGET_URL || 'http://telemetri.hidroana.com/data';
+const TARGET_URL = process.env.TARGET_URL || 'http://telemetri.hidroana.com/data';
 
-const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
-const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 250; // ms
+//const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
+const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
 
 // Başlangıç değerleri
 let state = {
     h: 25,          // Hız (km/h)
-    x: 32.8597,     // Longitude (İstanbul)
-    y: 39.9334,     // Latitude
+    x: 30.528611,     // Longitude (İstanbul)
+    y: 39.816111,     // Latitude
     gp: 1,          // GPS fix
     gs: 1,         // GSM sinyal
     fv: 42.5,       // Fuel cell voltage
@@ -47,19 +47,21 @@ function vary(value, range, min = 0, max = Infinity) {
 // Veriyi güncelle (gerçekçi değişimler)
 function updateState() {
     state.h = vary(state.h, 5, 0, 120);
-    state.x = vary(state.x, 0.0001, 32.5, 100.0);
-    state.y = vary(state.y, 0.0001, 39.7, 100.2);
+    state.x = vary(state.x, 0.00001, 32.5, 100.0);
+    //state.x = state.x + 0.0001;
+    state.y = vary(state.y, 0.00001, 39.7, 100.2);
+    //state.y = state.y + 0.0001;
     state.gp = Math.round(vary(state.gp, 0.5, 0, 3));
     //state.gs = Math.round(vary(state.gs, 0, 30));
     state.gs = 1;
-    state.fv = vary(state.fv, 1, 35, 100);
-    state.fa = vary(state.fa, 0.5, 5, 100);
-    state.fw = state.fv * state.fa;
-    state.fet = vary(state.fet, 2, 20, 100);
+    state.fv = state.fv + 1 //vary(state.fv, 1, 35, 100);
+    state.fa = state.fa + 1 //vary(state.fa, 0.5, 5, 100);
+    state.fw = state.fw + 1;
+    state.fet = state.fet + 1  //vary(state.fet, 2, 20, 100);
     state.fit = vary(state.fit, 2, 30, 80);
     state.bv = vary(state.bv, 0.5, 42, 54);
     state.bc = vary(state.bc, 1, 0, 50);
-    state.bw = state.bv * state.bc;
+    state.bw = state.bw + 1;
     state.bwh = vary(state.bwh, 5, 0, 500);
     state.t1 = vary(state.t1, 1, 20, 50);
     state.t2 = vary(state.t2, 1, 20, 50);
@@ -99,7 +101,7 @@ function buildQueryString() {
         jc: state.jc.toFixed(2),
         jw: state.jw.toFixed(2),
         jwh: state.jwh.toFixed(2),
-        id: state.id,
+        //id: state.id,
         key: '066c4e702e'
     });
     return params.toString();
@@ -133,5 +135,5 @@ console.log(`📋 Format: GET ?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&...`);
 console.log(`\n⚠️  Ana sunucunun HTTP modunda olduğundan emin olun!\n`);
 
 // Periyodik gönderim
-//setInterval(sendData, SEND_INTERVAL);
+setInterval(sendData, SEND_INTERVAL);
 sendData();

@@ -5,9 +5,9 @@
 }
 
 :root {
-    --card-min-height: 180px;
+    --card-min-height: 220px;
     --card-padding: 12px;
-    --speedometer-height: 160px;
+    --speedometer-height: 250px;
     --map-min-height: 350px;
     --primary-color: #667eea;
     --success-color: #43e97b;
@@ -399,7 +399,7 @@ header h1 {
 .stat-card:hover,
 .chart-container:hover {
     box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
-    transform: translateY(-2px);
+    /*transform: translateY(-2px);*/
 }
 
 .speedometer-card {
@@ -413,6 +413,7 @@ header h1 {
     align-items: center;
     flex: 1;
     gap: 5px;
+    padding: 20px;
 }
 
 .speedometer-card canvas {
@@ -493,12 +494,17 @@ header h1 {
     flex-direction: column;
     flex: 1;
     overflow: hidden;
+    min-height: 0;
+}
+
+.chart-container .card-content {
+    height: 100%;
 }
 
 .chart-container canvas {
     width: 100% !important;
-    height: 100% !important;
-    max-height: 180px;
+    flex: 1;
+    min-height: 0;
 }
 
 /* Collapsible States */
@@ -639,7 +645,7 @@ header h1 {
     }
 
     .chart-container {
-        min-height: 220px;
+        min-height: 260px;
     }
 }
 
@@ -723,7 +729,7 @@ header h1 {
     }
 
     .chart-container canvas {
-        max-height: 150px;
+        min-height: 150px;
     }
 }
 
@@ -775,7 +781,8 @@ header h1 {
 
     .speedometer-card canvas {
         max-width: 100px !important;
-        max-height: 100px !important;
+        min-height: 250px !important;
+        max-height: 500px !important;
     }
 
     .speed-value {
@@ -783,11 +790,11 @@ header h1 {
     }
 
     .chart-container {
-        min-height: 180px;
+        min-height: 220px;
     }
 
     .chart-container canvas {
-        max-height: 130px;
+        min-height: 120px;
     }
 }
 

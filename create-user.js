@@ -49,14 +49,15 @@ async function main() {
     if (users.length > 0) {
         console.log('📋 Mevcut Kullanıcılar:');
         users.forEach((user, index) => {
-            console.log(`   ${index + 1}. ${user.username} (ID: ${user.id})`);
+            const roleLabel = user.role === 'admin' ? '👑 Admin' : '👤 User';
+            console.log(`   ${index + 1}. ${user.username} - ${roleLabel} (ID: ${user.id})`);
         });
         console.log('');
     }
 
     // Yeni kullanıcı bilgilerini al
     const username = await question('Kullanıcı adı: ');
-    
+
     if (!username || username.trim() === '') {
         console.log('❌ Kullanıcı adı boş olamaz!');
         rl.close();
@@ -71,11 +72,28 @@ async function main() {
     }
 
     const password = await question('Şifre: ');
-    
+
     if (!password || password.trim() === '') {
         console.log('❌ Şifre boş olamaz!');
         rl.close();
         return;
+    }
+
+    // Rol seçimi
+    console.log('\n📋 Kullanıcı Rolleri:');
+    console.log('   1. admin  - Tüm yetkiler (veri kaynağı, test, kayıtlar)');
+    console.log('   2. user   - Sadece izleme yetkisi');
+
+    const roleChoice = await question('\nRol seçin (1 veya 2): ');
+
+    let role;
+    if (roleChoice === '1' || roleChoice.toLowerCase() === 'admin') {
+        role = 'admin';
+    } else if (roleChoice === '2' || roleChoice.toLowerCase() === 'user') {
+        role = 'user';
+    } else {
+        console.log('❌ Geçersiz seçim! Varsayılan olarak "user" atandı.');
+        role = 'user';
     }
 
     // Yeni kullanıcı oluştur
@@ -83,6 +101,7 @@ async function main() {
         id: users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1,
         username: username.trim(),
         password: password, // Gerçek uygulamada hash'lenmeli!
+        role: role,
         createdAt: new Date().toISOString()
     };
 
@@ -90,9 +109,11 @@ async function main() {
 
     // Kaydet
     if (saveUsers(users)) {
+        const roleLabel = newUser.role === 'admin' ? '👑 Admin' : '👤 User';
         console.log('\n✅ Kullanıcı başarıyla oluşturuldu!');
         console.log(`   ID: ${newUser.id}`);
         console.log(`   Kullanıcı Adı: ${newUser.username}`);
+        console.log(`   Rol: ${roleLabel}`);
         console.log(`   Oluşturulma: ${new Date(newUser.createdAt).toLocaleString('tr-TR')}\n`);
     } else {
         console.log('\n❌ Kullanıcı kaydedilemedi!\n');

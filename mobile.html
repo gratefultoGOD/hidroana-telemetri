@@ -1,84 +1,501 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hidroana Telemetri - Mobil</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #000; overflow: hidden; height: 100vh; width: 100vw; position: fixed; }
-        #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1; }
-        
-        .overlay { position: absolute; z-index: 1000; pointer-events: none; }
-        .panel { background: rgba(0,0,0,0.8); color: white; padding: 5px 7px; border-radius: 5px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); font-size: 9px; pointer-events: auto; }
-        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #000;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            position: fixed;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: absolute;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+            pointer-events: auto;
+        }
+
         /* Top Left - Speed */
-        .top-left { top: 5px; left: 5px; }
-        .speed-box { background: linear-gradient(135deg, rgba(0,255,136,0.95), rgba(0,180,90,0.95)); color: #000; padding: 5px 10px; border-radius: 6px; text-align: center; border: none; }
-        .speed-value { font-size: 22px; font-weight: bold; line-height: 1; }
-        .speed-unit { font-size: 9px; opacity: 0.8; }
-        .speed-avg { font-size: 8px; opacity: 0.7; margin-top: 2px; }
-        
+        .top-left {
+            top: 5px;
+            left: 5px;
+        }
+
+        .speed-box {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.95), rgba(0, 180, 90, 0.95));
+            color: #000;
+            padding: 5px 10px;
+            border-radius: 6px;
+            text-align: center;
+            border: none;
+        }
+
+        .speed-value {
+            font-size: 28px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .speed-unit {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .speed-avg {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
         /* Top Center - Status */
-        .top-center { top: 5px; left: 50%; transform: translateX(-50%); }
-        .status-panel { display: flex; align-items: center; gap: 5px; font-size: 10px; }
-        .source-toggle { display: flex; gap: 2px; margin-left: 5px; }
-        .src-btn { padding: 2px 6px; border: none; border-radius: 3px; font-size: 8px; font-weight: bold; cursor: pointer; background: rgba(255,255,255,0.2); color: #888; }
-        .src-btn.active { background: #00ff88; color: #000; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #00ff88; box-shadow: 0 0 6px #00ff88; }
-        .status-dot.offline { background: #ff4444; box-shadow: 0 0 6px #ff4444; }
-        
+        .top-center {
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .status-panel {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        .source-toggle {
+            display: flex;
+            gap: 2px;
+            margin-left: 5px;
+        }
+
+        .src-btn {
+            padding: 3px 8px;
+            border: none;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.2);
+            color: #888;
+        }
+
+        .src-btn.active {
+            background: #00ff88;
+            color: #000;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00ff88;
+            box-shadow: 0 0 6px #00ff88;
+        }
+
+        .status-dot.offline {
+            background: #ff4444;
+            box-shadow: 0 0 6px #ff4444;
+        }
+
         /* Test Controls */
-        .test-btn { padding: 3px 8px; border: none; border-radius: 4px; font-size: 10px; cursor: pointer; background: #00ff88; color: #000; font-weight: bold; }
-        .test-btn.active { background: #ff4444; color: white; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.4); } 50% { box-shadow: 0 0 0 6px rgba(255,68,68,0); } }
-        .test-timer { font-family: monospace; font-size: 10px; font-weight: bold; color: #ff4444; background: rgba(255,68,68,0.2); padding: 2px 6px; border-radius: 3px; }
-        
+        .test-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            background: #00ff88;
+            color: #000;
+            /*font-weight: bold;*/
+        }
+
+        .test-btn.active {
+            background: #ff4444;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 6px rgba(255, 68, 68, 0);
+            }
+        }
+
+        .test-timer {
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: bold;
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.2);
+            padding: 3px 8px;
+            border-radius: 3px;
+        }
+
         /* Top Right - Count */
-        .top-right { top: 5px; right: 5px; }
-        
+        .top-right {
+            top: 5px;
+            right: 5px;
+        }
+
         /* Left Panel - Below speed */
-        .left-top { top: 70px; left: 5px; }
-        .gps-panel { font-size: 8px; }
-        .gps-panel span { color: #00ff88; }
-        
-        .left-panel { top: 115px; left: 5px; max-width: 120px; }
-        
+        .left-top {
+            top: 80px;
+            left: 5px;
+        }
+
+        .gps-panel {
+            font-size: 10px;
+            padding: 3px 6px;
+        }
+
+        .gps-panel span {
+            color: #00ff88;
+        }
+
+        .left-panel {
+            top: 130px;
+            left: 5px;
+            max-width: 200px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
         /* Right Panel */
-        .right-panel { top: 5px; right: 5px; margin-top: 35px; max-width: 120px; }
-        
-        .panel-title { font-weight: bold; margin-bottom: 3px; padding-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,0.2); font-size: 9px; }
-        .fuel-panel .panel-title, .fuel-panel .val { color: #ff6b35; }
-        .joule-panel .panel-title, .joule-panel .val { color: #d4a0ff; }
-        .battery-panel .panel-title, .battery-panel .val { color: #00d4ff; }
-        
-        .data-row { display: flex; justify-content: space-between; margin: 1px 0; }
-        .lbl { color: #777; font-size: 8px; }
-        .val { font-weight: bold; font-size: 9px; }
-        .avg { font-size: 7px; color: #666; }
-        
+        .right-panel {
+            top: 5px;
+            right: 5px;
+            margin-top: 100px;
+            max-width: 140px;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 11px;
+        }
+
+        .fuel-panel .panel-title,
+        .fuel-panel .val {
+            color: #ff6b35;
+        }
+
+        .joule-panel .panel-title,
+        .joule-panel .val {
+            color: #d4a0ff;
+        }
+
+        .battery-panel .panel-title,
+        .battery-panel .val {
+            color: #00d4ff;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 2px 0;
+            gap: 8px;
+        }
+
+        .lbl {
+            color: #aaa;
+            font-size: 11px;
+        }
+
+        .val {
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .avg {
+            font-size: 9px;
+            color: #ffcc00;
+            display: block;
+            margin-top: 0px;
+            margin-bottom: 2px;
+            min-height: 10px;
+        }
+
         /* Bottom Left - Battery */
-        .bottom-left { bottom: 5px; left: 5px; max-width: 280px; }
-        .battery-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
-        .battery-item { text-align: center; background: rgba(0,0,0,0.3); padding: 2px; border-radius: 2px; }
-        .battery-item .lbl { font-size: 7px; display: block; }
-        .battery-item .val { font-size: 9px; display: block; }
-        .battery-item .avg { font-size: 6px; }
-        
+        .bottom-left {
+            bottom: 5px;
+            left: 5px;
+            max-width: 220px;
+        }
+
+        .bottom-center {
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 400px;
+        }
+
+        .battery-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 3px;
+        }
+
+        .battery-item {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 3px;
+            border-radius: 3px;
+        }
+
+        .battery-item .lbl {
+            font-size: 9px;
+            display: block;
+        }
+
+        .battery-item .val {
+            font-size: 11px;
+            display: block;
+        }
+
+        .battery-item .avg {
+            font-size: 8px;
+            display: block;
+            color: #ffcc00;
+        }
+
         /* Bottom Right - SOC */
-        .bottom-right { bottom: 5px; right: 5px; }
-        .soc-panel { text-align: center; min-width: 70px; }
-        .soc-label { font-size: 8px; color: #888; }
-        .soc-value { font-size: 24px; font-weight: bold; color: #00ff88; line-height: 1.1; }
-        .soc-bar { height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-top: 3px; overflow: hidden; }
-        .soc-fill { height: 100%; background: #00ff88; border-radius: 3px; transition: width 0.5s, background 0.3s; }
-        .soc-avg { font-size: 7px; color: #888; margin-top: 2px; }
-        
-        .portrait-warning { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; color: white; }
-        @media (orientation: portrait) { .portrait-warning { display: flex; } }
+        .bottom-right {
+            bottom: 5px;
+            right: 5px;
+        }
+
+        .soc-panel {
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .soc-label {
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .soc-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+            line-height: 1.1;
+        }
+
+        .soc-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 2px;
+            overflow: hidden;
+        }
+
+        .soc-fill {
+            height: 100%;
+            background: #00ff88;
+            border-radius: 2px;
+            transition: width 0.5s, background 0.3s;
+        }
+
+        .soc-avg {
+            font-size: 9px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+
+        .portrait-warning {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        @media (orientation: portrait) {
+            .portrait-warning {
+                display: flex;
+            }
+        }
+
+        /* Masaüstü görünümü için optimizasyon */
+        @media (min-width: 1024px) {
+            .panel {
+                padding: 10px 14px;
+                border-radius: 8px;
+                font-size: 14px;
+            }
+
+            .speed-value {
+                font-size: 42px;
+            }
+
+            .speed-unit {
+                font-size: 14px;
+            }
+
+            .speed-avg {
+                font-size: 12px;
+            }
+
+            .status-panel {
+                gap: 10px;
+                font-size: 14px;
+            }
+
+            .src-btn {
+                padding: 5px 12px;
+                font-size: 12px;
+            }
+
+            .test-btn {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .test-timer {
+                font-size: 14px;
+                padding: 5px 10px;
+            }
+
+            .gps-panel {
+                font-size: 13px;
+                padding: 6px 10px;
+            }
+
+            .left-top {
+                top: 120px;
+            }
+
+            .left-panel {
+                top: 200px;
+                max-width: 180px;
+                max-height: calc(100vh - 300px);
+                overflow-y: auto;
+            }
+
+            .right-panel {
+                margin-top: 150px;
+                max-width: 180px;
+                max-height: calc(100vh - 220px);
+                overflow-y: auto;
+            }
+
+            .panel-title {
+                font-size: 14px;
+                margin-bottom: 6px;
+                padding-bottom: 4px;
+            }
+
+            .data-row {
+                margin: 3px 0;
+            }
+
+            .lbl {
+                font-size: 12px;
+            }
+
+            .val {
+                font-size: 13px;
+            }
+
+            .avg {
+                font-size: 11px;
+            }
+
+            .bottom-left {
+                max-width: 300px;
+            }
+
+            .battery-item {
+                padding: 4px;
+            }
+
+            .battery-item .lbl {
+                font-size: 10px;
+            }
+
+            .battery-item .val {
+                font-size: 12px;
+            }
+
+            .battery-item .avg {
+                font-size: 9px;
+            }
+
+            .soc-panel {
+                min-width: 100px;
+            }
+
+            .soc-label {
+                font-size: 16px;
+            }
+
+            .soc-value {
+                font-size: 42px;
+            }
+
+            .soc-bar {
+                height: 8px;
+            }
+
+            .soc-avg {
+                font-size: 13px;
+            }
+
+            .status-dot {
+                width: 12px;
+                height: 12px;
+            }
+        }
     </style>
 </head>
+
 <body>
     <div class="portrait-warning">
         <div style="font-size:48px;margin-bottom:16px;">📱↔️</div>
@@ -86,7 +503,6 @@
     </div>
 
     <div id="map"></div>
-
     <!-- Top Left - Speed -->
     <div class="overlay top-left">
         <div class="panel speed-box">
@@ -111,21 +527,14 @@
             <div class="status-dot" id="statusDot"></div>
             <span id="statusText">Bağlanıyor</span>
             <span style="color:#666;font-size:8px;" id="lastUpdate"></span>
-            <span class="source-toggle">
-                <button class="src-btn active" id="mqttBtn" onclick="switchSource('MQTT')">M</button>
-                <button class="src-btn" id="httpBtn" onclick="switchSource('HTTP')">H</button>
-            </span>
+            <button class="test-btn" id="returnMain" onclick="window.location.href='/'">Ana Sayfa</button>
         </div>
     </div>
 
-    <!-- Top Right - Count & Test -->
+    <!-- Top Right - Count -->
     <div class="overlay top-right">
-        <div class="panel" style="display:flex;flex-direction:column;gap:4px;">
+        <div class="panel">
             <div>Kayıt: <span class="val" style="color:#00ff88;" id="dataCount">0</span></div>
-            <div style="display:flex;align-items:center;gap:4px;">
-                <button class="test-btn" id="testBtn" onclick="toggleTest()">Test</button>
-                <span class="test-timer" id="testTimer" style="display:none;">00:00</span>
-            </div>
         </div>
     </div>
 
@@ -162,18 +571,26 @@
     </div>
 
     <!-- Bottom Left - Battery -->
-    <div class="overlay bottom-left">
+    <div class="overlay bottom-center">
         <div class="panel battery-panel">
             <div class="panel-title">🔋 BATARYA</div>
             <div class="battery-grid">
-                <div class="battery-item"><span class="lbl">Voltaj</span><span class="val" id="bv">--</span><span class="avg" id="bvAvg"></span></div>
-                <div class="battery-item"><span class="lbl">Akım</span><span class="val" id="bc">--</span><span class="avg" id="bcAvg"></span></div>
-                <div class="battery-item"><span class="lbl">Güç</span><span class="val" id="bw">--</span><span class="avg" id="bwAvg"></span></div>
-                <div class="battery-item"><span class="lbl">Enerji</span><span class="val" id="bwh">--</span><span class="avg" id="bwhAvg"></span></div>
-                <div class="battery-item"><span class="lbl">Kalan</span><span class="val" id="ke">--</span><span class="avg" id="keAvg"></span></div>
-                <div class="battery-item"><span class="lbl">T1</span><span class="val" id="t1">--</span><span class="avg" id="t1Avg"></span></div>
-                <div class="battery-item"><span class="lbl">T2</span><span class="val" id="t2">--</span><span class="avg" id="t2Avg"></span></div>
-                <div class="battery-item"><span class="lbl">T3</span><span class="val" id="t3">--</span><span class="avg" id="t3Avg"></span></div>
+                <div class="battery-item"><span class="lbl">Voltaj</span><span class="val" id="bv">--</span><span
+                        class="avg" id="bvAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Akım</span><span class="val" id="bc">--</span><span
+                        class="avg" id="bcAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Güç</span><span class="val" id="bw">--</span><span
+                        class="avg" id="bwAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Enerji</span><span class="val" id="bwh">--</span><span
+                        class="avg" id="bwhAvg"></span></div>
+                <div class="battery-item"><span class="lbl">Kalan</span><span class="val" id="ke">--</span><span
+                        class="avg" id="keAvg"></span></div>
+                <div class="battery-item"><span class="lbl">T1</span><span class="val" id="t1">--</span><span
+                        class="avg" id="t1Avg"></span></div>
+                <div class="battery-item"><span class="lbl">T2</span><span class="val" id="t2">--</span><span
+                        class="avg" id="t2Avg"></span></div>
+                <div class="battery-item"><span class="lbl">T3</span><span class="val" id="t3">--</span><span
+                        class="avg" id="t3Avg"></span></div>
             </div>
         </div>
     </div>
@@ -183,7 +600,9 @@
         <div class="panel soc-panel">
             <div class="soc-label">SOC</div>
             <div class="soc-value" id="soc">--%</div>
-            <div class="soc-bar"><div class="soc-fill" id="socFill"></div></div>
+            <div class="soc-bar">
+                <div class="soc-fill" id="socFill"></div>
+            </div>
             <div class="soc-avg" id="socAvg"></div>
         </div>
     </div>
@@ -232,7 +651,7 @@
             setText('bwh', d.bwh || '--'); setText('ke', d.ke || '--');
             setText('t1', d.t1 || '--'); setText('t2', d.t2 || '--'); setText('t3', d.t3 || '--');
             setText('jv', d.jv || '--'); setText('jc', d.jc || '--'); setText('jw', d.jw || '--'); setText('jwh', d.jwh || '--');
-            
+
             const soc = parseFloat(d.soc) || 0;
             setText('soc', soc + '%');
             const fill = document.getElementById('socFill');
@@ -256,26 +675,26 @@
             if (!avg) return;
             const a = avg.allTime;
             const r = avg.last15Seconds;
-            
-            setText('speedAvg', `15s:${r.h||'--'} Ort:${a.h||'--'}`);
-            setText('fvAvg', `15s:${r.fv||'--'} Ort:${a.fv||'--'}`);
-            setText('faAvg', `15s:${r.fa||'--'} Ort:${a.fa||'--'}`);
-            setText('fwAvg', `15s:${r.fw||'--'} Ort:${a.fw||'--'}`);
-            setText('fetAvg', `15s:${r.fet||'--'} Ort:${a.fet||'--'}`);
-            setText('fitAvg', `15s:${r.fit||'--'} Ort:${a.fit||'--'}`);
-            setText('bvAvg', `${r.bv||'--'}/${a.bv||'--'}`);
-            setText('bcAvg', `${r.bc||'--'}/${a.bc||'--'}`);
-            setText('bwAvg', `${r.bw||'--'}/${a.bw||'--'}`);
-            setText('bwhAvg', `${r.bwh||'--'}/${a.bwh||'--'}`);
-            setText('keAvg', `${r.ke||'--'}/${a.ke||'--'}`);
-            setText('t1Avg', `${r.t1||'--'}/${a.t1||'--'}`);
-            setText('t2Avg', `${r.t2||'--'}/${a.t2||'--'}`);
-            setText('t3Avg', `${r.t3||'--'}/${a.t3||'--'}`);
-            setText('socAvg', `15s:${r.soc||'--'}% Ort:${a.soc||'--'}%`);
-            setText('jvAvg', `15s:${r.jv||'--'} Ort:${a.jv||'--'}`);
-            setText('jcAvg', `15s:${r.jc||'--'} Ort:${a.jc||'--'}`);
-            setText('jwAvg', `15s:${r.jw||'--'} Ort:${a.jw||'--'}`);
-            setText('jwhAvg', `15s:${r.jwh||'--'} Ort:${a.jwh||'--'}`);
+
+            setText('speedAvg', `15s:${r.h || '--'} Ort:${a.h || '--'}`);
+            setText('fvAvg', `15s:${r.fv || '--'} Ort:${a.fv || '--'}`);
+            setText('faAvg', `15s:${r.fa || '--'} Ort:${a.fa || '--'}`);
+            setText('fwAvg', `15s:${r.fw || '--'} Ort:${a.fw || '--'}`);
+            setText('fetAvg', `15s:${r.fet || '--'} Ort:${a.fet || '--'}`);
+            setText('fitAvg', `15s:${r.fit || '--'} Ort:${a.fit || '--'}`);
+            setText('bvAvg', `${r.bv || '--'}/${a.bv || '--'}`);
+            setText('bcAvg', `${r.bc || '--'}/${a.bc || '--'}`);
+            setText('bwAvg', `${r.bw || '--'}/${a.bw || '--'}`);
+            setText('bwhAvg', `${r.bwh || '--'}/${a.bwh || '--'}`);
+            setText('keAvg', `${r.ke || '--'}/${a.ke || '--'}`);
+            setText('t1Avg', `${r.t1 || '--'}/${a.t1 || '--'}`);
+            setText('t2Avg', `${r.t2 || '--'}/${a.t2 || '--'}`);
+            setText('t3Avg', `${r.t3 || '--'}/${a.t3 || '--'}`);
+            setText('socAvg', `15s:${r.soc || '--'}% Ort:${a.soc || '--'}%`);
+            setText('jvAvg', `15s:${r.jv || '--'} Ort:${a.jv || '--'}`);
+            setText('jcAvg', `15s:${r.jc || '--'} Ort:${a.jc || '--'}`);
+            setText('jwAvg', `15s:${r.jw || '--'} Ort:${a.jw || '--'}`);
+            setText('jwhAvg', `15s:${r.jwh || '--'} Ort:${a.jwh || '--'}`);
         }
 
         function setOnline() { document.getElementById('statusDot')?.classList.remove('offline'); setText('statusText', 'Bağlı'); }
@@ -292,53 +711,44 @@
             try {
                 const res = await fetch('/api/telemetry/averages');
                 if (res.ok) updateAverages(await res.json());
-            } catch {}
+            } catch { }
         }
 
         async function fetchCount() {
             try {
                 const res = await fetch('/api/telemetry/count');
                 if (res.ok) { const d = await res.json(); setText('dataCount', d.count); }
-            } catch {}
+            } catch { }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
             fetchData(); fetchCount(); fetchAverages();
-            setInterval(fetchData, 1000);
-            setInterval(fetchAverages, 2000);
-            setInterval(fetchCount, 5000);
+            setInterval(fetchData, 100);
+            setInterval(fetchAverages, 1000);
+            setInterval(fetchCount, 1000);
             document.addEventListener('click', () => document.documentElement.requestFullscreen?.(), { once: true });
         });
 
         window.addEventListener('orientationchange', () => setTimeout(() => map?.invalidateSize(), 100));
         window.addEventListener('resize', () => map?.invalidateSize());
 
-        // Kaynak geçişi
-        function switchSource(source) {
-            fetch('/api/source/switch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    document.getElementById('mqttBtn').classList.toggle('active', source === 'MQTT');
-                    document.getElementById('httpBtn').classList.toggle('active', source === 'HTTP');
-                }
-            })
-            .catch(() => {});
+        function checkLoginStatus() {
+            fetch('/api/auth/check')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.authenticated) {
+                        window.location.href = '/login';
+                    }
+                })
+                .catch(() => { });
         }
 
-        // Mevcut kaynağı ve bağlantı durumunu kontrol et
-        function checkSourceStatus() {
+        // Bağlantı durumunu kontrol et
+        function checkConnectionStatus() {
             fetch('/api/source/status')
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('mqttBtn').classList.toggle('active', data.source === 'MQTT');
-                    document.getElementById('httpBtn').classList.toggle('active', data.source === 'HTTP');
-                    
                     // Bağlantı durumunu güncelle
                     if (data.connected) {
                         setOnline();
@@ -346,86 +756,13 @@
                         setOffline();
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
-        
-        checkSourceStatus();
+        checkLoginStatus();
+        checkConnectionStatus();
         // Her 2 saniyede kontrol et
-        setInterval(checkSourceStatus, 2000);
-        
-        // Test modu
-        let testActive = false;
-        let testTimerInterval = null;
-        let testStartTime = null;
-        
-        function toggleTest() {
-            if (testActive) {
-                fetch('/api/test/stop', { method: 'POST' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            testActive = false;
-                            stopTestTimer();
-                            updateTestUI(false);
-                        }
-                    })
-                    .catch(() => {});
-            } else {
-                fetch('/api/test/start', { method: 'POST' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            testActive = true;
-                            testStartTime = Date.now();
-                            updateTestUI(true);
-                            startTestTimer();
-                        }
-                    })
-                    .catch(() => {});
-            }
-        }
-        
-        function updateTestUI(active) {
-            const btn = document.getElementById('testBtn');
-            const timer = document.getElementById('testTimer');
-            if (active) {
-                btn.textContent = '⏹️';
-                btn.classList.add('active');
-                timer.style.display = 'inline-block';
-            } else {
-                btn.textContent = '🧪';
-                btn.classList.remove('active');
-                timer.style.display = 'none';
-                timer.textContent = '00:00';
-            }
-        }
-        
-        function startTestTimer() {
-            testTimerInterval = setInterval(() => {
-                const elapsed = Date.now() - testStartTime;
-                const mins = Math.floor(elapsed / 60000);
-                const secs = Math.floor((elapsed % 60000) / 1000);
-                document.getElementById('testTimer').textContent = 
-                    `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-            }, 1000);
-        }
-        
-        function stopTestTimer() {
-            if (testTimerInterval) { clearInterval(testTimerInterval); testTimerInterval = null; }
-        }
-        
-        // Sayfa yüklendiğinde test durumunu kontrol et
-        fetch('/api/test/status')
-            .then(res => res.json())
-            .then(data => {
-                if (data.active) {
-                    testActive = true;
-                    testStartTime = Date.now() - data.elapsed;
-                    updateTestUI(true);
-                    startTestTimer();
-                }
-            })
-            .catch(() => {});
+        setInterval(checkConnectionStatus, 2000);
     </script>
 </body>
+
 </html>

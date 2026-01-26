@@ -142,7 +142,7 @@ async function flushTestDataToFile() {
 
         // ASENKRON dosya yazma
         await fsPromises.appendFile(filePath, csvContent, 'utf8');
-        console.log(`🧪 ${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
+        console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
     } catch (error) {
         console.error('Test dosyası yazma hatası:', error);
         testMode.pendingTestData = [...dataToWrite, ...testMode.pendingTestData];
@@ -583,6 +583,19 @@ function requireAuth(req, res, next) {
     }
 }
 
+// Admin yetkisi gerektiren işlemler için middleware
+function requireAdmin(req, res, next) {
+    if (req.session && req.session.userId) {
+        if (req.session.userRole === 'admin') {
+            next();
+        } else {
+            res.status(403).json({ error: 'Bu işlem için admin yetkisi gerekiyor' });
+        }
+    } else {
+        res.status(401).json({ error: 'Giriş yapmanız gerekiyor' });
+    }
+}
+
 // ============================================
 // API ENDPOINTS
 // ============================================
@@ -598,7 +611,8 @@ app.post('/api/login', (req, res) => {
     if (user) {
         req.session.userId = user.id;
         req.session.username = user.username;
-        res.json({ success: true, message: 'Giriş başarılı', user: { id: user.id, username: user.username } });
+        req.session.userRole = user.role || 'user'; // Rol bilgisini session'a kaydet
+        res.json({ success: true, message: 'Giriş başarılı', user: { id: user.id, username: user.username, role: user.role || 'user' } });
     } else {
         res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
     }
@@ -613,7 +627,7 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/auth/check', (req, res) => {
     if (req.session && req.session.userId) {
-        res.json({ authenticated: true, user: { id: req.session.userId, username: req.session.username } });
+        res.json({ authenticated: true, user: { id: req.session.userId, username: req.session.username, role: req.session.userRole || 'user' } });
     } else {
         res.json({ authenticated: false });
     }
@@ -659,8 +673,8 @@ app.get('/api/telemetry/averages', requireAuth, (req, res) => {
     res.json(calculateAverages());
 });
 
-// Mevcut günlerin listesi
-app.get('/api/telemetry/days', requireAuth, (req, res) => {
+// Mevcut günlerin listesi (SADECE ADMIN)
+app.get('/api/telemetry/days', requireAdmin, (req, res) => {
     const days = getAvailableDays();
     res.json({ days });
 });
@@ -669,8 +683,8 @@ app.get('/api/telemetry/days', requireAuth, (req, res) => {
 // TEST MODU API ENDPOINTS
 // ============================================
 
-// Test başlat
-app.post('/api/test/start', requireAuth, (req, res) => {
+// Test başlat (SADECE ADMIN)
+app.post('/api/test/start', requireAdmin, (req, res) => {
     if (testMode.active) {
         return res.status(400).json({ error: 'Zaten aktif bir test var', testName: testMode.testName });
     }
@@ -698,8 +712,8 @@ app.post('/api/test/start', requireAuth, (req, res) => {
     });
 });
 
-// Test durdur
-app.post('/api/test/stop', requireAuth, (req, res) => {
+// Test durdur (SADECE ADMIN)
+app.post('/api/test/stop', requireAdmin, (req, res) => {
     if (!testMode.active) {
         return res.status(400).json({ error: 'Aktif test yok' });
     }
@@ -759,14 +773,14 @@ app.get('/api/test/status', requireAuth, (req, res) => {
     });
 });
 
-// Test dosyalarını listele
-app.get('/api/test/files', requireAuth, (req, res) => {
+// Test dosyalarını listele (SADECE ADMIN)
+app.get('/api/test/files', requireAdmin, (req, res) => {
     const files = getTestFiles();
     res.json({ files });
 });
 
-// Test dosyasını indir
-app.get('/api/test/download/:fileName', requireAuth, (req, res) => {
+// Test dosyasını indir (SADECE ADMIN)
+app.get('/api/test/download/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
 
     // Güvenlik kontrolü
@@ -785,8 +799,8 @@ app.get('/api/test/download/:fileName', requireAuth, (req, res) => {
     res.sendFile(filePath);
 });
 
-// Test dosyasını yeniden adlandır
-app.patch('/api/test/rename/:fileName', requireAuth, (req, res) => {
+// Test dosyasını yeniden adlandır (SADECE ADMIN)
+app.patch('/api/test/rename/:fileName', requireAdmin, (req, res) => {
     const oldFileName = req.params.fileName;
     const { newName } = req.body;
 
@@ -841,8 +855,8 @@ app.patch('/api/test/rename/:fileName', requireAuth, (req, res) => {
     }
 });
 
-// Test dosyasını sil
-app.delete('/api/test/delete/:fileName', requireAuth, (req, res) => {
+// Test dosyasını sil (SADECE ADMIN)
+app.delete('/api/test/delete/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
 
     if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
@@ -860,8 +874,8 @@ app.delete('/api/test/delete/:fileName', requireAuth, (req, res) => {
     res.json({ success: true, message: `${fileName} silindi` });
 });
 
-// Belirli bir günün verisini indir
-app.get('/api/telemetry/download/:fileName', requireAuth, (req, res) => {
+// Belirli bir günün verisini indir (SADECE ADMIN)
+app.get('/api/telemetry/download/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
 
     // Güvenlik kontrolü - sadece csv dosyaları
@@ -880,8 +894,8 @@ app.get('/api/telemetry/download/:fileName', requireAuth, (req, res) => {
     res.sendFile(filePath);
 });
 
-// Bugünün verisini indir (bekleyen veriler dahil)
-app.get('/api/telemetry/download-today', requireAuth, (req, res) => {
+// Bugünün verisini indir (bekleyen veriler dahil) (SADECE ADMIN)
+app.get('/api/telemetry/download-today', requireAdmin, (req, res) => {
     // Önce bekleyen verileri dosyaya yaz
     flushDataToFile();
 
@@ -897,8 +911,8 @@ app.get('/api/telemetry/download-today', requireAuth, (req, res) => {
     res.sendFile(filePath);
 });
 
-// Belirli bir günün verisini sil
-app.delete('/api/telemetry/delete/:fileName', requireAuth, (req, res) => {
+// Belirli bir günün verisini sil (SADECE ADMIN)
+app.delete('/api/telemetry/delete/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
 
     if (!fileName.endsWith('_verileri.csv') || fileName.includes('..') || fileName.includes('/')) {
@@ -916,7 +930,8 @@ app.delete('/api/telemetry/delete/:fileName', requireAuth, (req, res) => {
     res.json({ success: true, message: `${fileName} silindi` });
 });
 
-app.delete('/api/telemetry/clear', requireAuth, (req, res) => {
+// Bugünün verilerini temizle (SADECE ADMIN)
+app.delete('/api/telemetry/clear', requireAdmin, (req, res) => {
     // Bugünün dosyasını sil ve bekleyen verileri temizle
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
@@ -943,7 +958,7 @@ app.delete('/api/telemetry/clear', requireAuth, (req, res) => {
 
 
 
-app.get('/capacitor', requireAuth, (req, res) => {
+app.get('/capacitor', requireAdmin, (req, res) => {
     action = req.query;
 
     if (action.turn == '1') {
@@ -958,8 +973,8 @@ app.get('/capacitor', requireAuth, (req, res) => {
 });
 
 
-// CSV export - Tüm günlerin verilerini birleştir
-app.get('/api/telemetry/csv', requireAuth, (req, res) => {
+// CSV export - Tüm günlerin verilerini birleştir (SADECE ADMIN)
+app.get('/api/telemetry/csv', requireAdmin, (req, res) => {
     // Önce bekleyen verileri dosyaya yaz
     flushDataToFile();
 
@@ -1008,7 +1023,8 @@ app.get('/api/source/status', requireAuth, (req, res) => {
     });
 });
 
-app.post('/api/source/switch', requireAuth, (req, res) => {
+// Veri kaynağını değiştir (SADECE ADMIN)
+app.post('/api/source/switch', requireAdmin, (req, res) => {
     const { source } = req.body;
     const result = switchDataSource(source);
     res.json(result);

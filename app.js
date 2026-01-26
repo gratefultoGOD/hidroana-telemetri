@@ -45,7 +45,7 @@ let fvChart, faChart, fwChart, ftempChart;
 let socChart, keChart, bwChart, bwhChart, batteryVCChart, batteryTempChart;
 let jvChart, jcChart, jwChart, jwhChart;
 
-// History data for charts (last 15 seconds)
+// History data for charts (last 10 seconds)
 let history = {
     timestamp: [],
     speed: [],
@@ -85,7 +85,7 @@ function initMap() {
         return;
     }
 
-    map = L.map('map').setView([40.7128, -74.0060], 13);
+    map = L.map('map').setView([39.816297, 30.528611], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
@@ -103,7 +103,7 @@ function initMap() {
         iconAnchor: [20, 20]
     });
 
-    marker = L.marker([40.7128, -74.0060], { icon: customIcon }).addTo(map);
+    marker = L.marker([39.816111, 30.528611], { icon: customIcon }).addTo(map);
 }
 
 // Initialize speedometer
@@ -427,9 +427,9 @@ function processQueuedData(data, queueTimestamp) {
         }
     });
 
-    // Remove data older than 15 seconds
-    const fifteenSecondsAgo = new Date(simTime.getTime() - 15000);
-    while (history.timestamp.length > 0 && history.timestamp[0] < fifteenSecondsAgo) {
+    // Remove data older than 10 seconds
+    const tenSecondsAgo = new Date(simTime.getTime() - 10000);
+    while (history.timestamp.length > 0 && history.timestamp[0] < tenSecondsAgo) {
         history.timestamp.shift();
         Object.keys(history).forEach(key => {
             if (key !== 'timestamp' && history[key].length > 0) {
@@ -554,7 +554,7 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
 }
 
 // Update single line chart
-function updateChart(chart, time, value, maxPoints = 15) {
+function updateChart(chart, time, value, maxPoints = 9) {
     if (!chart) return;
     if (chart.data.labels.length > maxPoints) {
         chart.data.labels.shift();
@@ -566,7 +566,7 @@ function updateChart(chart, time, value, maxPoints = 15) {
 }
 
 // Update multi-line chart
-function updateMultiChart(chart, time, values, maxPoints = 15) {
+function updateMultiChart(chart, time, values, maxPoints = 9) {
     if (!chart) return;
     if (chart.data.labels.length > maxPoints) {
         chart.data.labels.shift();
@@ -728,9 +728,9 @@ async function updateVehicleData() {
         }
     });
 
-    // Remove data older than 15 seconds
-    const fifteenSecondsAgo = new Date(simTime.getTime() - 15000);
-    while (history.timestamp.length > 0 && history.timestamp[0] < fifteenSecondsAgo) {
+    // Remove data older than 10 seconds
+    const tenSecondsAgo = new Date(simTime.getTime() - 10000);
+    while (history.timestamp.length > 0 && history.timestamp[0] < tenSecondsAgo) {
         history.timestamp.shift();
         Object.keys(history).forEach(key => {
             if (key !== 'timestamp' && history[key].length > 0) {
@@ -835,51 +835,83 @@ function resizeAllCharts() {
     if (map) map.invalidateSize();
 }
 
-// Filter view functionality
-function filterView(view, button) {
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    button.classList.add('active');
-
+// Toggle filter functionality - multiple categories can be active
+function toggleFilter(category, button) {
     const speedCards = document.querySelectorAll('.speed-related');
     const fuelCards = document.querySelectorAll('.fuel-related');
     const batteryCards = document.querySelectorAll('.battery-related');
     const jouleCards = document.querySelectorAll('.joule-related');
 
-    const showAll = () => {
-        [speedCards, fuelCards, batteryCards, jouleCards].forEach(cards => {
-            cards.forEach(card => card.style.display = '');
-        });
+    const categoryButtons = {
+        speed: document.querySelector('[data-category="speed"]'),
+        fuel: document.querySelector('[data-category="fuel"]'),
+        battery: document.querySelector('[data-category="battery"]'),
+        joule: document.querySelector('[data-category="joule"]')
     };
 
-    const hideAll = () => {
-        [speedCards, fuelCards, batteryCards, jouleCards].forEach(cards => {
-            cards.forEach(card => card.style.display = 'none');
-        });
-    };
+    const allButton = document.querySelector('[data-category="all"]');
 
-    switch (view) {
-        case 'all':
-            showAll();
-            break;
-        case 'speed':
-            hideAll();
-            speedCards.forEach(card => card.style.display = '');
-            break;
-        case 'fuel':
-            hideAll();
-            fuelCards.forEach(card => card.style.display = '');
-            break;
-        case 'battery':
-            hideAll();
-            batteryCards.forEach(card => card.style.display = '');
-            break;
-        case 'joule':
-            hideAll();
-            jouleCards.forEach(card => card.style.display = '');
-            break;
+    if (category === 'all') {
+        // Tümü butonuna tıklandığında
+        const isActive = button.classList.contains('active');
+
+        if (isActive) {
+            // Tümü aktifse, tüm kategorileri kapat
+            button.classList.remove('active');
+            Object.values(categoryButtons).forEach(btn => {
+                if (btn) btn.classList.remove('active');
+            });
+            [speedCards, fuelCards, batteryCards, jouleCards].forEach(cards => {
+                cards.forEach(card => card.style.display = 'none');
+            });
+        } else {
+            // Tümü pasifse, tüm kategorileri aç
+            button.classList.add('active');
+            Object.values(categoryButtons).forEach(btn => {
+                if (btn) btn.classList.add('active');
+            });
+            [speedCards, fuelCards, batteryCards, jouleCards].forEach(cards => {
+                cards.forEach(card => card.style.display = '');
+            });
+        }
+    } else {
+        // Kategori butonuna tıklandığında toggle yap
+        const isActive = button.classList.contains('active');
+
+        const cardMap = {
+            speed: speedCards,
+            fuel: fuelCards,
+            battery: batteryCards,
+            joule: jouleCards
+        };
+
+        if (isActive) {
+            // Kategoriyi kapat
+            button.classList.remove('active');
+            cardMap[category].forEach(card => card.style.display = 'none');
+        } else {
+            // Kategoriyi aç
+            button.classList.add('active');
+            cardMap[category].forEach(card => card.style.display = '');
+        }
+
+        // Tümü butonunun durumunu güncelle
+        const allActive = Object.values(categoryButtons).every(btn => btn && btn.classList.contains('active'));
+        const anyActive = Object.values(categoryButtons).some(btn => btn && btn.classList.contains('active'));
+
+        if (allActive) {
+            allButton.classList.add('active');
+        } else {
+            allButton.classList.remove('active');
+        }
     }
 
     setTimeout(resizeAllCharts, 100);
+}
+
+// Eski filterView fonksiyonu için geriye dönük uyumluluk
+function filterView(view, button) {
+    toggleFilter(view, button);
 }
 
 
@@ -1055,6 +1087,8 @@ function stopResize() {
     if (resizeState.isResizing && resizeState.currentCard) {
         resizeState.currentCard.classList.remove('resizing');
         document.body.style.cursor = '';
+        // Resize bittikten sonra grafikleri yeniden boyutlandır
+        setTimeout(resizeAllCharts, 50);
     }
     resizeState.isResizing = false;
     resizeState.currentCard = null;

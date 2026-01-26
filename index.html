@@ -35,34 +35,42 @@
                 <button class="logout-btn" onclick="logout()">Çıkış</button>
             </div>
             <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterView('all', this)">Tümü</button>
-                <button class="filter-btn" onclick="filterView('speed', this)">Hız</button>
-                <button class="filter-btn" onclick="filterView('fuel', this)">Yakıt Hücresi</button>
-                <button class="filter-btn" onclick="filterView('battery', this)">Batarya</button>
-                <button class="filter-btn" onclick="filterView('joule', this)">Joulmetre</button>
+                <button class="filter-btn active" data-category="all" onclick="toggleFilter('all', this)">Tümü</button>
+                <button class="filter-btn active" data-category="speed"
+                    onclick="toggleFilter('speed', this)">Hız</button>
+                <button class="filter-btn active" data-category="fuel" onclick="toggleFilter('fuel', this)">Yakıt
+                    Hücresi</button>
+                <button class="filter-btn active" data-category="battery"
+                    onclick="toggleFilter('battery', this)">Batarya</button>
+                <button class="filter-btn active" data-category="joule"
+                    onclick="toggleFilter('joule', this)">Joulmetre</button>
                 <button class="filter-btn" onclick="window.location.href='/fullmap'">Mobil Görünüm</button>
 
             </div>
             <div class="export-buttons">
-                <div class="source-toggle" title="Veri Kaynağı">
+                <div class="source-toggle admin-only" id="sourceToggle" title="Veri Kaynağı" style="display:none;">
                     <span class="source-label">Kaynak:</span>
                     <button class="source-btn active" id="mqttBtn" onclick="switchSource('MQTT')">MQTT</button>
                     <button class="source-btn" id="httpBtn" onclick="switchSource('HTTP')">HTTP</button>
                 </div>
-                <div class="test-controls">
+                <div class="test-controls admin-only" id="testControls" style="display:none;">
                     <button class="test-btn" id="testStartBtn" onclick="toggleTest()"> Test Başlat</button>
                     <span class="test-timer" id="testTimer" style="display:none;">00:00:00</span>
                 </div>
-                <button class="export-btn" onclick="showTestFilesModal()" title="Test kayıtlarını görüntüle">
+                <button class="export-btn admin-only" id="testFilesBtn" onclick="showTestFilesModal()"
+                    title="Test kayıtlarını görüntüle" style="display:none;">
                     Testler
                 </button>
-                <button class="export-btn" onclick="showDaysModal()" title="Günlük kayıtları görüntüle">
+                <button class="export-btn admin-only" id="recordsBtn" onclick="showDaysModal()"
+                    title="Günlük kayıtları görüntüle" style="display:none;">
                     📅 Kayıtlar
                 </button>
-                <button class="export-btn server-csv" onclick="downloadTodayCSV()" title="Bugünün verilerini indir">
+                <button class="export-btn server-csv admin-only" id="downloadTodayBtn" onclick="downloadTodayCSV()"
+                    title="Bugünün verilerini indir" style="display:none;">
                     📥 Bugün (<span id="dataCount">0</span>)
                 </button>
-                <button class="export-btn" onclick="clearServerData()" title="Bugünün verilerini temizle">🗑️</button>
+                <button class="export-btn admin-only" id="clearDataBtn" onclick="clearServerData()"
+                    title="Bugünün verilerini temizle" style="display:none;">🗑️</button>
             </div>
         </header>
 
@@ -543,16 +551,42 @@
     </style>
 
     <script>
+        // Kullanıcı rolünü global olarak sakla
+        let currentUserRole = 'user';
+
         fetch('/api/auth/check')
             .then(res => res.json())
             .then(data => {
                 if (!data.authenticated) {
                     window.location.href = '/login';
                 } else {
-                    document.getElementById('username').textContent = '👤 ' + data.user.username;
+                    // Kullanıcı rolünü kaydet
+                    currentUserRole = data.user.role || 'user';
+
+                    // Kullanıcı adı ve rolü göster
+                    const roleIcon = currentUserRole === 'admin' ? '🛠️' : '👤';
+                    document.getElementById('username').textContent = roleIcon + ' ' + data.user.username;
+
+                    // Admin ise admin-only bölümleri göster
+                    if (currentUserRole === 'admin') {
+                        showAdminSections();
+                    }
                 }
             })
             .catch(() => { window.location.href = '/login'; });
+
+        // Admin-only bölümleri göster
+        function showAdminSections() {
+            const adminElements = document.querySelectorAll('.admin-only');
+            adminElements.forEach(el => {
+                el.style.display = '';
+            });
+        }
+
+        // Admin yetkisi kontrolü - fonksiyonlar için
+        function isAdmin() {
+            return currentUserRole === 'admin';
+        }
 
         function logout() {
             if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
@@ -856,20 +890,22 @@
 
         // Veri kaynağı geçişi
         function switchSource(source) {
-            fetch('/api/source/switch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        updateSourceButtons(source);
-                    } else {
-                        alert('Hata: ' + data.error);
-                    }
+            if (confirm("Yeni Veri Kaynağı: " + source) == true) {
+                fetch('/api/source/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source })
                 })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateSourceButtons(source);
+                        } else {
+                            alert('Hata: ' + data.error);
+                        }
+                    })
+                    .catch(err => alert('Bağlantı hatası: ' + err.message));
+            }
         }
 
         function updateSourceButtons(source) {

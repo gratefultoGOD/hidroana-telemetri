@@ -208,5 +208,30 @@ HIZ MAX 60 [+]
 
 TEST VERİLERİNİ İSİMLENDİRME [+] test et localde var
 
-WEB ARAYÜZDE ARKA PLANA ALINCA GRAFİK YERİNDE SAYIYOR [test edilecek local de var]
+WEB ARAYÜZDE ARKA PLANA ALINCA GRAFİK YERİNDE SAYIYOR [test edilecek local de var] [+]
 UYGULAMA ARAYÜZÜNÜ GELİŞTİR
+
+HIZ bölmesini düzelt ilk açılışta yarım yamalak [+]
+fullmap arayüzünü PC için optimize et (büyüt) [+]
+fullmap arayüzünde polling ayarla (düşür) [+]
+arayüzdeki çöp kovasını kaldır
+harita yanlış yeri gösteriyor [+] (sorun vary() fonksiyonu) 
+mobil görünümde test başlat butonu test bitirildikten sonra sapıtıyor [+]
+
+
+admin hesapları (ayarları yapacaklar) [+]
+normal kullanıcılar (sadece izleyecekler) [+]
+kaynak değiştirmeden önce sor [+]
+mobil görünümde test başlat, veri kaynağı değiştirme olayı olmayacak. [+]
+
+masaüstü uygulamasına grafikler eklenecek, fullview modu 
+veri kaynağı sadece uygulama üzerinden değiştirilebilecek. [?] 
+uygulamada mqtt ayrıca bağlanmayacak verileri sunucudan çekecek
+Kayıtlar arayüzde silinemesin
+
+uygulamada kontrol paneli açılır kapanır olsun
+(voltaj ,akım, watt), batarya ,fuelcell, joulmetre grafikleri
+ortalamaları hesapla ve göster (full ve uygulama)
+
+sector'leri sadece uygulamada hesapla
+sector'lerde hızı hesapla yavaşla hızlan diye döndür
