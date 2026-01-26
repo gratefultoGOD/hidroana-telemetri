@@ -494,7 +494,10 @@ app.get('/data', (req, res) => {
     // ÖNCE CEVABI GÖNDER - minimum latency için kritik
     res.removeHeader('X-Powered-By');
     res.setHeader('Content-Length', 1);
-    res.status(200).send(supercapacitor ? '1' : '0');
+    //res.status(200).send(supercapacitor ? '1' : '0');
+    if (supercapacitor) {
+        res.status(200).send('1');
+    }
 
     // Performans logla
     const endTime = process.hrtime.bigint();
