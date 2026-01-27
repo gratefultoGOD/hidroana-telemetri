@@ -232,6 +232,10 @@ Kayıtlar arayüzde silinemesin
 uygulamada kontrol paneli açılır kapanır olsun
 (voltaj ,akım, watt), batarya ,fuelcell, joulmetre grafikleri
 ortalamaları hesapla ve göster (full ve uygulama)
+uygulama kısmında grafikler son 10 veriyi göstersin (Son 10 saniyeyi değil.)
+site ve uygulama kısmında grafikler son 10 verinin aralıklarında gösterilsin mesela (200 - 300)
 
 sector'leri sadece uygulamada hesapla
 sector'lerde hızı hesapla yavaşla hızlan diye döndür
+
++httpaction:0,200,1 

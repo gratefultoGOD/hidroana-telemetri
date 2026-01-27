@@ -7,7 +7,7 @@
 const TARGET_URL = process.env.TARGET_URL || 'http://telemetri.hidroana.com/data';
 
 //const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
-const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
+const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 250; // ms
 
 // Başlangıç değerleri
 let state = {
@@ -52,16 +52,16 @@ function updateState() {
     state.y = vary(state.y, 0.00001, 39.7, 100.2);
     //state.y = state.y + 0.0001;
     state.gp = Math.round(vary(state.gp, 0.5, 0, 3));
-    //state.gs = Math.round(vary(state.gs, 0, 30));
-    state.gs = 1;
-    state.fv = state.fv + 1 //vary(state.fv, 1, 35, 100);
-    state.fa = state.fa + 1 //vary(state.fa, 0.5, 5, 100);
+    state.gs = Math.round(vary(state.gs, 0, 30));
+    //state.gs = 1;
+    state.fv = vary(state.fv, 1, 35, 100);
+    state.fa = vary(state.fa, 0.5, 5, 100);
     state.fw = state.fw + 1;
-    state.fet = state.fet + 1  //vary(state.fet, 2, 20, 100);
+    state.fet = vary(state.fet, 2, 20, 100);
     state.fit = vary(state.fit, 2, 30, 80);
     state.bv = vary(state.bv, 0.5, 42, 54);
     state.bc = vary(state.bc, 1, 0, 50);
-    state.bw = state.bw + 1;
+    state.bw = vary(state.bw, 1, 0, 500);
     state.bwh = vary(state.bwh, 5, 0, 500);
     state.t1 = vary(state.t1, 1, 20, 50);
     state.t2 = vary(state.t2, 1, 20, 50);
@@ -70,7 +70,7 @@ function updateState() {
     state.ke = vary(state.ke, 0.1, 0, 5);
     state.jv = vary(state.jv, 0.5, 42, 54);
     state.jc = vary(state.jc, 1, 0, 40);
-    state.jw = state.jv * state.jc;
+    state.jw = vary(state.jw, 1, 0, 300);
     state.jwh = vary(state.jwh, 10, 0, 5000);
 }
 

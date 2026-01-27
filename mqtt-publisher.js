@@ -2,6 +2,7 @@
 const mqtt = require('mqtt');
 
 // HiveMQ Cloud broker settings
+/*
 const BROKER_URL = 'mqtt://45.94.4.153:1883';
 const BROKER_OPTIONS = {
     username: 'hidroana',
@@ -9,8 +10,16 @@ const BROKER_OPTIONS = {
     //protocol: 'mqtts',
     port: 1883
 };
+*/
+
+const BROKER_URL = 'mqtts://7b53477c154b4e65a96dbaa8ca717dfc.s1.eu.hivemq.cloud';
+const BROKER_OPTIONS = {
+    username: 'admin',
+    password: 'Admin123',
+};
 
 const TOPIC = 'data';
+const TAKE_TOPIC = 'take';
 
 // Route coordinates
 const route = [
@@ -38,12 +47,22 @@ console.log('🔌 HiveMQ Cloud broker\'a bağlanılıyor...');
 const client = mqtt.connect(BROKER_URL, BROKER_OPTIONS);
 
 client.on('connect', () => {
+    client.subscribe(TOPIC, { qos: 1 });
+    client.subscribe(TAKE_TOPIC, { qos: 1 });
     console.log('✅ MQTT broker\'a bağlandı!');
     console.log(`📡 Topic: ${TOPIC}`);
     console.log('🚀 Veri gönderimi başlıyor...\n');
     console.log('📊 Veri formatı: h, x, y, gs, fv, fa, fw, fet, fit, bv, bc, bw, bwh, t1, t2, t3, soc, ke, jv, jc, jw, jwh\n');
 
-    setInterval(sendTelemetryData, 1000);
+    sendTelemetryData();
+    //setInterval(sendTelemetryData, 250);
+
+});
+
+client.on('message', (topic, message) => {
+    if (topic == TAKE_TOPIC) {
+        console.log('Supercapacitor: ', message.toString());
+    }
 });
 
 client.on('error', (error) => {
@@ -132,8 +151,9 @@ function sendTelemetryData() {
         if (error) {
             console.error('❌ Veri gönderme hatası:', error);
         } else {
+            //client.publish(TOPIC, 'take', { qos: 1 });
             //console.log(`📤 Hız=${telemetryData.h}km/h | SOC=${telemetryData.soc}% | Batarya=${telemetryData.bw}W | Yakıt=${telemetryData.fw}W | Joule=${telemetryData.jw}W`);
-            console.log(message);
+            //console.log(message);
         }
     });
 }

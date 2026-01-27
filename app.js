@@ -160,13 +160,23 @@ function createLineChart(ctx, label, color, maxY = null) {
             animation: { duration: 0 },
             plugins: { legend: { display: false } },
             scales: {
-                y: { beginAtZero: true }
+                y: {
+                    beginAtZero: false,
+                    // Dinamik ölçekleme ama negatif değerlere izin verme
+                    afterDataLimits: (scale) => {
+                        if (scale.min < 0) scale.min = 0;
+                    }
+                }
             }
         }
     };
 
     if (maxY) {
+        // Sabit aralıklı grafikler için (SOC gibi)
         config.options.scales.y.max = maxY;
+        config.options.scales.y.min = 0;
+        config.options.scales.y.beginAtZero = true;
+        delete config.options.scales.y.grace;
     }
 
     return new Chart(ctx, config);
@@ -199,7 +209,15 @@ function createMultiLineChart(ctx, datasets) {
                     labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
                 }
             },
-            scales: { y: { beginAtZero: true } }
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    // Dinamik ölçekleme ama negatif değerlere izin verme
+                    afterDataLimits: (scale) => {
+                        if (scale.min < 0) scale.min = 0;
+                    }
+                }
+            }
         }
     });
 }

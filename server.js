@@ -28,6 +28,7 @@ const MQTT_OPTIONS = {
     password: 'Admin123'
 };*/
 const MQTT_TOPIC = 'data';
+const MQTT_TAKE = 'take';
 
 // HTTP Configuration (Araçtan veri alma - araç bize POST yapar)
 
@@ -380,6 +381,14 @@ function startMQTT() {
             console.log(' HAM VERİ:', rawMessage);
             const data = parseStarSeparatedData(rawMessage);
             processIncomingData(data);
+
+            // 250ms sonra supercapacitor durumunu MQTT_TAKE topic'ine gönder
+            setTimeout(() => {
+                if (mqttClient && mqttClient.connected) {
+                    mqttClient.publish(MQTT_TAKE, supercapacitor ? '1' : '0', { qos: 1 });
+                    //console.log(`📤 MQTT_TAKE gönderildi: ${supercapacitor ? '1' : '0'}`);
+                }
+            }, 250);
         } catch (error) {
             console.error('Mesaj parse hatası:', error);
             console.error(' Ham veri:', message.toString());
