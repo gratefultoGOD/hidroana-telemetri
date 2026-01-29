@@ -73,6 +73,13 @@ let lastReceivedTimestamp = null;
 let lastDataHash = null;
 let lastDataCounter = null;
 
+// SSE (Server-Sent Events) bağlantısı
+let eventSource = null;
+let sseReconnectAttempts = 0;
+let isPollingMode = false; // SSE başarısız olursa polling moduna geç
+let pollingInterval = null;
+const MAX_SSE_RECONNECT_ATTEMPTS = 10;
+
 // Veri Kuyruğu Sistemi - Tab inaktifken gelen verileri saklamak için
 let dataQueue = [];
 const MAX_QUEUE_SIZE = 100; // Maksimum kuyruk boyutu
@@ -318,7 +325,106 @@ function initCharts() {
     }
 }
 
-// Fetch telemetry data from backend
+// ============================================
+// SSE (Server-Sent Events) BAĞLANTISI
+// Event-Driven mimari - Polling yerine
+// ============================================
+
+// SSE bağlantısını başlat
+function connectToSSE() {
+    if (eventSource) {
+        eventSource.close();
+    }
+
+    console.log('🔌 SSE bağlantısı kuruluyor...');
+    eventSource = new EventSource('/api/telemetry/stream');
+
+    eventSource.onopen = function () {
+        console.log('✅ SSE bağlantısı kuruldu');
+        sseReconnectAttempts = 0;
+        updateConnectionStatus(true);
+    };
+
+    eventSource.onmessage = function (event) {
+        try {
+            const data = JSON.parse(event.data);
+            handleIncomingData(data);
+        } catch (error) {
+            console.error('SSE mesaj parse hatası:', error);
+        }
+    };
+
+    eventSource.onerror = function (error) {
+        console.error('❌ SSE bağlantı hatası:', error);
+        updateConnectionStatus(false);
+        eventSource.close();
+        eventSource = null;
+
+        // Otomatik yeniden bağlanma
+        if (sseReconnectAttempts < MAX_SSE_RECONNECT_ATTEMPTS) {
+            sseReconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, sseReconnectAttempts), 30000); // Exponential backoff, max 30s
+            console.log(`🔄 SSE yeniden bağlanma denemesi ${sseReconnectAttempts}/${MAX_SSE_RECONNECT_ATTEMPTS} (${delay / 1000}s sonra)...`);
+            setTimeout(connectToSSE, delay);
+        } else {
+            console.error('❌ SSE bağlantısı kurulamadı. Polling moduna geçiliyor...');
+            startPollingFallback();
+        }
+    };
+}
+
+// SSE bağlantısını kapat
+function disconnectSSE() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+        console.log('🔌 SSE bağlantısı kapatıldı');
+    }
+}
+
+// ============================================
+// POLLING FALLBACK (SSE başarısız olursa)
+// ============================================
+
+// Polling modunu başlat
+function startPollingFallback() {
+    if (isPollingMode) return; // Zaten polling modunda
+
+    isPollingMode = true;
+    console.log('🔄 Polling modu aktif - Her 100ms\'de veri çekilecek');
+
+    // Polling interval başlat
+    pollingInterval = setInterval(async () => {
+        if (!isPageVisible) {
+            // Arka plandayken de polling yap, kuyruğa ekle
+            await fetchAndQueueDataPolling();
+        } else {
+            await pollTelemetryData();
+        }
+    }, 100);
+
+    // Her 60 saniyede SSE'yi tekrar dene
+    setInterval(() => {
+        if (isPollingMode) {
+            console.log('🔄 SSE bağlantısı tekrar deneniyor...');
+            sseReconnectAttempts = 0;
+            stopPollingFallback();
+            connectToSSE();
+        }
+    }, 60000);
+}
+
+// Polling modunu durdur
+function stopPollingFallback() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+    isPollingMode = false;
+    console.log('⏹️ Polling modu durduruldu');
+}
+
+// Polling ile veri çek
 async function fetchTelemetryData() {
     try {
         const response = await fetch('/api/telemetry');
@@ -337,21 +443,67 @@ async function fetchTelemetryData() {
     }
 }
 
-// Fetch ve kuyruğa ekleme fonksiyonu - arka planda çalışır
-async function fetchAndQueueData() {
+// Polling modunda veri işle
+async function pollTelemetryData() {
     const data = await fetchTelemetryData();
-
     if (!data) return;
 
-    // Veri counter kontrolü - aynı veri duplikasyonunu önle
+    // Veri counter kontrolü
     if (data.dataCounter !== undefined) {
         if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
-            return; // Aynı veri, ekleme
+            return; // Aynı veri
         }
         lastDataCounter = data.dataCounter;
     }
 
-    // Veriyi kuyruğa ekle
+    processRealTimeData(data);
+}
+
+// Polling modunda arka planda kuyruğa ekle
+async function fetchAndQueueDataPolling() {
+    const data = await fetchTelemetryData();
+    if (!data) return;
+
+    if (data.dataCounter !== undefined) {
+        if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
+            return;
+        }
+        lastDataCounter = data.dataCounter;
+    }
+
+    queueData(data);
+}
+
+// SSE'den gelen veriyi işle
+function handleIncomingData(data) {
+    // Sayfa görünür değilse kuyruğa ekle
+    if (!isPageVisible) {
+        queueData(data);
+        return;
+    }
+
+    // Veri counter kontrolü - aynı veri duplikasyonunu önle
+    if (data.dataCounter !== undefined) {
+        if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
+            return; // Aynı veri, işleme
+        }
+        lastDataCounter = data.dataCounter;
+    }
+
+    // Veriyi hemen işle
+    processRealTimeData(data);
+}
+
+// Veriyi kuyruğa ekle (sayfa arka plandayken)
+function queueData(data) {
+    // Veri counter kontrolü
+    if (data.dataCounter !== undefined) {
+        if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
+            return;
+        }
+        lastDataCounter = data.dataCounter;
+    }
+
     const queueItem = {
         data: data,
         timestamp: new Date()
@@ -359,7 +511,6 @@ async function fetchAndQueueData() {
 
     dataQueue.push(queueItem);
 
-    // Kuyruk boyutu kontrolü - eski verileri sil
     if (dataQueue.length > MAX_QUEUE_SIZE) {
         dataQueue.shift();
     }
@@ -376,7 +527,6 @@ function processDataQueue() {
 
     console.log(`🔄 Kuyruk işleniyor. ${dataQueue.length} veri işlenecek...`);
 
-    // Kuyruktaki tüm verileri işle
     while (dataQueue.length > 0) {
         const queueItem = dataQueue.shift();
         processQueuedData(queueItem.data, queueItem.timestamp);
@@ -598,39 +748,13 @@ function updateMultiChart(chart, time, values, maxPoints = 9) {
 }
 
 
-// Main update function
-async function updateVehicleData() {
-    // Sayfa görünür değilse sadece veriyi kuyruğa ekle
-    if (!isPageVisible) {
-        await fetchAndQueueData();
-        return;
-    }
+// ============================================
+// GERÇEK ZAMANLI VERİ İŞLEME (SSE için)
+// ============================================
 
-    // Önce kuyrukta bekleyen veriler varsa işle
-    if (dataQueue.length > 0) {
-        console.log(`📋 Önce kuyruktaki ${dataQueue.length} veri işleniyor...`);
-        processDataQueue();
-    }
-
-    const data = await fetchTelemetryData();
-
-    if (!data) {
-        console.log('Veri bekleniyor...');
-        return;
-    }
-
-    // Veri counter kontrolü - sadece yeni veri geldiğinde işle
-    if (data.dataCounter !== undefined) {
-        console.log(`📊 Veri counter: ${data.dataCounter}, Son: ${lastDataCounter}`);
-        if (lastDataCounter !== null && data.dataCounter === lastDataCounter) {
-            // Aynı veri counter'ı, yeni veri gelmemiş
-            console.log('⏸️ Aynı veri, grafikler güncellenmedi');
-            return;
-        }
-        // Yeni veri geldi, counter'ı güncelle
-        lastDataCounter = data.dataCounter;
-        console.log('✅ Yeni veri, grafikler güncelleniyor');
-    }
+// SSE'den gelen veriyi gerçek zamanlı işle
+function processRealTimeData(data) {
+    updateConnectionStatus(true);
 
     const time = new Date().toLocaleTimeString();
     const simTime = new Date();
@@ -780,6 +904,12 @@ async function updateVehicleData() {
     updateChart(jcChart, time, telemetry.jc);
     updateChart(jwChart, time, telemetry.jw);
     updateChart(jwhChart, time, telemetry.jwh);
+}
+
+// Geriye uyumluluk için updateVehicleData fonksiyonunu koru
+// (Artık kullanılmıyor, SSE ile değiştirildi)
+async function updateVehicleData() {
+    console.log('⚠️ updateVehicleData() çağrıldı ama artık SSE kullanılıyor');
 }
 
 // Calculate and update averages from server
@@ -1295,35 +1425,22 @@ document.addEventListener('DOMContentLoaded', function () {
     initCardResize();
     initColumnResize();
 
-    // Update every 100 milliseconds
-    //setInterval(updateVehicleData, 100);
-    startAnimationLoop();
+    // SSE bağlantısını başlat (Event-Driven)
+    connectToSSE();
 
     // Initial status
     updateConnectionStatus(false);
     setupVisibilityHandler();
+
+    console.log('🚀 Uygulama başlatıldı - Event-Driven SSE modu');
 });
 
-
+// Artık kullanılmayan animation loop (SSE ile değiştirildi)
 function startAnimationLoop() {
-    function animate(currentTime) {
-        // Her 100ms'de bir güncelle
-        if (currentTime - lastUpdateTime >= 100) {
-            updateVehicleData();
-            lastUpdateTime = currentTime;
-        }
-
-        // Döngüyü devam ettir
-        animationFrameId = requestAnimationFrame(animate);
-    }
-
-    animationFrameId = requestAnimationFrame(animate);
+    console.log('⚠️ startAnimationLoop() artık kullanılmıyor - SSE aktif');
 }
 
-// Arka planda veri toplama için interval
-let backgroundFetchInterval = null;
-
-// Sayfa görünürlük kontrolü
+// Sayfa görünürlük kontrolü (SSE ve Polling için optimize edildi)
 function setupVisibilityHandler() {
     document.addEventListener('visibilitychange', function () {
         const wasHidden = !isPageVisible;
@@ -1332,31 +1449,23 @@ function setupVisibilityHandler() {
         if (isPageVisible && wasHidden) {
             console.log('🟢 Sayfa aktif oldu');
 
-            // Arka plan fetch'ini durdur
-            if (backgroundFetchInterval) {
-                clearInterval(backgroundFetchInterval);
-                backgroundFetchInterval = null;
-                console.log('⏹️ Arka plan veri toplama durduruldu');
-            }
-
-            // Kuyruktaki verileri işle - grafikleri SIFIRLAMADAN
+            // Kuyruktaki verileri işle
             if (dataQueue.length > 0) {
                 console.log(`📋 Kuyruktaki ${dataQueue.length} veri işleniyor...`);
                 processDataQueue();
             }
 
-            // Animation loop'u yeniden başlat
-            if (!animationFrameId) {
-                lastUpdateTime = 0;
-                startAnimationLoop();
+            // Polling modunda değilsek ve SSE bağlantısı yoksa yeniden bağlan
+            if (!isPollingMode && (!eventSource || eventSource.readyState === EventSource.CLOSED)) {
+                console.log('🔄 SSE bağlantısı yeniden kuruluyor...');
+                sseReconnectAttempts = 0;
+                connectToSSE();
             }
         } else if (!isPageVisible) {
-            console.log('🔴 Sayfa arka planda');
-
-            // Arka planda veri toplamaya devam et (her 100ms'de bir)
-            if (!backgroundFetchInterval) {
-                backgroundFetchInterval = setInterval(fetchAndQueueData, 100);
-                console.log('▶️ Arka plan veri toplama başladı');
+            if (isPollingMode) {
+                console.log('🔴 Sayfa arka planda - Polling aktif, veriler kuyruğa alınacak');
+            } else {
+                console.log('🔴 Sayfa arka planda - SSE aktif, veriler kuyruğa alınacak');
             }
         }
     });

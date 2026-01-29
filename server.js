@@ -37,6 +37,29 @@ let latestTelemetryData = null;
 let key = '066c4e702e'
 let dataCounter = 0; // Her yeni veri geldiğinde artar
 
+// ============================================
+// SSE (Server-Sent Events) CLIENT YÖNETİMİ
+// ============================================
+let sseClients = new Set(); // Bağlı SSE client'ları
+
+// SSE broadcast - yeni veri geldiğinde tüm client'lara gönder
+function broadcastToClients(data) {
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+
+    sseClients.forEach(client => {
+        try {
+            client.write(message);
+        } catch (error) {
+            console.error('SSE client yazma hatası:', error);
+            sseClients.delete(client);
+        }
+    });
+
+    if (sseClients.size > 0) {
+        console.log(`📡 SSE broadcast: ${sseClients.size} client'a veri gönderildi`);
+    }
+}
+
 // CSV dosya ayarları
 const DATA_DIR = path.join(__dirname, 'telemetry_data');
 const TEST_DIR = path.join(__dirname, 'test_data');
@@ -337,6 +360,9 @@ function processIncomingData(data) {
     connectionStatus.lastUpdate = now.toISOString();
     connectionStatus.error = null;
 
+    // SSE ile tüm bağlı client'lara veri gönder
+    broadcastToClients(dataWithTimestamp);
+
     const speed = latestTelemetryData.h || 'N/A';
     const soc = latestTelemetryData.soc || 'N/A';
     const todayCount = getTodayDataCount() + pendingData.length;
@@ -502,10 +528,13 @@ app.get('/data', (req, res) => {
 
     // ÖNCE CEVABI GÖNDER - minimum latency için kritik
     res.removeHeader('X-Powered-By');
-    res.setHeader('Content-Length', 1);
-    //res.status(200).send(supercapacitor ? '1' : '0');
+    // Supercapacitor durumuna göre yanıt
     if (supercapacitor) {
+        res.setHeader('Content-Length', 1);
         res.status(200).send('1');
+    } else {
+        res.setHeader('Content-Length', 0);
+        res.status(200).send('');
     }
 
     // Performans logla
@@ -646,6 +675,38 @@ app.get('/api/auth/check', (req, res) => {
 });
 
 // Telemetri endpoints
+// SSE Stream Endpoint - Event-Driven veri akışı
+app.get('/api/telemetry/stream', requireAuth, (req, res) => {
+    // SSE Headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Nginx için
+    res.flushHeaders();
+
+    // Client'ı listeye ekle
+    sseClients.add(res);
+    console.log(`🔌 SSE client bağlandı. Toplam: ${sseClients.size}`);
+
+    // İlk bağlantıda mevcut veriyi gönder (varsa)
+    if (latestTelemetryData) {
+        res.write(`data: ${JSON.stringify(latestTelemetryData)}\n\n`);
+    }
+
+    // Heartbeat - bağlantıyı canlı tut (her 30 saniyede)
+    const heartbeat = setInterval(() => {
+        res.write(': heartbeat\n\n');
+    }, 30000);
+
+    // Client bağlantısı kesildiğinde temizle
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        sseClients.delete(res);
+        console.log(`🔌 SSE client ayrıldı. Toplam: ${sseClients.size}`);
+    });
+});
+
+// Eski polling endpoint (geriye uyumluluk için)
 app.get('/api/telemetry', requireAuth, (req, res) => {
     if (!latestTelemetryData) {
         return res.status(503).json({ error: 'Henüz veri alınmadı' });

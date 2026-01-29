@@ -217,25 +217,37 @@ fullmap arayüzünde polling ayarla (düşür) [+]
 arayüzdeki çöp kovasını kaldır
 harita yanlış yeri gösteriyor [+] (sorun vary() fonksiyonu) 
 mobil görünümde test başlat butonu test bitirildikten sonra sapıtıyor [+]
-
+----------------------------------------------------------------------------------------
 
 admin hesapları (ayarları yapacaklar) [+]
 normal kullanıcılar (sadece izleyecekler) [+]
 kaynak değiştirmeden önce sor [+]
 mobil görünümde test başlat, veri kaynağı değiştirme olayı olmayacak. [+]
-
+-------------------------------------------------------------------------------
 masaüstü uygulamasına grafikler eklenecek, fullview modu 
 veri kaynağı sadece uygulama üzerinden değiştirilebilecek. [?] 
 uygulamada mqtt ayrıca bağlanmayacak verileri sunucudan çekecek
 Kayıtlar arayüzde silinemesin
 
-uygulamada kontrol paneli açılır kapanır olsun
+uygulamada kontrol paneli açılır kapanır olsun [+]
 (voltaj ,akım, watt), batarya ,fuelcell, joulmetre grafikleri
 ortalamaları hesapla ve göster (full ve uygulama)
 uygulama kısmında grafikler son 10 veriyi göstersin (Son 10 saniyeyi değil.)
 site ve uygulama kısmında grafikler son 10 verinin aralıklarında gösterilsin mesela (200 - 300)
 
+web arayüzünde polling yerine event-driving yap [+] [test edilmesi lazım]
+aks de olamaz çünkü sadece server res.write() yapabilir 
+
+grafikler bazen aynı veriyi yine gösteriyor (birden çok veri biranda gelince oluyor bu)
+Melihle yaptığımız server sürümü old adı ile pm2 eklendi
+uygulama tarafında event-driven yap [+][test edilmesi lazım]
+haritalara uydu görünümü eklenebilir
+
 sector'leri sadece uygulamada hesapla
 sector'lerde hızı hesapla yavaşla hızlan diye döndür
 
-+httpaction:0,200,1 
+
++httpaction:0,200,1
+artık httpaction 0,200,'' gibi birşey dönüyor çünkü artık süperkapasitör 0 iken boş string dönüyor.
+event-driven sistem eklendi test edilmedi
+deploy edilmedi ama sunucu tarafında supercapacitor 504 hatasi giderildi

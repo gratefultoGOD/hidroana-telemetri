@@ -721,13 +721,93 @@
             } catch { }
         }
 
+        // ============================================
+        // SSE (Server-Sent Events) BAĞLANTISI
+        // ============================================
+        let eventSource = null;
+        let sseReconnectAttempts = 0;
+        let isPollingMode = false;
+        let pollingInterval = null;
+        const MAX_SSE_RECONNECT_ATTEMPTS = 10;
+
+        function connectToSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            console.log('🔌 SSE bağlantısı kuruluyor...');
+            eventSource = new EventSource('/api/telemetry/stream');
+
+            eventSource.onopen = function () {
+                console.log('✅ SSE bağlantısı kuruldu');
+                sseReconnectAttempts = 0;
+                setOnline();
+            };
+
+            eventSource.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateDisplay(data);
+                } catch (error) {
+                    console.error('SSE mesaj parse hatası:', error);
+                }
+            };
+
+            eventSource.onerror = function (error) {
+                console.error('❌ SSE bağlantı hatası:', error);
+                setOffline();
+                eventSource.close();
+                eventSource = null;
+
+                if (sseReconnectAttempts < MAX_SSE_RECONNECT_ATTEMPTS) {
+                    sseReconnectAttempts++;
+                    const delay = Math.min(1000 * Math.pow(2, sseReconnectAttempts), 30000);
+                    console.log(`🔄 SSE yeniden bağlanma denemesi ${sseReconnectAttempts}/${MAX_SSE_RECONNECT_ATTEMPTS} (${delay / 1000}s sonra)...`);
+                    setTimeout(connectToSSE, delay);
+                } else {
+                    console.error('❌ SSE bağlantısı kurulamadı. Polling moduna geçiliyor...');
+                    startPollingFallback();
+                }
+            };
+        }
+
+        function startPollingFallback() {
+            if (isPollingMode) return;
+
+            isPollingMode = true;
+            console.log('🔄 Polling modu aktif');
+
+            pollingInterval = setInterval(fetchData, 100);
+
+            // Her 60 saniyede SSE'yi tekrar dene
+            setInterval(() => {
+                if (isPollingMode) {
+                    console.log('🔄 SSE bağlantısı tekrar deneniyor...');
+                    sseReconnectAttempts = 0;
+                    if (pollingInterval) {
+                        clearInterval(pollingInterval);
+                        pollingInterval = null;
+                    }
+                    isPollingMode = false;
+                    connectToSSE();
+                }
+            }, 60000);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
-            fetchData(); fetchCount(); fetchAverages();
-            setInterval(fetchData, 100);
+
+            // SSE bağlantısını başlat (Event-Driven)
+            connectToSSE();
+
+            // Ortalama ve kayıt sayısı için interval
+            fetchCount(); fetchAverages();
             setInterval(fetchAverages, 1000);
             setInterval(fetchCount, 1000);
+
             document.addEventListener('click', () => document.documentElement.requestFullscreen?.(), { once: true });
+
+            console.log('🚀 Mobil sayfa başlatıldı - Event-Driven SSE modu');
         });
 
         window.addEventListener('orientationchange', () => setTimeout(() => map?.invalidateSize(), 100));

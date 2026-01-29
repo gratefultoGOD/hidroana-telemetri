@@ -112,13 +112,12 @@ async function sendData() {
     updateState();
     const queryString = buildQueryString();
     const url = `${TARGET_URL}?${queryString}`;
-
+    //console.log(url);
     try {
         const response = await fetch(url);
         const text = await response.text();
 
         if (response.ok) {
-            //console.log(`📤 Gönderildi: Hız=${Math.round(state.h)} km/h, SOC=${state.soc.toFixed(2)}%`);
             console.log(text);
         } else {
             console.log(`⚠️  Sunucu yanıtı: ${text}`);
