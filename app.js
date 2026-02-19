@@ -129,10 +129,10 @@ function initMap() {
     });
 
     marker = L.marker([50.528366, 18.0975], { icon: customIcon }).addTo(map);
-    var track = omnivore.kml('./path.kml');
+//    var track = omnivore.kml('./path.kml');
 
 
-    track.on('ready', function (layer) {
+/*    track.on('ready', function (layer) {
 
         layer.target.setStyle({
             color: '#FF0000',
@@ -141,7 +141,7 @@ function initMap() {
         });
 
         map.fitBounds(track.getBounds());
-    }).on('error', (e) => { console.log(e) }).addTo(map);
+    }).on('error', (e) => { console.log(e) }).addTo(map);*/
 
 }
 
