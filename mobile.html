@@ -171,7 +171,7 @@
 
         /* Top Right - Count */
         .top-right {
-            top: 5px;
+            top: 60px;
             right: 5px;
         }
 
@@ -612,8 +612,28 @@
         let map, marker, currentBearing = 0;
 
         function initMap() {
-            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.7128, -74.006], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.7128, -74.006], 18);
+            
+            // Base layers
+            const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+                maxZoom: 19 
+            });
+            
+            // Google Hybrid (Uydu + Etiketler)
+            const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { 
+                maxZoom: 20 
+            });
+            
+            // Add default layer (Uydu)
+            googleHybrid.addTo(map);
+            
+            // Layer control
+            const baseMaps = {
+                "Sokak": streetLayer,
+                "Uydu": googleHybrid
+            };
+            L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+            
             updateMarker([40.7128, -74.006]);
         }
 
@@ -642,8 +662,10 @@
 
         function updateDisplay(d) {
             setText('speed', Math.round(parseFloat(d.h) || 0));
-            setText('lat', parseFloat(d.y || 0).toFixed(5));
-            setText('lng', parseFloat(d.x || 0).toFixed(5));
+            // NOT: Cihaz x ve y değerlerini ters gönderiyor!
+            // Cihazdan gelen: x = latitude, y = longitude
+            setText('lat', parseFloat(d.x || 0).toFixed(5));  // x'den latitude al
+            setText('lng', parseFloat(d.y || 0).toFixed(5));  // y'den longitude al
             setText('gsm', d.gs || '--');
             setText('fv', d.fv || '--'); setText('fa', d.fa || '--'); setText('fw', d.fw || '--');
             setText('fet', d.fet || '--'); setText('fit', d.fit || '--');
@@ -658,7 +680,8 @@
             if (fill) { fill.style.width = Math.min(soc, 100) + '%'; fill.style.background = soc > 50 ? '#00ff88' : soc > 20 ? '#ffaa00' : '#ff4444'; }
 
             if (d.x && d.y) {
-                const newPos = [parseFloat(d.y), parseFloat(d.x)];
+                // Cihazdan gelen: x = latitude, y = longitude
+                const newPos = [parseFloat(d.x), parseFloat(d.y)];  // [lat, lng] formatı
                 if (marker) {
                     const old = marker.getLatLng();
                     if (Math.abs(old.lat - newPos[0]) > 0.00001 || Math.abs(old.lng - newPos[1]) > 0.00001)

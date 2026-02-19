@@ -251,3 +251,23 @@ sector'lerde hızı hesapla yavaşla hızlan diye döndür
 artık httpaction 0,200,'' gibi birşey dönüyor çünkü artık süperkapasitör 0 iken boş string dönüyor.
 event-driven sistem eklendi test edilmedi
 deploy edilmedi ama sunucu tarafında supercapacitor 504 hatasi giderildi
+grafikleri daha okunabilir yap çizginin üstüne gelince değerini göster grafikleri iki digit daha göster ör: 24.56
+sistem dosyaları silinemesin
+
+map'e uydu ve street view geçişi ekle.
+query'ler isim tabanlı mı kontrol et
+uygulama kısmında sectorlere manuel olarakayrılacak, renkler ayrılacak, sector ayırma metre cinsinden sectorler ayrılacak, hızı sectorlerin kenarında göster
+uygulama kısmında sector ve normal harita olmak üzere iki farklı toggle olacak. sector modunda harita pisti görecek şekilde sabitlenir, marker dolaşır.
+bilecik demir çeliğe yaz
+
+total average şuan son veriyi gösteriyor
+koordinatları ters çevir
+harita zoomu çok düşük arttır 
+gaz pedalı potansiyometre verisi gelebilir.
+SPONSOR BUUUUUUUUUUUUUUUUL
+
+mobil görünüm 
+gps nerede gözüküyor testlerde kontrol et
+f1 telemetry circuit araştır
+sector muhabbeti ayrı bir sayfada web sitede
+ 

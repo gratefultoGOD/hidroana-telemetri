@@ -92,11 +92,29 @@ function initMap() {
         return;
     }
 
-    map = L.map('map').setView([39.816297, 30.528611], 13);
+    map = L.map('map').setView([50.528366, 18.0975], 19);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    // Base layers
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    });
+
+    // Google Hybrid (Uydu + Etiketler)
+    const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '© Google',
+        maxZoom: 20
+    });
+
+    // Add default layer (Uydu)
+    googleHybrid.addTo(map);
+
+    // Layer control
+    const baseMaps = {
+        "Sokak Haritası": streetLayer,
+        "Uydu Görünümü": googleHybrid
+    };
+    L.control.layers(baseMaps).addTo(map);
 
     const customIcon = L.divIcon({
         className: 'custom-marker',
@@ -110,7 +128,21 @@ function initMap() {
         iconAnchor: [20, 20]
     });
 
-    marker = L.marker([39.816111, 30.528611], { icon: customIcon }).addTo(map);
+    marker = L.marker([50.528366, 18.0975], { icon: customIcon }).addTo(map);
+    var track = omnivore.kml('./path.kml');
+
+
+    track.on('ready', function (layer) {
+
+        layer.target.setStyle({
+            color: '#FF0000',
+            weight: 4,
+            opacity: 1
+        });
+
+        map.fitBounds(track.getBounds());
+    }).on('error', (e) => { console.log(e) }).addTo(map);
+
 }
 
 // Initialize speedometer
@@ -541,10 +573,12 @@ function processQueuedData(data, queueTimestamp) {
     const simTime = queueTimestamp;
 
     // Parse data - handle both direct format and nested format
+    // NOT: Cihaz x ve y değerlerini ters gönderiyor!
+    // Cihazdan gelen: x = latitude, y = longitude
     const telemetry = {
         h: parseFloat(data.h || data.speed || 0),
-        x: parseFloat(data.x || data.longitude || 0),
-        y: parseFloat(data.y || data.latitude || 0),
+        x: parseFloat(data.y || data.longitude || 0),  // y'den longitude al
+        y: parseFloat(data.x || data.latitude || 0),   // x'den latitude al
         gs: parseFloat(data.gs || data.gsmSignal || 0),
         fv: parseFloat(data.fv || data.fuelVoltage || 0),
         fa: parseFloat(data.fa || data.fuelCurrent || 0),
@@ -760,10 +794,12 @@ function processRealTimeData(data) {
     const simTime = new Date();
 
     // Parse data - handle both direct format and nested format
+    // NOT: Cihaz x ve y değerlerini ters gönderiyor!
+    // Cihazdan gelen: x = latitude, y = longitude
     const telemetry = {
         h: parseFloat(data.h || data.speed || 0),
-        x: parseFloat(data.x || data.longitude || 0),
-        y: parseFloat(data.y || data.latitude || 0),
+        x: parseFloat(data.y || data.longitude || 0),  // y'den longitude al
+        y: parseFloat(data.x || data.latitude || 0),   // x'den latitude al
         gs: parseFloat(data.gs || data.gsmSignal || 0),
         fv: parseFloat(data.fv || data.fuelVoltage || 0),
         fa: parseFloat(data.fa || data.fuelCurrent || 0),
@@ -786,7 +822,7 @@ function processRealTimeData(data) {
     };
 
     // Update map position
-    if (telemetry.x && telemetry.y) {
+    if (telemetry.x !== undefined && telemetry.x !== null && telemetry.y !== undefined && telemetry.y !== null) {
         const newPosition = [telemetry.y, telemetry.x]; // lat, lng
 
         // Calculate bearing if we have previous position
@@ -812,7 +848,7 @@ function processRealTimeData(data) {
         marker.setLatLng(newPosition);
         map.panTo(newPosition);
 
-        setElementText('coordinate-label', `Koordinatlar: ${telemetry.y.toFixed(6)}, ${telemetry.x.toFixed(6)}`);
+        setElementText('coordinate-label', `Koordinatlar: ${telemetry.y.toFixed(6)}, ${telemetry.x.toFixed(6)} (Lat, Long)`);
     }
 
     // Update GSM signal

@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yarış İzleme - Silesia Ring</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #000;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            overflow-y: auto;
+            border-right: 2px solid #00ff88;
+            backdrop-filter: blur(10px);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ff88;
+            text-align: center;
+        }
+
+        .status-box {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 212, 170, 0.2));
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #00ff88;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 13px;
+        }
+
+        .status-label {
+            color: #aaa;
+        }
+
+        .status-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .speed-display {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .speed-value {
+            font-size: 48px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .speed-label {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .sector-info {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid;
+        }
+
+        .sector-info.correct {
+            border-left-color: #43e97b;
+        }
+
+        .sector-info.warning {
+            border-left-color: #feca57;
+        }
+
+        .sector-info.danger {
+            border-left-color: #ff4444;
+        }
+
+        .sector-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .sector-detail {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin: 4px 0;
+        }
+
+        .efficiency-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .efficiency-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .efficiency-label {
+            color: #aaa;
+        }
+
+        .efficiency-value {
+            font-weight: bold;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #00ff88, #00d4aa);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            backdrop-filter: blur(10px);
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f3460;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ff88;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🏁 Yarış İzleme</h1>
+            
+            <div class="status-box">
+                <div class="status-row">
+                    <span class="status-label">Bağlantı:</span>
+                    <span class="status-value" id="connectionStatus">Bağlanıyor...</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Sector Planı:</span>
+                    <span class="status-value" id="sectorPlanName">Yüklenmedi</span>
+                </div>
+            </div>
+
+            <div class="speed-display">
+                <div class="speed-value" id="currentSpeed">0</div>
+                <div class="speed-label">km/h</div>
+            </div>
+
+            <div class="sector-info" id="currentSectorInfo">
+                <div class="sector-title">Sector Bilgisi</div>
+                <div class="sector-detail">
+                    <span>Sector:</span>
+                    <span id="sectorNumber">-</span>
+                </div>
+                <div class="sector-detail">
+                    <span>Hedef Hız:</span>
+                    <span id="targetSpeed">-</span>
+                </div>
+                <div class="sector-detail">
+                    <span>Mevcut Hız:</span>
+                    <span id="actualSpeed">-</span>
+                </div>
+                <div class="sector-detail">
+                    <span>Durum:</span>
+                    <span id="speedStatus">-</span>
+                </div>
+            </div>
+
+            <div class="efficiency-box">
+                <h3 style="font-size: 14px; margin-bottom: 8px;">Konum & Yönelim</h3>
+                <div class="efficiency-row">
+                    <span class="efficiency-label">Bearing:</span>
+                    <span class="efficiency-value" id="bearing">-°</span>
+                </div>
+                <div class="efficiency-row">
+                    <span class="efficiency-label">Koordinat:</span>
+                    <span class="efficiency-value" id="coordinates" style="font-size: 10px;">-</span>
+                </div>
+            </div>
+
+            <div class="efficiency-box">
+                <h3 style="font-size: 14px; margin-bottom: 8px;">Verimlilik</h3>
+                <div class="efficiency-row">
+                    <span class="efficiency-label">SOC:</span>
+                    <span class="efficiency-value" id="soc">-%</span>
+                </div>
+                <div class="efficiency-row">
+                    <span class="efficiency-label">Kalan Enerji:</span>
+                    <span class="efficiency-value" id="remainingEnergy">- kWh</span>
+                </div>
+                <div class="efficiency-row">
+                    <span class="efficiency-label">Batarya Gücü:</span>
+                    <span class="efficiency-value" id="batteryPower">- W</span>
+                </div>
+                <div class="efficiency-row">
+                    <span class="efficiency-label">Fuel Cell Gücü:</span>
+                    <span class="efficiency-value" id="fuelPower">- W</span>
+                </div>
+            </div>
+
+            <button onclick="showLoadDialog()">Sector Planı Yükle</button>
+        </div>
+
+        <div class="map-container">
+            <a href="/" class="back-btn">← Ana Sayfa</a>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js'></script>
+    <script>
+        let map;
+        let vehicleMarker;
+        let trackCoordinates = [];
+        let sectors = [];
+        let sectorLayers = [];
+        let currentSectorIndex = -1;
+        let totalTrackLength = 0;
+        let eventSource = null;
+        let lastPosition = null;
+        let currentBearing = 0;
+
+        // Haversine formülü ile iki nokta arası mesafe (metre)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Hıza göre renk
+        function getColorForSpeed(speed) {
+            if (speed < 15) return '#00ffff';
+            if (speed < 30) return '#00ff00';
+            if (speed < 45) return '#ffff00';
+            if (speed < 60) return '#ff8800';
+            return '#ff0000';
+        }
+
+        // İki nokta arasındaki bearing'i hesapla (derece)
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            const bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360;
+        }
+
+        // Bearing'i yön ismine çevir
+        function bearingToDirection(bearing) {
+            const directions = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];
+            const index = Math.round(bearing / 45) % 8;
+            return directions[index];
+        }
+
+        // Haritayı başlat
+        function initMap() {
+            map = L.map('map').setView([50.5284, 18.0975], 15);
+
+            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20
+            }).addTo(map);
+
+            // Araç marker'ı (ok şeklinde, yönelimi gösterir)
+            const vehicleIcon = L.divIcon({
+                className: 'vehicle-marker',
+                html: `<div style="transform: rotate(${currentBearing}deg); transition: transform 0.3s ease;">
+                    <svg width="40" height="40" viewBox="0 0 40 40" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M20 5 L30 30 L20 25 L10 30 Z" fill="#667eea" stroke="white" stroke-width="2"/>
+                        <circle cx="20" cy="20" r="3" fill="white"/>
+                    </svg>
+                </div>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            vehicleMarker = L.marker([50.5284, 18.0975], { icon: vehicleIcon }).addTo(map);
+
+            // KML dosyasını yükle
+            loadTrackFromKML();
+        }
+
+        // KML'den track'i yükle
+        function loadTrackFromKML() {
+            const track = omnivore.kml('./path.kml');
+
+            track.on('ready', function(layer) {
+                const geoJSON = layer.target.toGeoJSON();
+                const coordinates = geoJSON.features[0].geometry.coordinates;
+
+                trackCoordinates = coordinates.map(coord => [coord[1], coord[0]]);
+
+                // Toplam uzunluğu hesapla
+                totalTrackLength = 0;
+                for (let i = 1; i < trackCoordinates.length; i++) {
+                    const dist = calculateDistance(
+                        trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                        trackCoordinates[i][0], trackCoordinates[i][1]
+                    );
+                    totalTrackLength += dist;
+                }
+
+                // Track'i haritada göster (gri)
+                L.polyline(trackCoordinates, {
+                    color: '#666',
+                    weight: 4,
+                    opacity: 0.5
+                }).addTo(map);
+
+                map.fitBounds(L.polyline(trackCoordinates).getBounds());
+            });
+        }
+
+        // Sector planını yükle
+        function showLoadDialog() {
+            fetch('/api/sectors/list')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.sectors || data.sectors.length === 0) {
+                        alert('Kaydedilmiş sector planı bulunamadı!');
+                        return;
+                    }
+                    
+                    let message = 'Yüklemek istediğiniz planı seçin:\n\n';
+                    data.sectors.forEach((s, i) => {
+                        message += `${i + 1}. ${s.name} (${s.sectorCount} sector)\n`;
+                    });
+                    
+                    const choice = prompt(message + '\nNumara girin:');
+                    if (!choice) return;
+                    
+                    const index = parseInt(choice) - 1;
+                    if (index >= 0 && index < data.sectors.length) {
+                        loadSectorPlan(data.sectors[index].fileName, data.sectors[index].name);
+                    } else {
+                        alert('Geçersiz seçim!');
+                    }
+                })
+                .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        function loadSectorPlan(fileName, planName) {
+            fetch('/api/sectors/load/' + fileName)
+                .then(res => res.json())
+                .then(data => {
+                    sectors = data.sectors;
+                    document.getElementById('sectorPlanName').textContent = planName;
+                    applySectors();
+                    alert('Sector planı yüklendi: ' + planName);
+                })
+                .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        // Sector'leri haritaya uygula
+        function applySectors() {
+            sectorLayers.forEach(layer => map.removeLayer(layer));
+            sectorLayers = [];
+
+            let tempDistance = 0;
+
+            for (let s = 0; s < sectors.length; s++) {
+                const sector = sectors[s];
+                let sectorStartIndex = -1;
+                let sectorEndIndex = -1;
+                let currentDist = 0;
+
+                for (let i = 1; i < trackCoordinates.length; i++) {
+                    const dist = calculateDistance(
+                        trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                        trackCoordinates[i][0], trackCoordinates[i][1]
+                    );
+                    currentDist += dist;
+
+                    if (sectorStartIndex === -1 && currentDist >= sector.startMeter) {
+                        sectorStartIndex = i - 1;
+                    }
+
+                    if (sectorStartIndex !== -1 && currentDist >= sector.endMeter) {
+                        sectorEndIndex = i;
+                        break;
+                    }
+                }
+
+                if (sectorStartIndex !== -1 && sectorEndIndex !== -1) {
+                    const sectorCoords = trackCoordinates.slice(sectorStartIndex, sectorEndIndex + 1);
+                    const color = getColorForSpeed(sector.targetSpeed);
+
+                    const polyline = L.polyline(sectorCoords, {
+                        color: color,
+                        weight: 6,
+                        opacity: 0.8
+                    }).addTo(map);
+
+                    polyline.bindPopup(`
+                        <strong>Sector ${sector.id}</strong><br>
+                        ${sector.startMeter}m - ${sector.endMeter}m<br>
+                        Hedef Hız: ${sector.targetSpeed} km/h
+                    `);
+
+                    sectorLayers.push(polyline);
+                }
+            }
+        }
+
+        // Araç konumuna göre hangi sector'da olduğunu bul
+        function findCurrentSector(lat, lng) {
+            if (sectors.length === 0 || trackCoordinates.length === 0) return -1;
+
+            let minDistance = Infinity;
+            let closestIndex = -1;
+
+            // En yakın track noktasını bul
+            for (let i = 0; i < trackCoordinates.length; i++) {
+                const dist = calculateDistance(lat, lng, trackCoordinates[i][0], trackCoordinates[i][1]);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestIndex = i;
+                }
+            }
+
+            // Bu noktanın hangi sector'da olduğunu bul
+            let accumulatedDistance = 0;
+            for (let i = 1; i <= closestIndex; i++) {
+                accumulatedDistance += calculateDistance(
+                    trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                    trackCoordinates[i][0], trackCoordinates[i][1]
+                );
+            }
+
+            for (let s = 0; s < sectors.length; s++) {
+                if (accumulatedDistance >= sectors[s].startMeter && accumulatedDistance <= sectors[s].endMeter) {
+                    return s;
+                }
+            }
+
+            return -1;
+        }
+
+        // Telemetri verisini işle
+        function processTelemetryData(data) {
+            // Hız
+            const speed = parseFloat(data.h || 0);
+            document.getElementById('currentSpeed').textContent = speed.toFixed(0);
+
+            // Konum (NOT: Cihaz x ve y'yi ters gönderiyor)
+            const lat = parseFloat(data.x || 0);  // x = latitude
+            const lng = parseFloat(data.y || 0);  // y = longitude
+
+            if (lat && lng) {
+                const newPosition = [lat, lng];
+
+                // Bearing hesapla (önceki konum varsa)
+                if (lastPosition && (lastPosition[0] !== lat || lastPosition[1] !== lng)) {
+                    currentBearing = calculateBearing(
+                        lastPosition[0], lastPosition[1],
+                        lat, lng
+                    );
+
+                    // Marker'ı güncelle (yönelim ile)
+                    const vehicleIcon = L.divIcon({
+                        className: 'vehicle-marker',
+                        html: `<div style="transform: rotate(${currentBearing}deg); transition: transform 0.3s ease;">
+                            <svg width="40" height="40" viewBox="0 0 40 40" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                                <path d="M20 5 L30 30 L20 25 L10 30 Z" fill="#667eea" stroke="white" stroke-width="2"/>
+                                <circle cx="20" cy="20" r="3" fill="white"/>
+                            </svg>
+                        </div>`,
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 20]
+                    });
+                    vehicleMarker.setIcon(vehicleIcon);
+
+                    // Bearing bilgisini göster
+                    const direction = bearingToDirection(currentBearing);
+                    document.getElementById('bearing').textContent = `${currentBearing.toFixed(0)}° (${direction})`;
+                }
+
+                vehicleMarker.setLatLng(newPosition);
+                map.panTo(newPosition);
+                lastPosition = newPosition;
+
+                // Koordinatları göster
+                document.getElementById('coordinates').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+                // Hangi sector'da olduğunu bul
+                const sectorIndex = findCurrentSector(lat, lng);
+                
+                if (sectorIndex !== -1 && sectorIndex !== currentSectorIndex) {
+                    currentSectorIndex = sectorIndex;
+                    updateSectorInfo(sectors[sectorIndex], speed);
+                } else if (sectorIndex !== -1) {
+                    updateSectorInfo(sectors[sectorIndex], speed);
+                }
+            }
+
+            // Verimlilik verileri
+            document.getElementById('soc').textContent = (parseFloat(data.soc || 0)).toFixed(0) + '%';
+            document.getElementById('remainingEnergy').textContent = (parseFloat(data.ke || 0)).toFixed(1) + ' kWh';
+            document.getElementById('batteryPower').textContent = (parseFloat(data.bw || 0)).toFixed(0) + ' W';
+            document.getElementById('fuelPower').textContent = (parseFloat(data.fw || 0)).toFixed(0) + ' W';
+        }
+
+        // Sector bilgisini güncelle
+        function updateSectorInfo(sector, currentSpeed) {
+            const sectorInfo = document.getElementById('currentSectorInfo');
+            document.getElementById('sectorNumber').textContent = `Sector ${sector.id}`;
+            document.getElementById('targetSpeed').textContent = `${sector.targetSpeed} km/h`;
+            document.getElementById('actualSpeed').textContent = `${currentSpeed.toFixed(0)} km/h`;
+
+            const speedDiff = currentSpeed - sector.targetSpeed;
+            let status = '';
+            let statusClass = '';
+
+            if (Math.abs(speedDiff) <= 5) {
+                status = '✓ İdeal';
+                statusClass = 'correct';
+            } else if (speedDiff > 5) {
+                status = `⚠ ${speedDiff.toFixed(0)} km/h Hızlı`;
+                statusClass = 'warning';
+            } else {
+                status = `⚠ ${Math.abs(speedDiff).toFixed(0)} km/h Yavaş`;
+                statusClass = 'danger';
+            }
+
+            document.getElementById('speedStatus').textContent = status;
+            sectorInfo.className = 'sector-info ' + statusClass;
+        }
+
+        // SSE bağlantısını başlat
+        function connectToSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            console.log('SSE bağlantısı kuruluyor...');
+            eventSource = new EventSource('/api/telemetry/stream');
+
+            eventSource.onopen = function() {
+                console.log('SSE bağlandı');
+                document.getElementById('connectionStatus').textContent = 'Bağlı';
+            };
+
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    processTelemetryData(data);
+                } catch (error) {
+                    console.error('SSE parse hatası:', error);
+                }
+            };
+
+            eventSource.onerror = function(error) {
+                console.error('SSE hatası:', error);
+                document.getElementById('connectionStatus').textContent = 'Bağlantı Yok';
+                eventSource.close();
+                
+                // 5 saniye sonra tekrar dene
+                setTimeout(connectToSSE, 5000);
+            };
+        }
+
+        // Sayfa yüklendiğinde
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            connectToSSE();
+        });
+    </script>
+</body>
+</html>

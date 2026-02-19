@@ -1,21 +1,79 @@
 /**
- * Fake Telemetry Client
+ * Fake Telemetry Client - Silesia Ring Track Simulator
  * Araç gibi davranarak ana sunucuya GET isteği ile telemetri verisi gönderir
- * Ana sunucu HTTP modunda olmalı!
+ * Pistin gerçek koordinatlarını kullanarak simülasyon yapar
  */
 
-const TARGET_URL = process.env.TARGET_URL || 'http://telemetri.hidroana.com/data';
+const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
+const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
 
-//const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
-const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 250; // ms
+// Silesia Ring pist koordinatları (ana noktalar - daha hızlı simülasyon için)
+const trackCoordinates = [
+    [50.52921, 18.09611],   // Start
+    [50.52915, 18.09623],   // Düz 1
+    [50.52905, 18.09665],   // Düz 2
+    [50.52880, 18.09710],   // Viraj 1 giriş
+    [50.52866, 18.09733],   // Viraj 1
+    [50.52850, 18.09745],   // Viraj 1 çıkış
+    [50.52830, 18.09750],   // Düz 3
+    [50.52810, 18.09710],   // Viraj 2 giriş
+    [50.52803, 18.09665],   // Viraj 2
+    [50.52802, 18.09610],   // Viraj 2 çıkış
+    [50.52823, 18.09560],   // Düz 4
+    [50.52828, 18.09510],   // Düz 5
+    [50.52835, 18.09450],   // Düz 6
+    [50.52838, 18.09390],   // Viraj 3 giriş
+    [50.52839, 18.09330],   // Viraj 3
+    [50.52838, 18.09270],   // Viraj 3 çıkış
+    [50.52868, 18.09365],   // Viraj 4 giriş
+    [50.52867, 18.09310],   // Viraj 4
+    [50.52868, 18.09260],   // Viraj 4 çıkış
+    [50.52862, 18.09210],   // Düz 7
+    [50.52860, 18.09150],   // Düz 8
+    [50.52860, 18.09090],   // Viraj 5 giriş
+    [50.52862, 18.09070],   // Viraj 5
+    [50.52870, 18.09045],   // Viraj 5 çıkış
+    [50.52900, 18.09035],   // Düz 9
+    [50.52950, 18.09035],   // Düz 10
+    [50.53000, 18.09110],   // Viraj 6 giriş
+    [50.53050, 18.09180],   // Viraj 6
+    [50.53100, 18.09250],   // Viraj 6 çıkış
+    [50.53150, 18.09320],   // Düz 11
+    [50.53200, 18.09390],   // Düz 12
+    [50.53250, 18.09460],   // Düz 13
+    [50.53300, 18.09530],   // Viraj 7 giriş
+    [50.53350, 18.09560],   // Viraj 7
+    [50.53400, 18.09560],   // Viraj 7 çıkış
+    [50.53450, 18.09530],   // Düz 14
+    [50.53500, 18.09460],   // Düz 15
+    [50.53550, 18.09390],   // Viraj 8 giriş
+    [50.53560, 18.09320],   // Viraj 8
+    [50.53540, 18.09250],   // Viraj 8 çıkış
+    [50.53500, 18.09180],   // Düz 16
+    [50.53450, 18.09110],   // Düz 17
+    [50.53400, 18.09040],   // Viraj 9 giriş
+    [50.53350, 18.09000],   // Viraj 9
+    [50.53300, 18.09000],   // Viraj 9 çıkış
+    [50.53250, 18.09040],   // Düz 18
+    [50.53200, 18.09110],   // Düz 19
+    [50.53150, 18.09180],   // Viraj 10 giriş
+    [50.53100, 18.09220],   // Viraj 10
+    [50.53050, 18.09220],   // Viraj 10 çıkış
+    [50.53000, 18.09180],   // Düz 20
+    [50.52950, 18.09110],   // Düz 21
+    [50.52920, 18.09610]    // Finish (Start'a dön)
+];
+
+let currentTrackIndex = 0;
+let trackProgress = 0; // 0-1 arası, iki nokta arasındaki ilerleme
 
 // Başlangıç değerleri
 let state = {
     h: 25,          // Hız (km/h)
-    x: 30.528611,     // Longitude (İstanbul)
-    y: 39.816111,     // Latitude
+    x: trackCoordinates[0][0],  // Latitude (Enlem - cihaz x olarak latitude gönderiyor)
+    y: trackCoordinates[0][1],  // Longitude (Boylam - cihaz y olarak longitude gönderiyor)
     gp: 1,          // GPS fix
-    gs: 1,         // GSM sinyal
+    gs: 20,         // GSM sinyal
     fv: 42.5,       // Fuel cell voltage
     fa: 12.3,       // Fuel cell current
     fw: 520,        // Fuel cell watt
@@ -41,37 +99,57 @@ let state = {
 // Rastgele değişim fonksiyonu
 function vary(value, range, min = 0, max = Infinity) {
     const change = (Math.random() - 0.5) * range;
-    return Math.max(min, Math.min(max, value + change * 10));
+    return Math.max(min, Math.min(max, value + change));
 }
 
-// Veriyi güncelle (gerçekçi değişimler)
+// İki nokta arasında interpolasyon
+function lerp(start, end, t) {
+    return start + (end - start) * t;
+}
+
+// Veriyi güncelle (gerçekçi değişimler + pist takibi)
 function updateState() {
-    state.h = vary(state.h, 5, 0, 120);
-    state.x = vary(state.x, 0.00001, 32.5, 100.0);
-    //state.x = state.x + 0.0001;
-    state.y = vary(state.y, 0.00001, 39.7, 100.2);
-    //state.y = state.y + 0.0001;
-    state.gp = Math.round(vary(state.gp, 0.5, 0, 3));
-    state.gs = Math.round(vary(state.gs, 0, 30));
-    //state.gs = 1;
-    state.fv = vary(state.fv, 1, 35, 100);
-    state.fa = vary(state.fa, 0.5, 5, 100);
-    state.fw = state.fw + 1;
-    state.fet = vary(state.fet, 2, 20, 100);
-    state.fit = vary(state.fit, 2, 30, 80);
-    state.bv = vary(state.bv, 0.5, 42, 54);
-    state.bc = vary(state.bc, 1, 0, 50);
-    state.bw = vary(state.bw, 1, 0, 500);
-    state.bwh = vary(state.bwh, 5, 0, 500);
-    state.t1 = vary(state.t1, 1, 20, 50);
-    state.t2 = vary(state.t2, 1, 20, 50);
-    state.t3 = vary(state.t3, 1, 20, 50);
-    state.soc = vary(state.soc, 0.5, 10, 100);
-    state.ke = vary(state.ke, 0.1, 0, 5);
-    state.jv = vary(state.jv, 0.5, 42, 54);
-    state.jc = vary(state.jc, 1, 0, 40);
-    state.jw = vary(state.jw, 1, 0, 300);
-    state.jwh = vary(state.jwh, 10, 0, 5000);
+    // Hız değişimi (20-60 km/h arası)
+    state.h = vary(state.h, 5, 20, 60);
+    
+    // Pist üzerinde ilerleme (çok hızlı)
+    const speedFactor = state.h / 30; // Hıza göre ilerleme hızı
+    trackProgress += 0.4 * speedFactor; // Çok hızlı ilerleme
+    
+    if (trackProgress >= 1) {
+        trackProgress = 0;
+        currentTrackIndex = (currentTrackIndex + 1) % trackCoordinates.length;
+    }
+    
+    // Mevcut ve sonraki nokta
+    const currentPoint = trackCoordinates[currentTrackIndex];
+    const nextPoint = trackCoordinates[(currentTrackIndex + 1) % trackCoordinates.length];
+    
+    // Koordinatları interpolate et
+    state.x = lerp(currentPoint[0], nextPoint[0], trackProgress);
+    state.y = lerp(currentPoint[1], nextPoint[1], trackProgress);
+    
+    // Diğer sensör verileri
+    state.gp = 1; // GPS fix her zaman 1
+    state.gs = Math.round(vary(state.gs, 2, 15, 30));
+    state.fv = vary(state.fv, 0.5, 40, 50);
+    state.fa = vary(state.fa, 0.3, 10, 20);
+    state.fw = state.fv * state.fa;
+    state.fet = vary(state.fet, 1, 40, 60);
+    state.fit = vary(state.fit, 1, 45, 65);
+    state.bv = vary(state.bv, 0.3, 45, 52);
+    state.bc = vary(state.bc, 0.5, 10, 25);
+    state.bw = state.bv * state.bc;
+    state.bwh = vary(state.bwh, 2, 100, 200);
+    state.t1 = vary(state.t1, 0.5, 28, 38);
+    state.t2 = vary(state.t2, 0.5, 28, 38);
+    state.t3 = vary(state.t3, 0.5, 28, 38);
+    state.soc = vary(state.soc, 0.2, 60, 95);
+    state.ke = vary(state.ke, 0.05, 1.5, 3.5);
+    state.jv = vary(state.jv, 0.3, 45, 52);
+    state.jc = vary(state.jc, 0.5, 10, 20);
+    state.jw = state.jv * state.jc;
+    state.jwh = vary(state.jwh, 5, 1000, 1500);
 }
 
 // Query string oluştur (araç formatı)
@@ -127,9 +205,10 @@ async function sendData() {
     }
 }
 
-console.log(`\n🚗 Fake Telemetry Client Başlatıldı`);
+console.log(`\n🚗 Fake Telemetry Client - Silesia Ring Simulator`);
 console.log(`📡 Hedef: ${TARGET_URL}`);
 console.log(`⏱️  Gönderim aralığı: ${SEND_INTERVAL}ms`);
+console.log(`🏁 Pist: Silesia Ring (${trackCoordinates.length} nokta)`);
 console.log(`📋 Format: GET ?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&...`);
 console.log(`\n⚠️  Ana sunucunun HTTP modunda olduğundan emin olun!\n`);
 

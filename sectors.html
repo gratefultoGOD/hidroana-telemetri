@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silesia Ring - Sector Analizi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: #16213e;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #0f3460;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #00ff88;
+        }
+
+        .track-info {
+            background: rgba(0, 255, 136, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .track-info div {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+
+        .track-info strong {
+            color: #00ff88;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            background: #0f3460;
+            border: 1px solid #00ff88;
+            border-radius: 4px;
+            color: white;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #00ff88, #00d4aa);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .sectors-list {
+            margin-top: 20px;
+        }
+
+        .sector-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+        }
+
+        .sector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .sector-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .sector-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .sector-inputs input {
+            padding: 6px;
+            font-size: 12px;
+        }
+
+        .sector-inputs label {
+            font-size: 11px;
+            margin-bottom: 3px;
+        }
+
+        .delete-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 4px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            backdrop-filter: blur(10px);
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f3460;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00ff88;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🏁 Silesia Ring - Sector Analizi</h1>
+            
+            <div class="track-info">
+                <div><strong>Pist:</strong> Silesia Ring, Poland</div>
+                <div><strong>Toplam Uzunluk:</strong> <span id="totalLength">Hesaplanıyor...</span></div>
+                <div><strong>Toplam Nokta:</strong> <span id="totalPoints">-</span></div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Sector Sayısı</label>
+                    <input type="number" id="sectorCount" min="1" max="20" value="7">
+                </div>
+                <button onclick="generateSectors()">Sector'leri Oluştur</button>
+                <button class="secondary" onclick="applySectors()">Haritaya Uygula</button>
+                <button class="secondary" onclick="showSaveDialog()">Kaydet</button>
+                <button class="secondary" onclick="showLoadDialog()">Yükle</button>
+            </div>
+
+            <div class="sectors-list" id="sectorsList"></div>
+        </div>
+
+        <div class="map-container">
+            <a href="/" class="back-btn">← Ana Sayfa</a>
+            <div id="map"></div>
+            <div class="legend">
+                <div class="legend-title">Hız Renk Kodları</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ffff;"></div>
+                    <span>0-15 km/h (Cyan)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff00;"></div>
+                    <span>15-30 km/h (Yeşil)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffff00;"></div>
+                    <span>30-45 km/h (Sarı)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff8800;"></div>
+                    <span>45-60 km/h (Turuncu)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff0000;"></div>
+                    <span>60+ km/h (Kırmızı)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js'></script>
+    <script>
+        let map;
+        let trackCoordinates = [];
+        let sectors = [];
+        let sectorLayers = [];
+        let totalTrackLength = 0;
+
+        // Haversine formülü ile iki nokta arası mesafe (metre)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Dünya yarıçapı (metre)
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Hıza göre renk (0-60 km/h arası)
+        function getColorForSpeed(speed) {
+            if (speed < 15) return '#00ffff';      // Cyan (Mavi-Yeşil)
+            if (speed < 30) return '#00ff00';      // Yeşil
+            if (speed < 45) return '#ffff00';      // Sarı
+            if (speed < 60) return '#ff8800';      // Turuncu
+            return '#ff0000';                       // Kırmızı (60+)
+        }
+
+        // Haritayı başlat
+        function initMap() {
+            map = L.map('map').setView([50.5284, 18.0975], 15);
+
+            // Google Hybrid
+            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20
+            }).addTo(map);
+
+            // KML dosyasını yükle
+            loadTrackFromKML();
+        }
+
+        // KML'den track'i yükle
+        function loadTrackFromKML() {
+            const track = omnivore.kml('./path.kml');
+
+            track.on('ready', function(layer) {
+                const geoJSON = layer.target.toGeoJSON();
+                const coordinates = geoJSON.features[0].geometry.coordinates;
+
+                // Koordinatları [lat, lng] formatına çevir
+                trackCoordinates = coordinates.map(coord => [coord[1], coord[0]]);
+
+                // Toplam uzunluğu hesapla
+                totalTrackLength = 0;
+                for (let i = 1; i < trackCoordinates.length; i++) {
+                    const dist = calculateDistance(
+                        trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                        trackCoordinates[i][0], trackCoordinates[i][1]
+                    );
+                    totalTrackLength += dist;
+                }
+
+                document.getElementById('totalLength').textContent = totalTrackLength.toFixed(2) + ' m';
+                document.getElementById('totalPoints').textContent = trackCoordinates.length;
+
+                // Track'i haritada göster (gri)
+                L.polyline(trackCoordinates, {
+                    color: '#666',
+                    weight: 4,
+                    opacity: 0.5
+                }).addTo(map);
+
+                map.fitBounds(L.polyline(trackCoordinates).getBounds());
+            });
+        }
+
+        // Sector'leri oluştur
+        function generateSectors() {
+            const count = parseInt(document.getElementById('sectorCount').value);
+            if (count < 1 || count > 20) {
+                alert('Sector sayısı 1-20 arasında olmalı');
+                return;
+            }
+
+            sectors = [];
+            const avgLength = totalTrackLength / count;
+
+            for (let i = 0; i < count; i++) {
+                const startMeter = Math.round(i * avgLength);
+                const endMeter = Math.round((i + 1) * avgLength);
+                sectors.push({
+                    id: i + 1,
+                    startMeter: startMeter,
+                    endMeter: endMeter,
+                    length: endMeter - startMeter,
+                    targetSpeed: 30
+                });
+            }
+
+            renderSectorsList();
+        }
+
+        // Sector listesini render et
+        function renderSectorsList() {
+            const list = document.getElementById('sectorsList');
+            list.innerHTML = '<h2 style="font-size:16px; margin-bottom:10px;">Sector Ayarları</h2>';
+
+            sectors.forEach((sector, index) => {
+                const color = getColorForSpeed(sector.targetSpeed);
+                const div = document.createElement('div');
+                div.className = 'sector-item';
+                div.style.borderLeftColor = color;
+                div.innerHTML = `
+                    <div class="sector-header">
+                        <span class="sector-title">Sector ${sector.id} (${sector.startMeter}m - ${sector.endMeter}m)</span>
+                        <button class="delete-btn" onclick="deleteSector(${index})">Sil</button>
+                    </div>
+                    <div class="sector-inputs">
+                        <div>
+                            <label>Başlangıç (m)</label>
+                            <input type="number" value="${sector.startMeter}" 
+                                onchange="updateSectorMeter(${index}, 'startMeter', this.value)">
+                        </div>
+                        <div>
+                            <label>Bitiş (m)</label>
+                            <input type="number" value="${sector.endMeter}" 
+                                onchange="updateSectorMeter(${index}, 'endMeter', this.value)">
+                        </div>
+                        <div>
+                            <label>Uzunluk: ${sector.length}m</label>
+                        </div>
+                        <div>
+                            <label>Hedef Hız (km/h)</label>
+                            <input type="number" value="${sector.targetSpeed}" 
+                                onchange="updateSector(${index}, 'targetSpeed', this.value)">
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // Sector metre güncelle
+        function updateSectorMeter(index, field, value) {
+            sectors[index][field] = parseFloat(value);
+            sectors[index].length = sectors[index].endMeter - sectors[index].startMeter;
+            renderSectorsList();
+        }
+
+        // Sector güncelle
+        function updateSector(index, field, value) {
+            sectors[index][field] = parseFloat(value);
+            renderSectorsList();
+        }
+
+        // Sector sil
+        function deleteSector(index) {
+            sectors.splice(index, 1);
+            sectors.forEach((s, i) => s.id = i + 1);
+            renderSectorsList();
+        }
+
+        // Sector'leri haritaya uygula
+        function applySectors() {
+            // Eski sector layer'larını temizle
+            sectorLayers.forEach(layer => map.removeLayer(layer));
+            sectorLayers = [];
+
+            let currentDistance = 0;
+            let sectorIndex = 0;
+            let lastProcessedIndex = 0;
+
+            // Her sector için
+            for (let s = 0; s < sectors.length; s++) {
+                const sector = sectors[s];
+                let sectorStartIndex = -1;
+                let sectorEndIndex = -1;
+                let tempDistance = 0;
+
+                // Sector'un başlangıç ve bitiş noktalarını bul
+                for (let i = 1; i < trackCoordinates.length; i++) {
+                    const dist = calculateDistance(
+                        trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                        trackCoordinates[i][0], trackCoordinates[i][1]
+                    );
+                    tempDistance += dist;
+
+                    // Sector başlangıcı
+                    if (sectorStartIndex === -1 && tempDistance >= sector.startMeter) {
+                        sectorStartIndex = i - 1;
+                    }
+
+                    // Sector bitişi
+                    if (sectorStartIndex !== -1 && tempDistance >= sector.endMeter) {
+                        sectorEndIndex = i;
+                        break;
+                    }
+                }
+
+                // Sector'u çiz
+                if (sectorStartIndex !== -1 && sectorEndIndex !== -1) {
+                    const sectorCoords = trackCoordinates.slice(sectorStartIndex, sectorEndIndex + 1);
+                    const color = getColorForSpeed(sector.targetSpeed);
+
+                    const polyline = L.polyline(sectorCoords, {
+                        color: color,
+                        weight: 6,
+                        opacity: 0.8
+                    }).addTo(map);
+
+                    polyline.bindPopup(`
+                        <strong>Sector ${sector.id}</strong><br>
+                        ${sector.startMeter}m - ${sector.endMeter}m<br>
+                        Uzunluk: ${sector.length} m<br>
+                        Hedef Hız: ${sector.targetSpeed} km/h
+                    `);
+
+                    sectorLayers.push(polyline);
+                    lastProcessedIndex = sectorEndIndex;
+                }
+            }
+
+            // Kalan kısmı gri ile boya
+            if (lastProcessedIndex < trackCoordinates.length - 1) {
+                const remainingCoords = trackCoordinates.slice(lastProcessedIndex);
+                const grayPolyline = L.polyline(remainingCoords, {
+                    color: '#666666',
+                    weight: 6,
+                    opacity: 0.5
+                }).addTo(map);
+
+                const remainingDistance = totalTrackLength - sectors[sectors.length - 1].endMeter;
+                grayPolyline.bindPopup(`
+                    <strong>Tanımsız Bölge</strong><br>
+                    Kalan Mesafe: ${remainingDistance.toFixed(0)} m
+                `);
+
+                sectorLayers.push(grayPolyline);
+            }
+        }
+
+        // Sector'leri kaydet
+        function showSaveDialog() {
+            const name = prompt('Sector planı için bir isim girin:');
+            if (!name) return;
+            
+            fetch('/api/sectors/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, sectors: sectors })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Sector planı kaydedildi: ' + name);
+                } else {
+                    alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+                }
+            })
+            .catch(err => alert('Kaydetme hatası: ' + err.message));
+        }
+
+        // Sector'leri yükle
+        function showLoadDialog() {
+            fetch('/api/sectors/list')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.sectors || data.sectors.length === 0) {
+                        alert('Kaydedilmiş sector planı bulunamadı!');
+                        return;
+                    }
+                    
+                    let message = 'Yüklemek istediğiniz planı seçin:\n\n';
+                    data.sectors.forEach((s, i) => {
+                        message += `${i + 1}. ${s.name} (${s.sectorCount} sector)\n`;
+                    });
+                    
+                    const choice = prompt(message + '\nNumara girin:');
+                    if (!choice) return;
+                    
+                    const index = parseInt(choice) - 1;
+                    if (index >= 0 && index < data.sectors.length) {
+                        loadSectorPlan(data.sectors[index].fileName);
+                    } else {
+                        alert('Geçersiz seçim!');
+                    }
+                })
+                .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        function loadSectorPlan(fileName) {
+            fetch('/api/sectors/load/' + fileName)
+                .then(res => res.json())
+                .then(data => {
+                    sectors = data.sectors;
+                    document.getElementById('sectorCount').value = sectors.length;
+                    renderSectorsList();
+                    applySectors();
+                    alert('Sector planı yüklendi: ' + data.name);
+                })
+                .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        // Sayfa yüklendiğinde
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+        });
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,6 +20,7 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
+            flex-direction: column;
         }
 
         .login-container {
@@ -126,7 +128,13 @@
         }
     </style>
 </head>
+
 <body>
+    <!--
+    <div style="max-width: 400px;">
+        <img style="width: 100%; padding-bottom: 20px;" src="midas_transparent.png">
+    </div>
+-->
     <div class="login-container">
         <div class="login-header">
             <h1>Hidroana Telemetri</h1>
@@ -138,24 +146,12 @@
         <form id="loginForm">
             <div class="form-group">
                 <label for="username">Kullanıcı Adı</label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    required 
-                    autocomplete="username"
-                >
+                <input type="text" id="username" name="username" required autocomplete="username">
             </div>
 
             <div class="form-group">
                 <label for="password">Şifre</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    required 
-                    autocomplete="current-password"
-                >
+                <input type="password" id="password" name="password" required autocomplete="current-password">
             </div>
 
             <button type="submit" class="login-btn" id="loginBtn">
@@ -212,7 +208,7 @@
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.classList.add('show');
-            
+
             setTimeout(() => {
                 errorMessage.classList.remove('show');
             }, 5000);
@@ -228,4 +224,5 @@
             });
     </script>
 </body>
+
 </html>

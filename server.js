@@ -63,8 +63,14 @@ function broadcastToClients(data) {
 // CSV dosya ayarları
 const DATA_DIR = path.join(__dirname, 'telemetry_data');
 const TEST_DIR = path.join(__dirname, 'test_data');
+const SECTORS_DIR = path.join(__dirname, 'sectors_data');
 let pendingData = []; // Dosyaya yazılmayı bekleyen veriler
 const FLUSH_THRESHOLD = 1; // Her veri geldiğinde hemen dosyaya yaz
+
+// Sectors dizinini oluştur
+if (!fs.existsSync(SECTORS_DIR)) {
+    fs.mkdirSync(SECTORS_DIR, { recursive: true });
+}
 
 // Test modu ayarları
 let testMode = {
@@ -274,7 +280,7 @@ function calculateAverages() {
 
     // Eski verileri temizle
     recentData = recentData.filter(d => d.timestamp >= fifteenSecondsAgo);
-
+    let recent = [];
     const averages = {
         allTime: {}, // Artık dosyadan hesaplanmıyor, sadece bugünkü veri sayısı
         last15Seconds: {},
@@ -290,7 +296,7 @@ function calculateAverages() {
             : null;
 
         // Genel ortalama artık hesaplanmıyor (bellek tasarrufu)
-        averages.allTime[field] = null;
+        averages.allTime[field] = recentValues.pop();
     });
 
     return averages;
@@ -644,6 +650,7 @@ function requireAdmin(req, res, next) {
 // Auth endpoints
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+
     if (!username || !password) {
         return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
     }
@@ -868,7 +875,9 @@ app.get('/api/test/download/:fileName', requireAdmin, (req, res) => {
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    // RFC 5987 encoding for Turkish characters and spaces in filename
+    const encodedFileName = encodeURIComponent(fileName);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
     res.sendFile(filePath);
 });
 
@@ -932,7 +941,7 @@ app.patch('/api/test/rename/:fileName', requireAdmin, (req, res) => {
 app.delete('/api/test/delete/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
 
-    if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
+    if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/') || fileName.includes('~') || fileName.includes('\\')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
 
@@ -963,7 +972,9 @@ app.get('/api/telemetry/download/:fileName', requireAdmin, (req, res) => {
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    // RFC 5987 encoding for Turkish characters and spaces in filename
+    const encodedFileName = encodeURIComponent(fileName);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
     res.sendFile(filePath);
 });
 
@@ -980,7 +991,9 @@ app.get('/api/telemetry/download-today', requireAdmin, (req, res) => {
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    // RFC 5987 encoding for Turkish characters and spaces in filename
+    const encodedFileName = encodeURIComponent(fileName);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
     res.sendFile(filePath);
 });
 
@@ -1072,7 +1085,9 @@ app.get('/api/telemetry/csv', requireAdmin, (req, res) => {
 
     const filename = `telemetry_tum_veriler_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    // RFC 5987 encoding for Turkish characters and spaces in filename
+    const encodedFilename = encodeURIComponent(filename);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`);
     res.send(csv);
 });
 
@@ -1121,12 +1136,103 @@ app.get('/fullmap', (req, res) => {
     res.sendFile(path.join(__dirname, 'mobile.html'));
 });
 
+app.get('/sectors', requireAdmin,(req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.sendFile(path.join(__dirname, 'sectors.html'));
+});
+
+app.get('/race', requireAdmin,(req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.sendFile(path.join(__dirname, 'race.html'));
+});
+
+// ============================================
+// SECTOR API
+// ============================================
+
+// Sector kaydet
+app.post('/api/sectors/save', requireAdmin, (req, res) => {
+    const { name, sectors } = req.body;
+    
+    if (!name || !sectors) {
+        return res.status(400).json({ error: 'İsim ve sector verileri gerekli' });
+    }
+    
+    const fileName = `${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+    const filePath = path.join(SECTORS_DIR, fileName);
+    
+    const data = {
+        name: name,
+        sectors: sectors,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    res.json({ success: true, fileName: fileName });
+});
+
+// Sector listesi
+app.get('/api/sectors/list', requireAdmin, (req, res) => {
+    const files = fs.readdirSync(SECTORS_DIR)
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+            const filePath = path.join(SECTORS_DIR, f);
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            return {
+                fileName: f,
+                name: data.name,
+                sectorCount: data.sectors.length,
+                createdAt: data.createdAt,
+                updatedAt: data.updatedAt
+            };
+        });
+    
+    res.json({ sectors: files });
+});
+
+// Sector yükle
+app.get('/api/sectors/load/:fileName', requireAdmin, (req, res) => {
+    const fileName = req.params.fileName;
+    
+    if (!fileName.endsWith('.json') || fileName.includes('..')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+    
+    const filePath = path.join(SECTORS_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Sector bulunamadı' });
+    }
+    
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    res.json(data);
+});
+
+// Sector sil
+app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
+    const fileName = req.params.fileName;
+    
+    if (!fileName.endsWith('.json') || fileName.includes('..')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+    
+    const filePath = path.join(SECTORS_DIR, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Sector bulunamadı' });
+    }
+    
+    fs.unlinkSync(filePath);
+    res.json({ success: true });
+});
+
 function serveStaticWithAuth(req, res, next) {
-    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules'];
+    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules','/sectors.html','/race.html'];
     if (blockedFiles.some(blocked => req.path.startsWith(blocked))) {
         return res.status(403).send('Forbidden');
     }
-    if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg)$/)) {
+    if (req.path.match(/\.(css|js|jpg|jpeg|gif|ico|svg)$/)) {
         if (req.session && req.session.userId) next();
         else res.status(401).send('Unauthorized');
     } else {
