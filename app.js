@@ -129,19 +129,19 @@ function initMap() {
     });
 
     marker = L.marker([50.528366, 18.0975], { icon: customIcon }).addTo(map);
-//    var track = omnivore.kml('./path.kml');
+    //    var track = omnivore.kml('./path.kml');
 
 
-/*    track.on('ready', function (layer) {
-
-        layer.target.setStyle({
-            color: '#FF0000',
-            weight: 4,
-            opacity: 1
-        });
-
-        map.fitBounds(track.getBounds());
-    }).on('error', (e) => { console.log(e) }).addTo(map);*/
+    /*    track.on('ready', function (layer) {
+    
+            layer.target.setStyle({
+                color: '#FF0000',
+                weight: 4,
+                opacity: 1
+            });
+    
+            map.fitBounds(track.getBounds());
+        }).on('error', (e) => { console.log(e) }).addTo(map);*/
 
 }
 
@@ -190,14 +190,49 @@ function createLineChart(ctx, label, color, maxY = null) {
                 backgroundColor: color + '20',
                 tension: 0.4,
                 fill: true,
-                pointRadius: 2
+                pointRadius: 2,
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: color,
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 0 },
-            plugins: { legend: { display: false } },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: color,
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    titleFont: { size: 12, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        title: function (tooltipItems) {
+                            return tooltipItems[0].label || '';
+                        },
+                        label: function (context) {
+                            let val = context.parsed.y;
+                            if (val !== null && val !== undefined) {
+                                return ' ' + label + ': ' + (Number.isInteger(val) ? val : val.toFixed(2));
+                            }
+                            return '';
+                        }
+                    }
+                }
+            },
             scales: {
                 y: {
                     beginAtZero: false,
@@ -234,18 +269,50 @@ function createMultiLineChart(ctx, datasets) {
                 backgroundColor: ds.color + '20',
                 tension: 0.4,
                 fill: false,
-                pointRadius: 2
+                pointRadius: 2,
+                pointHoverRadius: 6,
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2
             }))
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 0 },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 legend: {
                     display: true,
                     position: 'top',
                     labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    titleFont: { size: 12, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        title: function (tooltipItems) {
+                            return tooltipItems[0].label || '';
+                        },
+                        label: function (context) {
+                            let val = context.parsed.y;
+                            if (val !== null && val !== undefined) {
+                                return ' ' + context.dataset.label + ': ' + (Number.isInteger(val) ? val : val.toFixed(2));
+                            }
+                            return '';
+                        }
+                    }
                 }
             },
             scales: {
