@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tur Takip — Hidroana Telemetri</title>
+    <link rel="icon" type="image/x-icon" href="/logo.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080b14;
+            --surface: #0e1420;
+            --surface2: #141c2c;
+            --border: rgba(255,255,255,0.07);
+            --accent: #00e5ff;
+            --accent2: #7c3aed;
+            --green: #22c55e;
+            --red: #ef4444;
+            --orange: #f59e0b;
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --lap-colors: #00e5ff, #22c55e, #f59e0b, #7c3aed, #ec4899, #06b6d4;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ─── HEADER ─────────────────────────────── */
+        .header {
+            background: linear-gradient(180deg, rgba(14,20,32,0.98) 0%, rgba(8,11,20,0.95) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            gap: 16px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .back-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+        }
+        .back-link:hover { color: var(--text); background: var(--surface2); }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--surface2);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        .user-badge span.role-admin { color: var(--accent); }
+        .user-badge span.role-user { color: var(--green); }
+
+        .logout-btn {
+            padding: 6px 14px;
+            background: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 8px;
+            color: var(--red);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover { background: rgba(239,68,68,0.25); }
+
+        /* ─── LIVE INDICATOR ─────────────────────── */
+        .live-dot {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--green);
+            background: rgba(34,197,94,0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(34,197,94,0.2);
+        }
+        .live-dot .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 1.4s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+        /* ─── LAYOUT ──────────────────────────────── */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 20px;
+            padding: 20px 24px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+        /* ─── PANELS ──────────────────────────────── */
+        .panel {
+            background: var(--surface);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+        }
+
+        /* ─── CONTROL PANEL ───────────────────────── */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        /* Race Timer */
+        .race-timer-section {
+            padding: 28px 20px 24px;
+            text-align: center;
+            background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .race-timer-section::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(ellipse at center, rgba(0,229,255,0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .timer-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .race-timer {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 52px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 0 30px rgba(0,229,255,0.3);
+            transition: color 0.3s;
+        }
+
+        .race-timer.running { color: var(--accent); }
+        .race-timer.stopped { color: var(--muted); }
+
+        .race-status {
+            margin-top: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--muted);
+        }
+        .race-status.active-status { color: var(--green); }
+
+        /* Energy display */
+        .energy-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .energy-card {
+            background: var(--surface2);
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .energy-card-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .energy-card-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .energy-card-value.wh-used { color: var(--orange); }
+        .energy-card-value.jwh-total { color: #a5b4fc; }
+
+        .energy-card-unit {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* Current lap indicator */
+        .current-lap-section {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cur-lap-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .cur-lap-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cur-lap-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent2);
+            line-height: 1;
+        }
+
+        .cur-lap-details {
+            text-align: right;
+        }
+
+        .cur-lap-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .cur-lap-wh {
+            font-size: 13px;
+            color: var(--orange);
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        /* Buttons */
+        .buttons-section {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .race-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .race-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #065f46, #059669);
+            color: #fff;
+            border: 1px solid rgba(5,150,105,0.4);
+        }
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(5,150,105,0.4);
+        }
+        .btn-start.btn-running {
+            background: linear-gradient(135deg, #7f1d1d, #dc2626);
+            border-color: rgba(220,38,38,0.4);
+        }
+
+        .btn-lap {
+            background: linear-gradient(135deg, #1e3a5f, #2563eb);
+            color: #fff;
+            border: 1px solid rgba(37,99,235,0.4);
+            font-size: 18px;
+            padding: 20px;
+        }
+        .btn-lap:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(37,99,235,0.4);
+        }
+        .btn-lap:active:not(:disabled) {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .btn-reset {
+            background: rgba(100,116,139,0.15);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .btn-reset:hover:not(:disabled) {
+            background: rgba(239,68,68,0.15);
+            color: var(--red);
+            border-color: rgba(239,68,68,0.3);
+        }
+
+        .btn-export {
+            background: rgba(34,197,94,0.12);
+            color: var(--green);
+            border: 1px solid rgba(34,197,94,0.25);
+            font-size: 13px;
+        }
+        .btn-export:hover:not(:disabled) {
+            background: rgba(34,197,94,0.22);
+            box-shadow: 0 4px 16px rgba(34,197,94,0.2);
+        }
+
+        .btn-ripple::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 5px; height: 5px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%,-50%);
+            animation: ripple 0.4s ease-out;
+        }
+        @keyframes ripple { to { width: 300px; height: 300px; opacity: 0; } }
+
+        .admin-locked {
+            opacity: 0.4;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .non-admin-msg {
+            display: none;
+            font-size: 11px;
+            color: var(--orange);
+            text-align: center;
+            padding: 10px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ─── LAP TABLE ───────────────────────────── */
+        .laps-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .laps-panel .panel-header {
+            justify-content: space-between;
+        }
+
+        .lap-count-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            background: rgba(0,229,255,0.1);
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(0,229,255,0.2);
+        }
+
+        .laps-table-wrapper {
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .laps-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .laps-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .laps-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .laps-table th:nth-child(n+3) { text-align: right; }
+
+        .laps-table td {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .laps-table td:nth-child(n+3) { text-align: right; }
+
+        .laps-table tr:last-child td { border-bottom: none; }
+
+        .laps-table tbody tr {
+            transition: background 0.15s;
+        }
+
+        .laps-table tbody tr:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .laps-table .new-row {
+            animation: rowFlash 0.6s ease-out;
+        }
+
+        @keyframes rowFlash {
+            0%  { background: rgba(0,229,255,0.15); }
+            100% { background: transparent; }
+        }
+
+        .lap-num-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .lap-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .lap-time-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .lap-duration-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .lap-wh-cell {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+
+        .wh-bar-container {
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .wh-bar-fill {
+            height: 100%;
+            background: var(--orange);
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .wh-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .scroll-to-bottom-hint {
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            padding: 6px;
+            background: linear-gradient(0deg, var(--surface) 60%, transparent);
+            font-size: 11px;
+            color: var(--accent);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .scroll-to-bottom-hint.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 64px 24px;
+            gap: 12px;
+            color: var(--muted);
+        }
+
+        .empty-icon { font-size: 48px; opacity: 0.3; }
+        .empty-title { font-size: 15px; font-weight: 600; }
+        .empty-desc { font-size: 12px; text-align: center; line-height: 1.6; }
+
+        /* SSE connection indicator */
+        .conn-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .conn-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+        }
+        .conn-dot.ok { background: var(--green); }
+        .conn-dot.err { background: var(--red); animation: none; }
+        .conn-dot.connecting { background: var(--orange); animation: blink 1s infinite; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+        /* ─── PAST RACES ─────────────────────────── */
+        .past-races-panel {
+            grid-column: 1 / -1;
+        }
+
+        .races-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            padding: 16px 20px;
+        }
+
+        .race-card {
+            background: var(--surface2);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            cursor: default;
+        }
+        .race-card:hover {
+            border-color: rgba(0,229,255,0.3);
+            background: rgba(20,28,44,0.8);
+        }
+
+        .race-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .race-card-date {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .race-card-time {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .race-card-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            background: rgba(0,229,255,0.1);
+            padding: 3px 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(0,229,255,0.2);
+        }
+
+        .race-card-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .race-stat {
+            text-align: center;
+        }
+
+        .race-stat-label {
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+
+        .race-stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .race-download-btn {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(34,197,94,0.25);
+            border-radius: 8px;
+            background: rgba(34,197,94,0.1);
+            color: var(--green);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .race-download-btn:hover {
+            background: rgba(34,197,94,0.2);
+            box-shadow: 0 4px 12px rgba(34,197,94,0.15);
+        }
+
+        .races-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 32px 24px;
+            gap: 8px;
+            color: var(--muted);
+        }
+        .races-empty-icon { font-size: 32px; opacity: 0.3; }
+        .races-empty-text { font-size: 13px; }
+
+        .races-loading {
+            text-align: center;
+            padding: 24px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* Full-width below 768px */
+        @media (max-width: 768px) {
+            .main { padding: 12px; gap: 12px; }
+            .header { padding: 10px 12px; }
+            .race-timer { font-size: 38px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ─── HEADER ─────────────────────────────────── -->
+    <div class="header">
+        <div class="header-left">
+            <a href="/" class="back-link">← Ana Sayfa</a>
+            <div class="header-title">
+                <div class="title-icon">🏁</div>
+                <h1>Tur Takip</h1>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="live-dot" id="connStatus">
+                <span class="dot connecting" id="connDot"></span>
+                <span id="connText">Bağlanıyor</span>
+            </span>
+            <span class="user-badge">
+                <span id="usernameDisp">—</span>
+                <span id="roleDisp">—</span>
+            </span>
+            <button class="logout-btn" onclick="doLogout()">Çıkış</button>
+        </div>
+    </div>
+
+    <!-- ─── MAIN ───────────────────────────────────── -->
+    <div class="main">
+
+        <!-- LEFT: Table -->
+        <div class="panel laps-panel">
+            <div class="panel-header">
+                <span class="panel-title">🏎️ Tur Tablosu</span>
+                <span class="lap-count-badge" id="lapCountBadge">0 TUR</span>
+            </div>
+
+            <div class="laps-table-wrapper" id="lapsTableWrapper">
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-icon">🏁</div>
+                    <div class="empty-title">Yarış Başlamadı</div>
+                    <div class="empty-desc">Start butonuna basarak yarışı başlatın ve<br>her tur sonunda LAP butonuna basın.</div>
+                </div>
+                <table class="laps-table" id="lapsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Tur</th>
+                            <th>Başlangıç</th>
+                            <th>Tur Süresi</th>
+                            <th>Tur Enerji</th>
+                            <th>Toplam Wh</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lapsTbody"></tbody>
+                </table>
+                <div class="scroll-to-bottom-hint" id="scrollHint" onclick="scrollToBottom()">↓ Yeni tur var</div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Control -->
+        <div class="panel control-panel">
+            <div class="panel-header">
+                <span class="panel-title">🎛️ Yönetim Paneli</span>
+                <span class="conn-indicator">
+                    <span class="conn-dot connecting" id="lapConnDot"></span>
+                    <span id="lapConnText" style="color:var(--muted);font-size:10px;">SSE</span>
+                </span>
+            </div>
+
+            <!-- Buttons (admin-only) — EN ÜSTTE -->
+            <div class="buttons-section" id="adminButtons">
+                <button class="race-btn btn-lap" id="btnLap" onclick="handleLap()" disabled>
+                    🏁 LAP
+                </button>
+                <button class="race-btn btn-start" id="btnStart" onclick="handleStart()">
+                    <span id="startIcon">▶</span>
+                    <span id="startText">Yarışı Başlat</span>
+                </button>
+                <button class="race-btn btn-reset" id="btnReset" onclick="handleReset()" disabled>
+                    ↺ Sıfırla
+                </button>
+                <button class="race-btn btn-export" id="btnExport" onclick="exportCSV()" disabled>
+                    📥 CSV İndir
+                </button>
+            </div>
+
+            <!-- Non-admin message -->
+            <div class="non-admin-msg" id="nonAdminMsg">
+                🔒 Yalnızca adminler kontrol edebilir. Siz izleme modundasınız.
+            </div>
+
+            <!-- Race timer -->
+            <div class="race-timer-section">
+                <div class="timer-label">Yarış Süresi</div>
+                <div class="race-timer stopped" id="raceTimer">00:00.0</div>
+                <div class="race-status" id="raceStatus">Hazır</div>
+            </div>
+
+            <!-- Energy -->
+            <div class="energy-section">
+                <div class="energy-card">
+                    <div class="energy-card-label">Joulmetre Wh</div>
+                    <div class="energy-card-value jwh-total" id="currentJwh">—</div>
+                    <div class="energy-card-unit">Wh (anlık)</div>
+                </div>
+                <div class="energy-card">
+                    <div class="energy-card-label">Yarışta Kullanılan</div>
+                    <div class="energy-card-value wh-used" id="usedWh">—</div>
+                    <div class="energy-card-unit">Wh harcandı</div>
+                </div>
+            </div>
+
+            <!-- Current lap -->
+            <div class="current-lap-section">
+                <div class="cur-lap-label">Mevcut Tur</div>
+                <div class="cur-lap-info">
+                    <div class="cur-lap-num" id="curLapNum">—</div>
+                    <div class="cur-lap-details">
+                        <div class="cur-lap-time" id="curLapTime">—</div>
+                        <div class="cur-lap-wh" id="curLapWh">— Wh</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAST RACES -->
+        <div class="panel past-races-panel">
+            <div class="panel-header">
+                <span class="panel-title">📂 Eski Yarış Kayıtları</span>
+                <button class="race-btn btn-reset" style="width:auto;padding:8px 14px;font-size:11px;" onclick="loadPastRaces()" title="Yenile">↻ Yenile</button>
+            </div>
+            <div id="pastRacesContent">
+                <div class="races-loading">Yükleniyor...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ══════════════════════════════════════════
+        // STATE
+        // ══════════════════════════════════════════
+        let currentUserRole = 'user';
+        let isAdmin = false;
+        let raceState = {
+            active: false,
+            startTime: null,
+            startJwh: null,
+            laps: [],
+            currentJwh: 0,
+            serverTime: null
+        };
+        let timerInterval = null;
+        let lapTimerInterval = null;
+        let sseSource = null;
+        let telemSource = null;
+        let clientTimeOffset = 0;
+
+        // Auto-scroll state
+        let autoScroll = true;
+
+        // Color palette
+        const LAP_COLORS = [
+            '#00e5ff','#22c55e','#f59e0b','#7c3aed',
+            '#ec4899','#06b6d4','#84cc16','#f97316'
+        ];
+
+        // Setup scroll listener after DOM ready
+        function setupScrollListener() {
+            const wrapper = document.getElementById('lapsTableWrapper');
+            if (!wrapper) return;
+            wrapper.addEventListener('scroll', () => {
+                const atBottom = wrapper.scrollHeight - wrapper.scrollTop - wrapper.clientHeight < 30;
+                autoScroll = atBottom;
+                const hint = document.getElementById('scrollHint');
+                if (hint) hint.classList.toggle('visible', !atBottom && raceState.laps.length > 0);
+            });
+        }
+
+        function scrollToBottom() {
+            const wrapper = document.getElementById('lapsTableWrapper');
+            if (!wrapper) return;
+            wrapper.scrollTo({ top: wrapper.scrollHeight, behavior: 'smooth' });
+            autoScroll = true;
+            const hint = document.getElementById('scrollHint');
+            if (hint) hint.classList.remove('visible');
+        }
+
+        // ══════════════════════════════════════════
+        // AUTH CHECK
+        // ══════════════════════════════════════════
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/check');
+                const data = await res.json();
+                if (!data.authenticated) {
+                    window.location.href = '/login';
+                    return;
+                }
+                currentUserRole = data.user.role || 'user';
+                isAdmin = currentUserRole === 'admin';
+
+                const roleEl = document.getElementById('roleDisp');
+                document.getElementById('usernameDisp').textContent = data.user.username;
+                if (isAdmin) {
+                    roleEl.textContent = '🛠️ Admin';
+                    roleEl.className = 'role-admin';
+                } else {
+                    roleEl.textContent = '👤 Kullanıcı';
+                    roleEl.className = 'role-user';
+                    // Hide buttons for non-admin
+                    document.getElementById('adminButtons').classList.add('admin-locked');
+                    document.getElementById('nonAdminMsg').style.display = 'block';
+                }
+
+                // After auth, connect SSE streams
+                connectLapSSE();
+                connectTelemSSE();
+            } catch(e) {
+                window.location.href = '/login';
+            }
+        }
+
+        function doLogout() {
+            if (!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
+            fetch('/api/logout', { method: 'POST' })
+                .then(() => window.location.href = '/login')
+                .catch(() => window.location.href = '/login');
+        }
+
+        // ══════════════════════════════════════════
+        // LAP SSE CONNECTION
+        // ══════════════════════════════════════════
+        function connectLapSSE() {
+            if (sseSource) sseSource.close();
+
+            updateConnStatus('connecting');
+
+            sseSource = new EventSource('/api/laps/stream');
+
+            sseSource.onopen = () => {
+                updateConnStatus('ok');
+            };
+
+            sseSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'lap_update') {
+                        // Calculate time offset for accurate local timer
+                        clientTimeOffset = data.serverTime - Date.now();
+                        applyLapState(data);
+                    }
+                } catch(e) { /* ignore */ }
+            };
+
+            sseSource.onerror = () => {
+                updateConnStatus('err');
+                // Try to reconnect after 5s
+                setTimeout(() => {
+                    if (sseSource.readyState === EventSource.CLOSED) {
+                        connectLapSSE();
+                    }
+                }, 5000);
+            };
+        }
+
+        function updateConnStatus(state) {
+            const statuses = {
+                ok: ['ok', 'Canlı'],
+                err: ['err', 'Bağlantı Yok'],
+                connecting: ['connecting', 'Bağlanıyor']
+            };
+            const [cls, text] = statuses[state] || statuses.connecting;
+            ['connDot','lapConnDot'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) { el.className = `conn-dot ${cls}`; }
+            });
+            const ct = document.getElementById('connText');
+            const lt = document.getElementById('lapConnText');
+            if(ct) ct.textContent = text;
+            if(lt) lt.textContent = text;
+
+            const liveStatus = document.getElementById('connStatus');
+            if(state === 'ok') {
+                liveStatus.style.color = 'var(--green)';
+            } else if(state === 'err') {
+                liveStatus.style.color = 'var(--red)';
+            }
+        }
+
+        // ══════════════════════════════════════════
+        // TELEMETRY SSE (for live jwh updates)
+        // ══════════════════════════════════════════
+        function connectTelemSSE() {
+            if (telemSource) telemSource.close();
+            telemSource = new EventSource('/api/telemetry/stream');
+
+            telemSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const jwh = parseFloat(data.jwh) || 0;
+                    raceState.currentJwh = jwh;
+                    updateEnergyDisplay(jwh);
+                } catch(e) { /* ignore */ }
+            };
+
+            telemSource.onerror = () => {
+                // Telemetry disconnected – silent fail, lap SSE still works
+            };
+        }
+
+        // ══════════════════════════════════════════
+        // STATE APPLICATION
+        // ══════════════════════════════════════════
+        function applyLapState(data) {
+            raceState = {
+                ...raceState,
+                active: data.active,
+                startTime: data.startTime,
+                startJwh: data.startJwh,
+                laps: data.laps || [],
+                serverTime: data.serverTime
+            };
+            if (data.currentJwh !== undefined) {
+                raceState.currentJwh = data.currentJwh;
+                updateEnergyDisplay(data.currentJwh);
+            }
+
+            renderLapTable();
+            updateTimerState();
+            updateButtons();
+            updateCurrentLapInfo();
+        }
+
+        // ══════════════════════════════════════════
+        // TIMER
+        // ══════════════════════════════════════════
+        function updateTimerState() {
+            if (raceState.active && raceState.startTime) {
+                // Start race timer
+                if (!timerInterval) {
+                    timerInterval = setInterval(tickRaceTimer, 100);
+                }
+                if (!lapTimerInterval) {
+                    lapTimerInterval = setInterval(updateCurrentLapInfo, 100);
+                }
+                document.getElementById('raceTimer').className = 'race-timer running';
+                document.getElementById('raceStatus').textContent = '● Yarış Devam Ediyor';
+                document.getElementById('raceStatus').className = 'race-status active-status';
+            } else {
+                clearInterval(timerInterval);
+                clearInterval(lapTimerInterval);
+                timerInterval = null;
+                lapTimerInterval = null;
+
+                if (raceState.startTime && !raceState.active) {
+                    // Stopped (after reset)
+                }
+
+                document.getElementById('raceTimer').className = 'race-timer stopped';
+
+                if (raceState.laps.length === 0 && !raceState.active) {
+                    document.getElementById('raceStatus').textContent = 'Hazır';
+                    document.getElementById('raceTimer').textContent = '00:00.0';
+                    document.getElementById('raceStatus').className = 'race-status';
+                } else if (!raceState.active && raceState.laps.length > 0) {
+                    // Finished race? show final time
+                    const lastLap = raceState.laps[raceState.laps.length - 1];
+                    const elapsedMs = lastLap.endTime - raceState.startTime;
+                    document.getElementById('raceTimer').textContent = formatDuration(elapsedMs);
+                    document.getElementById('raceStatus').textContent = 'Yarış Bitti';
+                    document.getElementById('raceStatus').className = 'race-status';
+                }
+            }
+        }
+
+        function tickRaceTimer() {
+            if (!raceState.active || !raceState.startTime) return;
+            const now = Date.now() + clientTimeOffset;
+            const elapsed = now - raceState.startTime;
+            document.getElementById('raceTimer').textContent = formatDuration(elapsed);
+        }
+
+        function updateCurrentLapInfo() {
+            if (!raceState.active || !raceState.startTime) {
+                document.getElementById('curLapNum').textContent = '—';
+                document.getElementById('curLapTime').textContent = '—';
+                document.getElementById('curLapWh').textContent = '— Wh';
+                return;
+            }
+
+            const lapNum = raceState.laps.length + 1;
+            const now = Date.now() + clientTimeOffset;
+            const lapStart = raceState.laps.length > 0
+                ? raceState.laps[raceState.laps.length - 1].endTime
+                : raceState.startTime;
+            const lapElapsed = now - lapStart;
+            const lapStartWh = raceState.laps.length > 0
+                ? raceState.laps[raceState.laps.length - 1].endJwh
+                : raceState.startJwh;
+            const lapWh = (raceState.currentJwh - lapStartWh).toFixed(3);
+
+            document.getElementById('curLapNum').textContent = lapNum;
+            document.getElementById('curLapTime').textContent = formatDuration(lapElapsed);
+            document.getElementById('curLapWh').textContent = `${lapWh} Wh`;
+        }
+
+        // ══════════════════════════════════════════
+        // ENERGY DISPLAY
+        // ══════════════════════════════════════════
+        function updateEnergyDisplay(jwh) {
+            document.getElementById('currentJwh').textContent = Number(jwh).toFixed(2);
+            if (raceState.active && raceState.startJwh !== null) {
+                const used = (jwh - raceState.startJwh).toFixed(3);
+                document.getElementById('usedWh').textContent = used;
+            } else if (!raceState.active && raceState.laps.length > 0) {
+                const lastEndJwh = raceState.laps[raceState.laps.length - 1].endJwh;
+                const used = (lastEndJwh - raceState.startJwh).toFixed(3);
+                document.getElementById('usedWh').textContent = used;
+            } else {
+                document.getElementById('usedWh').textContent = '—';
+            }
+        }
+
+        // ══════════════════════════════════════════
+        // RENDER LAP TABLE
+        // ══════════════════════════════════════════
+        function renderLapTable() {
+            const tbody = document.getElementById('lapsTbody');
+            const table = document.getElementById('lapsTable');
+            const empty = document.getElementById('emptyState');
+            const badge = document.getElementById('lapCountBadge');
+            const wrapper = document.getElementById('lapsTableWrapper');
+            const hint = document.getElementById('scrollHint');
+
+            badge.textContent = `${raceState.laps.length} TUR`;
+
+            if (!raceState.startTime && raceState.laps.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'flex';
+                if (hint) hint.classList.remove('visible');
+                return;
+            }
+
+            empty.style.display = 'none';
+            table.style.display = 'table';
+
+            // Find max lapJwh for bar scaling
+            const maxWh = Math.max(...raceState.laps.map(l => l.lapJwh), 0.001);
+
+            // Track previous row count for new-row animation
+            const prevCount = tbody.querySelectorAll('tr').length;
+            const isNewLapAdded = raceState.laps.length > prevCount;
+
+            tbody.innerHTML = raceState.laps.map((lap, i) => {
+                const color = LAP_COLORS[i % LAP_COLORS.length];
+                const startMs = lap.startTime - raceState.startTime;
+                const barW = Math.min(100, (lap.lapJwh / maxWh) * 100);
+                const isNew = i === raceState.laps.length - 1 && isNewLapAdded;
+
+                return `
+                <tr class="${isNew ? 'new-row' : ''}">
+                    <td>
+                        <div class="lap-num-cell">
+                            <div class="lap-badge" style="background:${color}22;color:${color};">${lap.lapNum}</div>
+                            <span style="font-weight:600;font-size:12px;">Tur ${lap.lapNum}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="lap-time-mono">${formatDuration(startMs)}</span>
+                    </td>
+                    <td>
+                        <span class="lap-duration-mono" style="color:${color}">${formatDuration(lap.lapDuration)}</span>
+                    </td>
+                    <td>
+                        <div class="lap-wh-cell">
+                            <div class="wh-bar-container">
+                                <div class="wh-bar-fill" style="width:${barW}%;background:${color};"></div>
+                            </div>
+                            <span class="wh-value" style="color:${color};">${lap.lapJwh >= 0 ? '+' : ''}${lap.lapJwh.toFixed(3)} Wh</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="lap-time-mono" style="color:#a5b4fc;">${lap.endJwh.toFixed(3)} Wh</span>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            // Auto-scroll logic
+            if (isNewLapAdded) {
+                if (autoScroll) {
+                    wrapper.scrollTo({ top: wrapper.scrollHeight, behavior: 'smooth' });
+                } else {
+                    // User is scrolling manually – show hint
+                    if (hint) hint.classList.add('visible');
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════
+        // BUTTON STATE
+        // ══════════════════════════════════════════
+        function updateButtons() {
+            if (!isAdmin) return;
+
+            const btnStart = document.getElementById('btnStart');
+            const btnLap   = document.getElementById('btnLap');
+            const btnReset = document.getElementById('btnReset');
+            const btnExport = document.getElementById('btnExport');
+            const startIcon = document.getElementById('startIcon');
+            const startText = document.getElementById('startText');
+
+            // CSV Export: tur varsa her zaman aktif
+            btnExport.disabled = raceState.laps.length === 0;
+
+            if (raceState.active) {
+                startIcon.textContent = '⏹';
+                startText.textContent = 'Yarışı Durdur';
+                btnStart.classList.add('btn-running');
+                btnLap.disabled = false;
+                btnReset.disabled = false;
+            } else {
+                startIcon.textContent = '▶';
+                startText.textContent = raceState.laps.length > 0 ? 'Yeni Yarış Başlat' : 'Yarışı Başlat';
+                btnStart.classList.remove('btn-running');
+                btnLap.disabled = true;
+                btnReset.disabled = raceState.laps.length === 0 && !raceState.startTime;
+            }
+        }
+
+        // ══════════════════════════════════════════
+        // ADMIN ACTIONS
+        // ══════════════════════════════════════════
+        async function handleStart() {
+            if (!isAdmin) return;
+            if (raceState.active) {
+                // Yarış aktif → durdur (son anı kaydet ve yarışı bitir)
+                await handleStop();
+                return;
+            }
+            try {
+                const r = await fetch('/api/laps/start', { method: 'POST' });
+                const d = await r.json();
+                if (!d.success) { alert('Hata: ' + (d.error || 'Başlatılamadı')); }
+            } catch(e) { alert('Bağlantı hatası: ' + e.message); }
+        }
+
+        async function handleStop() {
+            if (!isAdmin || !raceState.active) return;
+            try {
+                const r = await fetch('/api/laps/stop', { method: 'POST' });
+                const d = await r.json();
+                if (!d.success) { alert('Hata: ' + (d.error || 'Durdurulamadı')); }
+            } catch(e) { alert('Bağlantı hatası: ' + e.message); }
+        }
+
+        async function handleLap() {
+            if (!isAdmin || !raceState.active) return;
+            const btn = document.getElementById('btnLap');
+            btn.disabled = true;
+            // Ripple effect
+            btn.classList.add('btn-ripple');
+            setTimeout(() => btn.classList.remove('btn-ripple'), 400);
+
+            try {
+                const r = await fetch('/api/laps/lap', { method: 'POST' });
+                const d = await r.json();
+                if (!d.success) {
+                    alert('Hata: ' + (d.error || 'Lap kaydedilemedi'));
+                }
+            } catch(e) {
+                alert('Bağlantı hatası: ' + e.message);
+            } finally {
+                if (raceState.active) btn.disabled = false;
+            }
+        }
+
+        async function handleReset() {
+            if (!isAdmin) return;
+            const msg = raceState.active
+                ? '⚠️ Yarış aktif! Mevcut tur verileri kaydedilecek ve yarış sıfırlanacak. Emin misiniz?'
+                : 'Mevcut tur verileri kaydedilecek ve yarış sıfırlanacak. Yeni bir yarışa hazır olacak. Emin misiniz?';
+            if (!confirm(msg)) return;
+            try {
+                const r = await fetch('/api/laps/reset', { method: 'POST' });
+                const d = await r.json();
+                if (!d.success) {
+                    alert('Hata: ' + (d.error || 'Sıfırlanamadı'));
+                } else {
+                    // Kayıt başarılıysa eski yarışlar listesini yenile
+                    loadPastRaces();
+                }
+            } catch(e) { alert('Bağlantı hatası: ' + e.message); }
+        }
+
+        // ══════════════════════════════════════════
+        // CSV EXPORT (client-side)
+        // ══════════════════════════════════════════
+        function exportCSV() {
+            if (!raceState.laps || raceState.laps.length === 0) {
+                alert('Dışa aktarılacak tur verisi yok.');
+                return;
+            }
+
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const dateStr = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+
+            let csv = '\uFEFF'; // BOM for Excel
+            csv += 'Tur No;Başlangıç (mm:ss.t);Tur Süresi (mm:ss.t);Tur Wh;Toplam Wh\n';
+
+            raceState.laps.forEach(lap => {
+                const startMs = lap.startTime - raceState.startTime;
+                csv += [
+                    lap.lapNum,
+                    formatDuration(startMs),
+                    formatDuration(lap.lapDuration),
+                    lap.lapJwh.toFixed(3).replace('.', ','),
+                    lap.endJwh.toFixed(3).replace('.', ',')
+                ].join(';') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tur_verileri_${dateStr}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
+
+        // ══════════════════════════════════════════
+        // FORMATTING
+        // ══════════════════════════════════════════
+        function formatDuration(ms) {
+            if (ms < 0) ms = 0;
+            const totalSec = ms / 1000;
+            const min = Math.floor(totalSec / 60);
+            const sec = Math.floor(totalSec % 60);
+            const tenth = Math.floor((ms % 1000) / 100);
+            return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${tenth}`;
+        }
+
+        // ══════════════════════════════════════════
+        // PAST RACES (Eski Yarış Kayıtları)
+        // ══════════════════════════════════════════
+        async function loadPastRaces() {
+            const container = document.getElementById('pastRacesContent');
+            container.innerHTML = '<div class="races-loading">Yükleniyor...</div>';
+            try {
+                const r = await fetch('/api/races/list');
+                const d = await r.json();
+                if (!d.races || d.races.length === 0) {
+                    container.innerHTML = `
+                        <div class="races-empty">
+                            <div class="races-empty-icon">📭</div>
+                            <div class="races-empty-text">Henüz kayıtlı yarış yok</div>
+                        </div>`;
+                    return;
+                }
+                container.innerHTML = '<div class="races-grid">' + d.races.map(race => {
+                    const date = new Date(race.savedAt);
+                    const dateStr = date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    return `
+                        <div class="race-card">
+                            <div class="race-card-header">
+                                <div>
+                                    <div class="race-card-date">📅 ${dateStr}</div>
+                                    <div class="race-card-time">🕐 ${timeStr}</div>
+                                </div>
+                                <span class="race-card-badge">${race.lapCount} TUR</span>
+                            </div>
+                            <div class="race-card-stats">
+                                <div class="race-stat">
+                                    <div class="race-stat-label">Tur</div>
+                                    <div class="race-stat-value">${race.lapCount}</div>
+                                </div>
+                                <div class="race-stat">
+                                    <div class="race-stat-label">Süre</div>
+                                    <div class="race-stat-value">${formatDuration(race.totalDuration)}</div>
+                                </div>
+                                <div class="race-stat">
+                                    <div class="race-stat-label">Enerji</div>
+                                    <div class="race-stat-value" style="color:var(--orange);">${race.totalJwh.toFixed(3)} Wh</div>
+                                </div>
+                            </div>
+                            <button class="race-download-btn" onclick="downloadPastRace('${race.fileName}')">
+                                📥 CSV İndir
+                            </button>
+                        </div>`;
+                }).join('') + '</div>';
+            } catch(e) {
+                container.innerHTML = `
+                    <div class="races-empty">
+                        <div class="races-empty-icon">⚠️</div>
+                        <div class="races-empty-text">Kayıtlar yüklenemedi: ${e.message}</div>
+                    </div>`;
+            }
+        }
+
+        function downloadPastRace(fileName) {
+            window.location.href = `/api/races/download/${encodeURIComponent(fileName)}`;
+        }
+
+        // ══════════════════════════════════════════
+        // INIT
+        // ══════════════════════════════════════════
+        checkAuth();
+        setupScrollListener();
+        loadPastRaces();
+    </script>
+</body>
+</html>

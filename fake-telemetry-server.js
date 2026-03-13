@@ -5,6 +5,7 @@
  */
 
 const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
+//const TARGET_URL = process.env.TARGET_URL || 'https://telemetri.hidroana.com/data';
 const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
 
 // Silesia Ring pist koordinatları (ana noktalar - daha hızlı simülasyon için)
@@ -41,7 +42,7 @@ const trackCoordinates = [
     [50.53150, 18.09320],   // Düz 11
     [50.53200, 18.09390],   // Düz 12
     [50.53250, 18.09460],   // Düz 13
-    [50.53300, 18.09530],   // Viraj 7 giriş
+    [50.53300, 18.09450],   // Viraj 7 giriş
     [50.53350, 18.09560],   // Viraj 7
     [50.53400, 18.09560],   // Viraj 7 çıkış
     [50.53450, 18.09530],   // Düz 14
@@ -93,7 +94,8 @@ let state = {
     jc: 14.2,       // Joulemeter current
     jw: 683,        // Joulemeter watt
     jwh: 1250,      // Joulemeter watt-hour
-    id: 1           // Araç ID
+    id: 1,
+    meter: 0           // Araç ID
 };
 
 // Rastgele değişim fonksiyonu
@@ -111,24 +113,24 @@ function lerp(start, end, t) {
 function updateState() {
     // Hız değişimi (20-60 km/h arası)
     state.h = vary(state.h, 5, 20, 60);
-    
+
     // Pist üzerinde ilerleme (çok hızlı)
     const speedFactor = state.h / 30; // Hıza göre ilerleme hızı
     trackProgress += 0.4 * speedFactor; // Çok hızlı ilerleme
-    
+
     if (trackProgress >= 1) {
         trackProgress = 0;
         currentTrackIndex = (currentTrackIndex + 1) % trackCoordinates.length;
     }
-    
+
     // Mevcut ve sonraki nokta
     const currentPoint = trackCoordinates[currentTrackIndex];
     const nextPoint = trackCoordinates[(currentTrackIndex + 1) % trackCoordinates.length];
-    
+
     // Koordinatları interpolate et
     state.x = lerp(currentPoint[0], nextPoint[0], trackProgress);
     state.y = lerp(currentPoint[1], nextPoint[1], trackProgress);
-    
+
     // Diğer sensör verileri
     state.gp = 1; // GPS fix her zaman 1
     state.gs = Math.round(vary(state.gs, 2, 15, 30));
@@ -149,7 +151,9 @@ function updateState() {
     state.jv = vary(state.jv, 0.3, 45, 52);
     state.jc = vary(state.jc, 0.5, 10, 20);
     state.jw = state.jv * state.jc;
-    state.jwh = vary(state.jwh, 5, 1000, 1500);
+    //state.jwh = vary(state.jwh, 5, 1000, 1500);
+    state.jwh = state.jwh + 1;
+    state.meter = state.meter + 3;
 }
 
 // Query string oluştur (araç formatı)
@@ -179,6 +183,7 @@ function buildQueryString() {
         jc: state.jc.toFixed(2),
         jw: state.jw.toFixed(2),
         jwh: state.jwh.toFixed(2),
+        meter: state.meter,
         //id: state.id,
         key: '066c4e702e'
     });

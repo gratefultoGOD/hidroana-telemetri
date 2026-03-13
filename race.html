@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yarış İzleme - Silesia Ring</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://iosphere.github.io/leaflet-hotline/dist/leaflet.hotline.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -22,7 +25,14 @@
 
         .container {
             display: flex;
+            flex-direction: column;
             height: 100vh;
+        }
+
+        .top-area {
+            display: flex;
+            flex: 1;
+            min-height: 0;
         }
 
         .sidebar {
@@ -32,11 +42,13 @@
             overflow-y: auto;
             border-right: 2px solid #00ff88;
             backdrop-filter: blur(10px);
+            flex-shrink: 0;
         }
 
         .map-container {
             flex: 1;
             position: relative;
+            min-width: 0;
         }
 
         #map {
@@ -167,6 +179,25 @@
             opacity: 0.9;
         }
 
+        .btn-csv {
+            background: linear-gradient(135deg, #f7971e, #ffd200) !important;
+            color: #000 !important;
+            margin-top: 8px !important;
+        }
+
+        .btn-csv:hover {
+            opacity: 0.88 !important;
+        }
+
+        #csvStatusMsg {
+            font-size: 11px;
+            color: #ffd200;
+            margin-top: 6px;
+            min-height: 16px;
+            text-align: center;
+            word-break: break-all;
+        }
+
         .back-btn {
             position: absolute;
             top: 10px;
@@ -197,87 +228,199 @@
             background: #00ff88;
             border-radius: 4px;
         }
+
+        .chart-panel {
+            height: 220px;
+            min-height: 120px;
+            max-height: 600px;
+            flex-shrink: 0;
+            background: rgba(0, 0, 0, 0.92);
+            border-top: 2px solid rgba(102, 126, 234, 0.5);
+            padding: 8px 18px 8px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+        }
+
+        .chart-resize-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            cursor: ns-resize;
+            background: transparent;
+            z-index: 10;
+            transition: background 0.2s;
+        }
+
+        .chart-resize-handle:hover,
+        .chart-resize-handle.dragging {
+            background: rgba(102, 126, 234, 0.55);
+        }
+
+        .chart-resize-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 3px;
+            border-radius: 2px;
+            background: rgba(102, 126, 234, 0.5);
+            transition: background 0.2s, width 0.2s;
+        }
+
+        .chart-resize-handle:hover::after,
+        .chart-resize-handle.dragging::after {
+            background: rgba(102, 126, 234, 1);
+            width: 60px;
+        }
+
+        .chart-panel-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .chart-panel-header h3 {
+            font-size: 12px;
+            color: #aaa;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .chart-live {
+            font-size: 10px;
+            color: #00ff88;
+            background: rgba(0, 255, 136, 0.12);
+            padding: 2px 8px;
+            border-radius: 10px;
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .chart-canvas-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <div class="sidebar">
-            <h1>🏁 Yarış İzleme</h1>
-            
-            <div class="status-box">
-                <div class="status-row">
-                    <span class="status-label">Bağlantı:</span>
-                    <span class="status-value" id="connectionStatus">Bağlanıyor...</span>
+        <div class="top-area">
+            <div class="sidebar">
+                <h1>🏁 Yarış İzleme</h1>
+
+                <div class="status-box">
+                    <div class="status-row">
+                        <span class="status-label">Bağlantı:</span>
+                        <span class="status-value" id="connectionStatus">Bağlanıyor...</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Sector Planı:</span>
+                        <span class="status-value" id="sectorPlanName">Yüklenmedi</span>
+                    </div>
                 </div>
-                <div class="status-row">
-                    <span class="status-label">Sector Planı:</span>
-                    <span class="status-value" id="sectorPlanName">Yüklenmedi</span>
+
+                <div class="speed-display">
+                    <div class="speed-value" id="currentSpeed">0</div>
+                    <div class="speed-label">km/h</div>
                 </div>
+
+                <div class="sector-info" id="currentSectorInfo">
+                    <div class="sector-title">Sector Bilgisi</div>
+                    <div class="sector-detail">
+                        <span>Sector:</span>
+                        <span id="sectorNumber">-</span>
+                    </div>
+                    <div class="sector-detail">
+                        <span>Hedef Hız:</span>
+                        <span id="targetSpeed">-</span>
+                    </div>
+                    <div class="sector-detail">
+                        <span>Mevcut Hız:</span>
+                        <span id="actualSpeed">-</span>
+                    </div>
+                    <div class="sector-detail">
+                        <span>Durum:</span>
+                        <span id="speedStatus">-</span>
+                    </div>
+                </div>
+
+                <div class="efficiency-box">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Konum & Yönelim</h3>
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Bearing:</span>
+                        <span class="efficiency-value" id="bearing">-°</span>
+                    </div>
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Koordinat:</span>
+                        <span class="efficiency-value" id="coordinates" style="font-size: 10px;">-</span>
+                    </div>
+                </div>
+
+                <div class="efficiency-box">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Verimlilik</h3>
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">SOC:</span>
+                        <span class="efficiency-value" id="soc">-%</span>
+                    </div>
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Kalan Enerji:</span>
+                        <span class="efficiency-value" id="remainingEnergy">- kWh</span>
+                    </div>
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Batarya Gücü:</span>
+                        <span class="efficiency-value" id="batteryPower">- W</span>
+                    </div>
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Fuel Cell Gücü:</span>
+                        <span class="efficiency-value" id="fuelPower">- W</span>
+                    </div>
+                </div>
+
+                <button onclick="showLoadDialog()">Sector Planı Yükle</button>
+
+                <!-- CSV Yükle & Uygula -->
+                <button class="btn-csv" onclick="document.getElementById('csvFileInput').click()">📂 CSV Yükle &amp;
+                    Uygula</button>
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCsvFile(event)">
+                <div id="csvStatusMsg"></div>
             </div>
 
-            <div class="speed-display">
-                <div class="speed-value" id="currentSpeed">0</div>
-                <div class="speed-label">km/h</div>
+            <div class="map-container">
+                <a href="/" class="back-btn">← Ana Sayfa</a>
+                <div id="map"></div>
             </div>
-
-            <div class="sector-info" id="currentSectorInfo">
-                <div class="sector-title">Sector Bilgisi</div>
-                <div class="sector-detail">
-                    <span>Sector:</span>
-                    <span id="sectorNumber">-</span>
-                </div>
-                <div class="sector-detail">
-                    <span>Hedef Hız:</span>
-                    <span id="targetSpeed">-</span>
-                </div>
-                <div class="sector-detail">
-                    <span>Mevcut Hız:</span>
-                    <span id="actualSpeed">-</span>
-                </div>
-                <div class="sector-detail">
-                    <span>Durum:</span>
-                    <span id="speedStatus">-</span>
-                </div>
-            </div>
-
-            <div class="efficiency-box">
-                <h3 style="font-size: 14px; margin-bottom: 8px;">Konum & Yönelim</h3>
-                <div class="efficiency-row">
-                    <span class="efficiency-label">Bearing:</span>
-                    <span class="efficiency-value" id="bearing">-°</span>
-                </div>
-                <div class="efficiency-row">
-                    <span class="efficiency-label">Koordinat:</span>
-                    <span class="efficiency-value" id="coordinates" style="font-size: 10px;">-</span>
-                </div>
-            </div>
-
-            <div class="efficiency-box">
-                <h3 style="font-size: 14px; margin-bottom: 8px;">Verimlilik</h3>
-                <div class="efficiency-row">
-                    <span class="efficiency-label">SOC:</span>
-                    <span class="efficiency-value" id="soc">-%</span>
-                </div>
-                <div class="efficiency-row">
-                    <span class="efficiency-label">Kalan Enerji:</span>
-                    <span class="efficiency-value" id="remainingEnergy">- kWh</span>
-                </div>
-                <div class="efficiency-row">
-                    <span class="efficiency-label">Batarya Gücü:</span>
-                    <span class="efficiency-value" id="batteryPower">- W</span>
-                </div>
-                <div class="efficiency-row">
-                    <span class="efficiency-label">Fuel Cell Gücü:</span>
-                    <span class="efficiency-value" id="fuelPower">- W</span>
-                </div>
-            </div>
-
-            <button onclick="showLoadDialog()">Sector Planı Yükle</button>
         </div>
 
-        <div class="map-container">
-            <a href="/" class="back-btn">← Ana Sayfa</a>
-            <div id="map"></div>
+        <div class="chart-panel" id="chartPanel">
+            <div class="chart-resize-handle" id="chartResizeHandle" title="Sürükleyerek yüksekliği ayarla"></div>
+            <div class="chart-panel-header">
+                <h3>Hız Grafiği — Mesafe (m)</h3>
+                <span class="chart-live">● CANLI</span>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="raceSpeedChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -294,6 +437,169 @@
         let eventSource = null;
         let lastPosition = null;
         let currentBearing = 0;
+
+        // CSV'den çizilen yol için layer referansı
+        let csvTrackLayers = [];
+        let kmlTrackLayer = null; // KML gri yol layer'ı
+
+        // Hız grafiği — metre bazlı
+        let raceSpeedChart = null;
+        // Gerçek zamanlı hız: {meter, speed}
+        let raceSpeedHistory = [];
+        // Optimum hız datası: [{s, v}] — sektör yüklenince dolar
+        let optimumSpeedData = [];
+        const RACE_MAX_POINTS = 20; // Grafikte gösterilecek max nokta sayısı
+
+        function initRaceSpeedChart() {
+            const canvas = document.getElementById('raceSpeedChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const colorLive = '#667eea';
+            const colorOpt = '#ff9f43';
+
+            raceSpeedChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Anlık Hız (km/h)',
+                            data: [],
+                            borderColor: colorLive,
+                            backgroundColor: colorLive + '25',
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 1.5,
+                            pointHoverRadius: 5,
+                            pointHoverBackgroundColor: colorLive,
+                            pointHoverBorderColor: '#fff',
+                            pointHoverBorderWidth: 2,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Optimum Hız (km/h)',
+                            data: [],
+                            borderColor: colorOpt,
+                            backgroundColor: 'transparent',
+                            tension: 0.35,
+                            fill: false,
+                            pointRadius: 0,
+                            borderWidth: 1.5,
+                            borderDash: [5, 3]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: '#aaa',
+                                font: { size: 10 },
+                                boxWidth: 20,
+                                padding: 10
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0,0,0,0.85)',
+                            titleColor: '#fff',
+                            bodyColor: '#ccc',
+                            borderColor: colorLive,
+                            borderWidth: 1,
+                            padding: 8,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            titleFont: { size: 10, weight: 'bold' },
+                            bodyFont: { size: 11 },
+                            callbacks: {
+                                title: function (items) {
+                                    return items[0].label + ' m';
+                                },
+                                label: function (ctx) {
+                                    const v = ctx.parsed.y;
+                                    if (v === null || v === undefined) return '';
+                                    const name = ctx.dataset.label;
+                                    return ' ' + name.split(' ')[0] + ': ' + (Number.isInteger(v) ? v : v.toFixed(1)) + ' km/h';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Mesafe (m)', color: '#666', font: { size: 9 } },
+                            ticks: { color: '#666', font: { size: 9 }, maxRotation: 45, autoSkip: false },
+                            grid: { color: 'rgba(255,255,255,0.04)' }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: { color: '#888', font: { size: 9 } },
+                            grid: { color: 'rgba(255,255,255,0.07)' },
+                            afterDataLimits: (scale) => { if (scale.min < 0) scale.min = 0; }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRaceSpeedChart(speed, meter) {
+            if (!raceSpeedChart) return;
+
+            // Anlık hız geçmişine ekle
+            raceSpeedHistory.push({ meter: meter, speed: speed });
+
+            // Son 20 noktadan fazlasını kırp
+            if (raceSpeedHistory.length > RACE_MAX_POINTS) {
+                raceSpeedHistory.shift();
+            }
+
+            // X ekseni etiketleri: anlık verinin metre değerleri
+            const liveMeters = raceSpeedHistory.map(p => p.meter);
+            const liveLabels = liveMeters.map(m => m.toFixed(0));
+
+            // Optimum veriyi aynı metre noktalarına göre interpolasyon ile hesapla
+            let optData = [];
+            if (optimumSpeedData.length > 0) {
+                optData = liveMeters.map(m => getOptimumSpeedAt(m));
+            }
+
+            raceSpeedChart.data.labels = liveLabels;
+            raceSpeedChart.data.datasets[0].data = raceSpeedHistory.map(p => p.speed);
+            raceSpeedChart.data.datasets[1].data = optData.length > 0 ? optData : [];
+            raceSpeedChart.update('none');
+        }
+
+        // Verilen metre konumuna göre optimum hızı bul:
+        // Float metre → en yakın integer'a yuvarla → o metredeki değeri direkt döndür
+        function getOptimumSpeedAt(m) {
+            if (optimumSpeedData.length === 0) return null;
+            const mInt = Math.round(m);
+            if (mInt < optimumSpeedData[0].s) return null;
+            if (mInt > optimumSpeedData[optimumSpeedData.length - 1].s) return null;
+            // Binary search — tam eşleşme ara
+            let lo = 0, hi = optimumSpeedData.length - 1;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                if (optimumSpeedData[mid].s === mInt) return optimumSpeedData[mid].v;
+                if (optimumSpeedData[mid].s < mInt) lo = mid + 1;
+                else hi = mid - 1;
+            }
+            return null; // O integer metrede kayıt yok
+        }
+
+        // Sektör yüklenince optimum datayı ayarla
+        function setOptimumData(data) {
+            optimumSpeedData = data; // [{s, v}]
+            // Grafik başlığını güncelle
+            const headerEl = document.querySelector('.chart-panel-header h3');
+            if (headerEl) {
+                headerEl.textContent = 'Hız Grafiği — Mesafe (m)' + (data.length > 0 ? ' + Optimum' : '');
+            }
+        }
 
         // Haversine formülü ile iki nokta arası mesafe (metre)
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -364,7 +670,7 @@
         function loadTrackFromKML() {
             const track = omnivore.kml('./path.kml');
 
-            track.on('ready', function(layer) {
+            track.on('ready', function (layer) {
                 const geoJSON = layer.target.toGeoJSON();
                 const coordinates = geoJSON.features[0].geometry.coordinates;
 
@@ -380,14 +686,16 @@
                     totalTrackLength += dist;
                 }
 
-                // Track'i haritada göster (gri)
-                L.polyline(trackCoordinates, {
-                    color: '#666',
-                    weight: 4,
-                    opacity: 0.5
-                }).addTo(map);
+                // Track'i haritada göster (gri) — sadece CSV yüklü değilse
+                if (csvTrackLayers.length === 0) {
+                    kmlTrackLayer = L.polyline(trackCoordinates, {
+                        color: '#666',
+                        weight: 4,
+                        opacity: 0.5
+                    }).addTo(map);
 
-                map.fitBounds(L.polyline(trackCoordinates).getBounds());
+                    map.fitBounds(L.polyline(trackCoordinates).getBounds());
+                }
             });
         }
 
@@ -400,15 +708,15 @@
                         alert('Kaydedilmiş sector planı bulunamadı!');
                         return;
                     }
-                    
+
                     let message = 'Yüklemek istediğiniz planı seçin:\n\n';
                     data.sectors.forEach((s, i) => {
                         message += `${i + 1}. ${s.name} (${s.sectorCount} sector)\n`;
                     });
-                    
+
                     const choice = prompt(message + '\nNumara girin:');
                     if (!choice) return;
-                    
+
                     const index = parseInt(choice) - 1;
                     if (index >= 0 && index < data.sectors.length) {
                         loadSectorPlan(data.sectors[index].fileName, data.sectors[index].name);
@@ -426,9 +734,168 @@
                     sectors = data.sectors;
                     document.getElementById('sectorPlanName').textContent = planName;
                     applySectors();
-                    alert('Sector planı yüklendi: ' + planName);
+                    // Optimum hız datasını grafiğe yükle
+                    if (data.optimumData && data.optimumData.length > 0) {
+                        setOptimumData(data.optimumData);
+                        console.log(`Optimum hız datası yüklendi: ${data.optimumData.length} nokta`);
+                    } else {
+                        setOptimumData([]);
+                    }
+                    alert('Sector planı yüklendi: ' + planName +
+                        (data.optimumData && data.optimumData.length > 0
+                            ? `\nOptimum data: ${data.optimumData.length} nokta` : ''));
                 })
                 .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // CSV Yükle & Uygula
+        // Beklenen sütunlar: s, x, y, v_kmh, lat, lon, sector
+        // ─────────────────────────────────────────────────────────
+
+        function handleCsvFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    applyCsvData(e.target.result, file.name);
+                } catch (err) {
+                    setCsvStatus('❌ Hata: ' + err.message, '#ff4444');
+                }
+            };
+            reader.readAsText(file);
+            // Aynı dosyayı tekrar seçebilmek için input'u sıfırla
+            event.target.value = '';
+        }
+
+        function setCsvStatus(msg, color) {
+            const el = document.getElementById('csvStatusMsg');
+            if (el) { el.textContent = msg; el.style.color = color || '#ffd200'; }
+        }
+
+        function applyCsvData(csvText, fileName) {
+            // ── Parse ──
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+            if (lines.length < 2) throw new Error('CSV boş veya başlık yok');
+
+            const header = lines[0].split(',').map(h => h.trim());
+            const idxS = header.indexOf('s');
+            const idxLat = header.indexOf('lat');
+            const idxLon = header.indexOf('lon');
+            const idxV = header.indexOf('v_kmh');
+            const idxSector = header.indexOf('sector');
+
+            if (idxLat < 0 || idxLon < 0) throw new Error('CSV\'de lat/lon sütunu bulunamadı');
+            if (idxV < 0) throw new Error('CSV\'de v_kmh sütunu bulunamadı');
+
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(',');
+                if (cols.length < header.length) continue;
+                rows.push({
+                    s: idxS >= 0 ? parseFloat(cols[idxS]) : i,
+                    lat: parseFloat(cols[idxLat]),
+                    lon: parseFloat(cols[idxLon]),
+                    v: parseFloat(cols[idxV]),
+                    sector: idxSector >= 0 ? parseInt(cols[idxSector]) : 1
+                });
+            }
+            if (rows.length === 0) throw new Error('Geçerli satır bulunamadı');
+
+            // ── 1. Eski CSV katmanlarını temizle ──
+            csvTrackLayers.forEach(l => map.removeLayer(l));
+            csvTrackLayers = [];
+
+            // KML gri yolu varsa gizle (CSV kendi koordinatlarını çizecek)
+            if (kmlTrackLayer) { map.removeLayer(kmlTrackLayer); kmlTrackLayer = null; }
+
+            // ── 2. trackCoordinates'i CSV koordinatlarına göre güncelle ──
+            trackCoordinates = rows.map(r => [r.lat, r.lon]);
+
+            // Toplam mesafeyi hesapla
+            totalTrackLength = 0;
+            for (let i = 1; i < trackCoordinates.length; i++) {
+                totalTrackLength += calculateDistance(
+                    trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                    trackCoordinates[i][0], trackCoordinates[i][1]
+                );
+            }
+
+            // ── 3. Sektörleri CSV'deki sector numarasından oluştur ──
+            const sectorMap = {}; // sectorNo => {minS, maxS, speeds[]}
+            rows.forEach(r => {
+                if (!sectorMap[r.sector]) sectorMap[r.sector] = { minS: r.s, maxS: r.s, speeds: [] };
+                const sm = sectorMap[r.sector];
+                if (r.s < sm.minS) sm.minS = r.s;
+                if (r.s > sm.maxS) sm.maxS = r.s;
+                sm.speeds.push(r.v);
+            });
+
+            const sectorNos = Object.keys(sectorMap).map(Number).sort((a, b) => a - b);
+
+            // Sektör listesini güncelle (race.html sektör formatı: {id, startMeter, endMeter, targetSpeed})
+            sectors = sectorNos.map(no => {
+                const sm = sectorMap[no];
+                const avgSpeed = sm.speeds.reduce((a, b) => a + b, 0) / sm.speeds.length;
+                return {
+                    id: no,
+                    startMeter: sm.minS,
+                    endMeter: sm.maxS,
+                    targetSpeed: Math.round(avgSpeed * 10) / 10
+                };
+            });
+
+            // ── 4. Optimum hız datasını yükle [{s, v}] ──
+            const optData = rows.map(r => ({ s: Math.round(r.s), v: r.v }));
+            setOptimumData(optData);
+
+            // ── 5. Haritada sektörlere göre renkli yolları çiz ──
+            const sectorColors = ['#00ff88', '#ffd200', '#ff6b6b', '#74b9ff', '#a29bfe', '#fd79a8', '#55efc4', '#fdcb6e'];
+
+            sectorNos.forEach((no, idx) => {
+                // O sektöre ait koordinatları al
+                const sectorRows = rows.filter(r => r.sector === no);
+                const coords = sectorRows.map(r => [r.lat, r.lon]);
+                if (coords.length < 2) return;
+
+                const color = sectorColors[(no - 1) % sectorColors.length];
+                const poly = L.polyline(coords, {
+                    color: color,
+                    weight: 5,
+                    opacity: 0.85
+                }).addTo(map);
+
+                const avgSpd = sectorMap[no].speeds.reduce((a, b) => a + b, 0) / sectorMap[no].speeds.length;
+                poly.bindPopup(`<strong>Sector ${no}</strong><br>${sectorMap[no].minS.toFixed(0)}m – ${sectorMap[no].maxS.toFixed(0)}m<br>Ort. Hız: ${avgSpd.toFixed(1)} km/h`);
+                csvTrackLayers.push(poly);
+
+                // Sektör başlangıç etiketi
+                const startCoord = coords[0];
+                const label = L.marker(startCoord, {
+                    icon: L.divIcon({
+                        className: '',
+                        html: `<div style="background:${color};color:#000;font-size:10px;font-weight:bold;padding:2px 5px;border-radius:4px;white-space:nowrap;">S${no}</div>`,
+                        iconAnchor: [10, 10]
+                    }),
+                    interactive: false
+                }).addTo(map);
+                csvTrackLayers.push(label);
+            });
+
+            // Haritayı fit et
+            map.fitBounds(L.polyline(trackCoordinates).getBounds(), { padding: [20, 20] });
+
+            // ── 6. Eski sektör katmanlarını temizle (önceki sector plan varsa) ──
+            sectorLayers.forEach(l => map.removeLayer(l));
+            sectorLayers = [];
+            currentSectorIndex = -1;
+
+            // ── 7. UI güncelle ──
+            const sName = fileName.replace('.csv', '');
+            document.getElementById('sectorPlanName').textContent = sName + ' (CSV)';
+            setCsvStatus(`✅ ${rows.length} nokta · ${sectorNos.length} sektör · ${optData.length} optimum`, '#00ff88');
+            console.log(`CSV yüklendi: ${rows.length} satır, ${sectorNos.length} sektör, ${optData.length} optimum nokta`);
         }
 
         // Sector'leri haritaya uygula
@@ -516,11 +983,19 @@
             return -1;
         }
 
+        // Araç toplam mesafe sayacı (metre)
+        let currentMeter = 0;
+
         // Telemetri verisini işle
         function processTelemetryData(data) {
             // Hız
             const speed = parseFloat(data.h || 0);
             document.getElementById('currentSpeed').textContent = speed.toFixed(0);
+            // Metre verisi (sunucudan geliyorsa kullan, yoksa kendi sayacı)
+            if (data.meter !== undefined && data.meter !== null) {
+                currentMeter = parseFloat(data.meter);
+            }
+            updateRaceSpeedChart(speed, currentMeter);
 
             // Konum (NOT: Cihaz x ve y'yi ters gönderiyor)
             const lat = parseFloat(data.x || 0);  // x = latitude
@@ -564,7 +1039,7 @@
 
                 // Hangi sector'da olduğunu bul
                 const sectorIndex = findCurrentSector(lat, lng);
-                
+
                 if (sectorIndex !== -1 && sectorIndex !== currentSectorIndex) {
                     currentSectorIndex = sectorIndex;
                     updateSectorInfo(sectors[sectorIndex], speed);
@@ -615,12 +1090,12 @@
             console.log('SSE bağlantısı kuruluyor...');
             eventSource = new EventSource('/api/telemetry/stream');
 
-            eventSource.onopen = function() {
+            eventSource.onopen = function () {
                 console.log('SSE bağlandı');
                 document.getElementById('connectionStatus').textContent = 'Bağlı';
             };
 
-            eventSource.onmessage = function(event) {
+            eventSource.onmessage = function (event) {
                 try {
                     const data = JSON.parse(event.data);
                     processTelemetryData(data);
@@ -629,11 +1104,11 @@
                 }
             };
 
-            eventSource.onerror = function(error) {
+            eventSource.onerror = function (error) {
                 console.error('SSE hatası:', error);
                 document.getElementById('connectionStatus').textContent = 'Bağlantı Yok';
                 eventSource.close();
-                
+
                 // 5 saniye sonra tekrar dene
                 setTimeout(connectToSSE, 5000);
             };
@@ -642,8 +1117,60 @@
         // Sayfa yüklendiğinde
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
+            initRaceSpeedChart();
             connectToSSE();
+
+            // --- Grafik yüksekliği sürükle-ayarla ---
+            const chartPanel = document.getElementById('chartPanel');
+            const resizeHandle = document.getElementById('chartResizeHandle');
+            const MIN_H = 120;
+            const MAX_H = 600;
+
+            // Kaydedilmiş yüksekliği uygula
+            const savedH = localStorage.getItem('chartPanelHeight');
+            if (savedH) chartPanel.style.height = savedH + 'px';
+
+            let isDragging = false;
+            let startY = 0;
+            let startH = 0;
+
+            function onDragStart(e) {
+                isDragging = true;
+                startY = e.touches ? e.touches[0].clientY : e.clientY;
+                startH = chartPanel.offsetHeight;
+                resizeHandle.classList.add('dragging');
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            }
+
+            function onDragMove(e) {
+                if (!isDragging) return;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const delta = startY - clientY; // yukarı sürükleme = artır
+                let newH = Math.min(MAX_H, Math.max(MIN_H, startH + delta));
+                chartPanel.style.height = newH + 'px';
+                if (raceSpeedChart) raceSpeedChart.resize();
+            }
+
+            function onDragEnd() {
+                if (!isDragging) return;
+                isDragging = false;
+                resizeHandle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                localStorage.setItem('chartPanelHeight', chartPanel.offsetHeight);
+            }
+
+            resizeHandle.addEventListener('mousedown', onDragStart);
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+
+            resizeHandle.addEventListener('touchstart', onDragStart, { passive: false });
+            document.addEventListener('touchmove', onDragMove, { passive: false });
+            document.addEventListener('touchend', onDragEnd);
         });
     </script>
 </body>
+
 </html>

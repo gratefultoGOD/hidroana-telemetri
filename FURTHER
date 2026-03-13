@@ -270,4 +270,22 @@ mobil görünüm
 gps nerede gözüküyor testlerde kontrol et
 f1 telemetry circuit araştır
 sector muhabbeti ayrı bir sayfada web sitede
- 
+
+/race sayfasında hız grafiği optimal olan ve gerçek olan metre ile gösterilecek
+Ardanın verdiği veriler ile yeni haritayı ekle, sectorleri ayır
+TEKNOFEST kitapçığı
+
+gelen en son verinin saatini yazdır [+]
+TUR saydır
+koordinatlar gizlenebilir olabilir
+lap sayma endpointi ve sayfası ekle. fotosu wpde var. 
+lap sayma manuel site tarafından yapılacak
+tüm clientlar güncellenecek (lap sayma için) event driven
+lap saymada butonlar sadece adminde tablo herkeste gözüksün
+consumptionda joulmetre watt saat olarak çıkar yazdır 
+tek csv de race den yüklenebilsin
+race de grafik yüksekliği ayarlanabilir olsun
+ardanın veriler 1 metre arayla ben bir metre aralıkları kontrol ediyorum ama araç her 1.5 metrede bir veri gönderiyor
+average kısmında pop kullanılıyor (düşüyor son eleman)
+/data da id querye gerek yok
+csv den sector oluşturucu düzeltilecek

@@ -1007,6 +1007,9 @@ function processRealTimeData(data) {
     updateChart(jcChart, time, telemetry.jc);
     updateChart(jwChart, time, telemetry.jw);
     updateChart(jwhChart, time, telemetry.jwh);
+
+    // Son veri zamanını güncelle
+    updateLastDataTime(data.receivedAt || Date.now(), data.date, data.time);
 }
 
 // Geriye uyumluluk için updateVehicleData fonksiyonunu koru
@@ -1620,3 +1623,56 @@ function clearDataQueue() {
     dataQueue = [];
     console.log(`🗑️ Kuyruk temizlendi. ${oldLength} veri silindi.`);
 }
+
+// ============================================
+// SON VERİ ZAMANI GÖSTERGESİ
+// ============================================
+
+// Son veri zamanını header'da güncelle
+function updateLastDataTime(receivedAtMs, dateStr, timeStr) {
+    const el = document.getElementById('lastDataTime');
+    if (!el) return;
+
+    try {
+        let display = '';
+        if (receivedAtMs) {
+            const d = new Date(receivedAtMs);
+            const dayStr = String(d.getDate()).padStart(2, '0');
+            const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+            const yearStr = d.getFullYear();
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            const ss = String(d.getSeconds()).padStart(2, '0');
+            display = `${dayStr}.${monthStr}.${yearStr} ${hh}:${mm}:${ss}`;
+        } else if (dateStr && timeStr) {
+            // Fallback: server'dan gelen date/time string
+            const timePart = timeStr.split('.')[0]; // ms'yi çıkar
+            display = `${dateStr} ${timePart}`;
+        }
+
+        if (display) {
+            el.textContent = display;
+        }
+    } catch (e) {
+        console.error('Son veri zamanı güncellenemedi:', e);
+    }
+}
+
+// Sayfa yüklenince server'dan son alınan veri zamanını çek
+async function fetchLastReceivedTime() {
+    try {
+        const res = await fetch('/api/telemetry/last-received');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.lastReceived) {
+            updateLastDataTime(data.lastReceived, data.date, data.time);
+        } else if (data.date && data.time) {
+            updateLastDataTime(null, data.date, data.time);
+        }
+    } catch (e) {
+        // Sessizce geç - bağlantı yoksa sorun değil
+    }
+}
+
+// Sayfa yüklenince çalıştır
+fetchLastReceivedTime();

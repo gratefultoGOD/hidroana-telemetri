@@ -45,7 +45,8 @@ header {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 5px;
+    row-gap: 2px;
+    column-gap: 5px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     flex-shrink: 0;
 }
@@ -116,6 +117,24 @@ header h1 {
 .gsm-signal .bar {
     fill: #e0e0e0;
     transition: fill 0.3s ease;
+}
+
+.last-data-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background: #f0f4ff;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #555;
+    border: 1px solid #d0d8f0;
+    white-space: nowrap;
+}
+
+.last-data-badge .last-data-icon {
+    font-size: 12px;
 }
 
 .coordinate-container {
@@ -747,7 +766,8 @@ header h1 {
     }
 
     .status-badge,
-    .gsm-signal {
+    .gsm-signal,
+    .last-data-badge {
         padding: 4px 8px;
         font-size: 10px;
     }

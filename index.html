@@ -28,6 +28,10 @@
                     </svg>
                     <span id="gsmValue">--</span>
                 </span>
+                <span class="last-data-badge" id="lastDataBadge" title="Son alınan verinin tarihi ve saati">
+                    <span class="last-data-icon">Son veri: </span>
+                    <span id="lastDataTime">-- : --</span>
+                </span>
             </div>
             <span class="coordinate-container" id="coordinate-label">Koordinatlar: --</span>
             <div class="user-info" id="userInfo">
@@ -72,9 +76,11 @@
                 <button class="export-btn admin-only" id="clearDataBtn" onclick="clearServerData()"
                     title="Bugünün verilerini temizle" style="display:none;">🗑️</button>
 
-                <button class="export-btn admin-only" style="display: none;" onclick="window.location.href='/sectors'">🏁 Sektör Oluştur</button>
-                <button class="export-btn admin-only" style="display: none;" onclick="window.location.href='/race'">🏎️ Yarış İzle</button>
-                
+                <button class="export-btn admin-only" style="display: none;"
+                    onclick="window.location.href='/sectors'">🏁 Sektör Oluştur</button>
+                <button class="export-btn admin-only" style="display: none;" onclick="window.location.href='/race'">🏎️
+                    Yarış İzle</button>
+
             </div>
         </header>
 

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -89,6 +90,61 @@
             border-radius: 4px;
             color: white;
             font-size: 14px;
+        }
+
+        .optimum-box {
+            background: rgba(255, 159, 67, 0.08);
+            border: 1px solid rgba(255, 159, 67, 0.35);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 18px;
+        }
+
+        .optimum-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #ff9f43;
+            margin-bottom: 4px;
+        }
+
+        .optimum-desc {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .optimum-desc code {
+            color: #ff9f43;
+            background: rgba(255, 159, 67, 0.12);
+            padding: 1px 4px;
+            border-radius: 3px;
+        }
+
+        .csv-file-label {
+            display: inline-block;
+            background: rgba(255, 159, 67, 0.85);
+            color: #000;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 6px;
+        }
+
+        .csv-file-label:hover {
+            opacity: 0.85;
+        }
+
+        .optimum-status {
+            font-size: 11px;
+            color: #aaa;
+            min-height: 16px;
+        }
+
+        .optimum-status.loaded {
+            color: #ff9f43;
+            font-weight: bold;
         }
 
         button {
@@ -227,11 +283,12 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="sidebar">
             <h1>🏁 Silesia Ring - Sector Analizi</h1>
-            
+
             <div class="track-info">
                 <div><strong>Pist:</strong> Silesia Ring, Poland</div>
                 <div><strong>Toplam Uzunluk:</strong> <span id="totalLength">Hesaplanıyor...</span></div>
@@ -250,6 +307,17 @@
             </div>
 
             <div class="sectors-list" id="sectorsList"></div>
+
+            <!-- Optimum CSV Import -->
+            <div class="optimum-box" id="optimumBox">
+                <div class="optimum-title">📈 Optimum Hız Datası (CSV)</div>
+                <div class="optimum-desc">CSV kolonları: <code>s,v_kmh</code> (metre, km/h)</div>
+                <label class="csv-file-label" for="csvFileInput">📂 CSV Dosyası Seç</label>
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none"
+                    onchange="handleCSVImport(event)">
+                <div class="optimum-status" id="optimumStatus">Veri yüklenmedi</div>
+                <button class="secondary" style="margin-top:6px;" onclick="clearOptimumData()">Temizle</button>
+            </div>
         </div>
 
         <div class="map-container">
@@ -290,6 +358,9 @@
         let sectorLayers = [];
         let totalTrackLength = 0;
 
+        // Optimum hız datası: [{s, v}]
+        let optimumData = [];
+
         // Haversine formülü ile iki nokta arası mesafe (metre)
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371000; // Dünya yarıçapı (metre)
@@ -328,7 +399,7 @@
         function loadTrackFromKML() {
             const track = omnivore.kml('./path.kml');
 
-            track.on('ready', function(layer) {
+            track.on('ready', function (layer) {
                 const geoJSON = layer.target.toGeoJSON();
                 const coordinates = geoJSON.features[0].geometry.coordinates;
 
@@ -528,21 +599,22 @@
         function showSaveDialog() {
             const name = prompt('Sector planı için bir isim girin:');
             if (!name) return;
-            
+
             fetch('/api/sectors/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, sectors: sectors })
+                body: JSON.stringify({ name: name, sectors: sectors, optimumData: optimumData })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Sector planı kaydedildi: ' + name);
-                } else {
-                    alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
-                }
-            })
-            .catch(err => alert('Kaydetme hatası: ' + err.message));
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Sector planı kaydedildi: ' + name +
+                            (optimumData.length > 0 ? `\nOptimum data: ${optimumData.length} nokta` : ''));
+                    } else {
+                        alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
+                    }
+                })
+                .catch(err => alert('Kaydetme hatası: ' + err.message));
         }
 
         // Sector'leri yükle
@@ -554,15 +626,15 @@
                         alert('Kaydedilmiş sector planı bulunamadı!');
                         return;
                     }
-                    
+
                     let message = 'Yüklemek istediğiniz planı seçin:\n\n';
                     data.sectors.forEach((s, i) => {
                         message += `${i + 1}. ${s.name} (${s.sectorCount} sector)\n`;
                     });
-                    
+
                     const choice = prompt(message + '\nNumara girin:');
                     if (!choice) return;
-                    
+
                     const index = parseInt(choice) - 1;
                     if (index >= 0 && index < data.sectors.length) {
                         loadSectorPlan(data.sectors[index].fileName);
@@ -579,11 +651,82 @@
                 .then(data => {
                     sectors = data.sectors;
                     document.getElementById('sectorCount').value = sectors.length;
+                    // Optimum datayı geri yükle
+                    if (data.optimumData && data.optimumData.length > 0) {
+                        optimumData = data.optimumData;
+                        updateOptimumStatus();
+                    }
                     renderSectorsList();
                     applySectors();
-                    alert('Sector planı yüklendi: ' + data.name);
+                    alert('Sector planı yüklendi: ' + data.name +
+                        (data.optimumData && data.optimumData.length > 0
+                            ? `\nOptimum data: ${data.optimumData.length} nokta` : ''));
                 })
                 .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        // CSV Import
+        function handleCSVImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const text = e.target.result;
+                parseOptimumCSV(text);
+                // input'u sıfırla (aynı dosya tekrar seçilebilsin)
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function parseOptimumCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) {
+                alert('CSV boş veya geçersiz!');
+                return;
+            }
+            // Başlık satırını parse et (sütun indekslerini bul)
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const sIdx = headers.indexOf('s');
+            const vIdx = headers.indexOf('v_kmh');
+            if (sIdx === -1 || vIdx === -1) {
+                alert('CSV\'de "s" ve "v_kmh" sütunları bulunamadı!\nBulunan başlıklar: ' + headers.join(', '));
+                return;
+            }
+            const parsed = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length <= Math.max(sIdx, vIdx)) continue;
+                const s = parseFloat(parts[sIdx]);
+                const v = parseFloat(parts[vIdx]);
+                if (!isNaN(s) && !isNaN(v)) {
+                    parsed.push({ s, v });
+                }
+            }
+            if (parsed.length === 0) {
+                alert('CSV\'den geçerli veri okunamadı!');
+                return;
+            }
+            optimumData = parsed;
+            updateOptimumStatus();
+        }
+
+        function updateOptimumStatus() {
+            const el = document.getElementById('optimumStatus');
+            if (optimumData.length > 0) {
+                const sMin = optimumData[0].s.toFixed(0);
+                const sMax = optimumData[optimumData.length - 1].s.toFixed(0);
+                el.textContent = `✅ ${optimumData.length} nokta yüklendi (${sMin}m - ${sMax}m)`;
+                el.className = 'optimum-status loaded';
+            } else {
+                el.textContent = 'Veri yüklenmedi';
+                el.className = 'optimum-status';
+            }
+        }
+
+        function clearOptimumData() {
+            optimumData = [];
+            updateOptimumStatus();
         }
 
         // Sayfa yüklendiğinde
@@ -592,4 +735,5 @@
         });
     </script>
 </body>
+
 </html>

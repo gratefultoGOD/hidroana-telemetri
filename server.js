@@ -574,6 +574,7 @@ app.get('/data', (req, res) => {
             jc: q.jc || null,
             jw: q.jw || null,
             jwh: q.jwh || null,
+            meter: q.meter !== undefined ? parseFloat(q.meter) : null,
             id: q.id || null,
             //key: q.key || null
         };
@@ -751,6 +752,18 @@ app.get('/api/telemetry/count', requireAuth, (req, res) => {
 
 app.get('/api/telemetry/averages', requireAuth, (req, res) => {
     res.json(calculateAverages());
+});
+
+// Son alınan verinin zaman damgasını döndür
+app.get('/api/telemetry/last-received', requireAuth, (req, res) => {
+    if (!latestTelemetryData) {
+        return res.json({ lastReceived: null });
+    }
+    res.json({
+        lastReceived: latestTelemetryData.receivedAt || null,
+        date: latestTelemetryData.date || null,
+        time: latestTelemetryData.time || null
+    });
 });
 
 // Mevcut günlerin listesi (SADECE ADMIN)
@@ -1136,12 +1149,12 @@ app.get('/fullmap', (req, res) => {
     res.sendFile(path.join(__dirname, 'mobile.html'));
 });
 
-app.get('/sectors', requireAdmin,(req, res) => {
+app.get('/sectors', requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.sendFile(path.join(__dirname, 'sectors.html'));
 });
 
-app.get('/race', requireAdmin,(req, res) => {
+app.get('/race', requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.sendFile(path.join(__dirname, 'race.html'));
 });
@@ -1152,22 +1165,23 @@ app.get('/race', requireAdmin,(req, res) => {
 
 // Sector kaydet
 app.post('/api/sectors/save', requireAdmin, (req, res) => {
-    const { name, sectors } = req.body;
-    
+    const { name, sectors, optimumData } = req.body;
+
     if (!name || !sectors) {
         return res.status(400).json({ error: 'İsim ve sector verileri gerekli' });
     }
-    
+
     const fileName = `${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
     const filePath = path.join(SECTORS_DIR, fileName);
-    
+
     const data = {
         name: name,
         sectors: sectors,
+        optimumData: optimumData || [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
-    
+
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     res.json({ success: true, fileName: fileName });
 });
@@ -1187,24 +1201,24 @@ app.get('/api/sectors/list', requireAdmin, (req, res) => {
                 updatedAt: data.updatedAt
             };
         });
-    
+
     res.json({ sectors: files });
 });
 
 // Sector yükle
 app.get('/api/sectors/load/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
-    
+
     if (!fileName.endsWith('.json') || fileName.includes('..')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
-    
+
     const filePath = path.join(SECTORS_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
-    
+
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     res.json(data);
 });
@@ -1212,23 +1226,23 @@ app.get('/api/sectors/load/:fileName', requireAdmin, (req, res) => {
 // Sector sil
 app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
-    
+
     if (!fileName.endsWith('.json') || fileName.includes('..')) {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
-    
+
     const filePath = path.join(SECTORS_DIR, fileName);
-    
+
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
-    
+
     fs.unlinkSync(filePath);
     res.json({ success: true });
 });
 
 function serveStaticWithAuth(req, res, next) {
-    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules','/sectors.html','/race.html'];
+    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules', '/sectors.html', '/race.html'];
     if (blockedFiles.some(blocked => req.path.startsWith(blocked))) {
         return res.status(403).send('Forbidden');
     }
