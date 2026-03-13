@@ -64,12 +64,108 @@ function broadcastToClients(data) {
 const DATA_DIR = path.join(__dirname, 'telemetry_data');
 const TEST_DIR = path.join(__dirname, 'test_data');
 const SECTORS_DIR = path.join(__dirname, 'sectors_data');
+const RACES_DIR = path.join(__dirname, 'races_data');
 let pendingData = []; // Dosyaya yazılmayı bekleyen veriler
 const FLUSH_THRESHOLD = 1; // Her veri geldiğinde hemen dosyaya yaz
 
 // Sectors dizinini oluştur
 if (!fs.existsSync(SECTORS_DIR)) {
     fs.mkdirSync(SECTORS_DIR, { recursive: true });
+}
+
+// Races dizinini oluştur
+if (!fs.existsSync(RACES_DIR)) {
+    fs.mkdirSync(RACES_DIR, { recursive: true });
+}
+
+// ============================================
+// LAP/RACE YÖNETİMİ (In-Memory State)
+// ============================================
+let lapState = {
+    active: false,
+    startTime: null,
+    startJwh: null,
+    laps: [],
+    currentJwh: 0
+};
+
+let lapSSEClients = new Set(); // Lap SSE client'ları
+
+// Lap SSE broadcast
+function broadcastLapState() {
+    const data = {
+        type: 'lap_update',
+        active: lapState.active,
+        startTime: lapState.startTime,
+        startJwh: lapState.startJwh,
+        laps: lapState.laps,
+        currentJwh: lapState.currentJwh,
+        serverTime: Date.now()
+    };
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+
+    lapSSEClients.forEach(client => {
+        try {
+            client.write(message);
+        } catch (error) {
+            console.error('Lap SSE client yazma hatası:', error);
+            lapSSEClients.delete(client);
+        }
+    });
+
+    if (lapSSEClients.size > 0) {
+        console.log(`🏁 Lap SSE broadcast: ${lapSSEClients.size} client'a gönderildi`);
+    }
+}
+
+// Yarış verisini dosyaya kaydet (reset veya stop sırasında)
+function saveRaceToFile() {
+    if (lapState.laps.length === 0) return null;
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const fileName = `race_${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.csv`;
+    const filePath = path.join(RACES_DIR, fileName);
+
+    // CSV oluştur
+    let csv = '\uFEFF'; // BOM
+    csv += 'Tur No;Başlangıç (ms);Tur Süresi (ms);Tur Wh;Toplam Wh\n';
+
+    lapState.laps.forEach(lap => {
+        const startMs = lap.startTime - lapState.startTime;
+        csv += [
+            lap.lapNum,
+            startMs,
+            lap.lapDuration,
+            lap.lapJwh.toFixed(3),
+            lap.endJwh.toFixed(3)
+        ].join(';') + '\n';
+    });
+
+    // Metadata satırı
+    const totalDuration = lapState.laps.length > 0
+        ? lapState.laps[lapState.laps.length - 1].endTime - lapState.startTime
+        : 0;
+    const totalJwh = lapState.laps.length > 0
+        ? lapState.laps[lapState.laps.length - 1].endJwh - lapState.startJwh
+        : 0;
+
+    // Metadata JSON olarak ayrı dosyaya kaydet
+    const metaPath = filePath.replace('.csv', '.json');
+    const meta = {
+        fileName: fileName,
+        savedAt: now.toISOString(),
+        startTime: lapState.startTime,
+        lapCount: lapState.laps.length,
+        totalDuration: totalDuration,
+        totalJwh: totalJwh,
+        startJwh: lapState.startJwh
+    };
+
+    fs.writeFileSync(filePath, csv, 'utf8');
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+    console.log(`📁 Yarış kaydedildi: ${fileName} (${lapState.laps.length} tur)`);
+    return fileName;
 }
 
 // Test modu ayarları
@@ -1154,9 +1250,208 @@ app.get('/sectors', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'sectors.html'));
 });
 
-app.get('/race', requireAdmin, (req, res) => {
+app.get('/race', requireAuth, (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.sendFile(path.join(__dirname, 'race.html'));
+});
+
+app.get('/laps', requireAuth, (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.sendFile(path.join(__dirname, 'laps.html'));
+});
+
+// ============================================
+// LAP/RACE API ENDPOINTS
+// ============================================
+
+// Lap SSE Stream - tüm kullanıcılar izleyebilir
+app.get('/api/laps/stream', requireAuth, (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    lapSSEClients.add(res);
+    console.log(`🔌 Lap SSE client bağlandı. Toplam: ${lapSSEClients.size}`);
+
+    // İlk bağlantıda mevcut durumu gönder
+    const initData = {
+        type: 'lap_update',
+        active: lapState.active,
+        startTime: lapState.startTime,
+        startJwh: lapState.startJwh,
+        laps: lapState.laps,
+        currentJwh: lapState.currentJwh,
+        serverTime: Date.now()
+    };
+    res.write(`data: ${JSON.stringify(initData)}\n\n`);
+
+    // Heartbeat
+    const heartbeat = setInterval(() => {
+        res.write(': heartbeat\n\n');
+    }, 30000);
+
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        lapSSEClients.delete(res);
+        console.log(`🔌 Lap SSE client ayrıldı. Toplam: ${lapSSEClients.size}`);
+    });
+});
+
+// Yarışı başlat (SADECE ADMIN)
+app.post('/api/laps/start', requireAdmin, (req, res) => {
+    if (lapState.active) {
+        return res.status(400).json({ error: 'Yarış zaten aktif' });
+    }
+
+    const now = Date.now();
+    const currentJwh = latestTelemetryData ? (parseFloat(latestTelemetryData.jwh) || 0) : 0;
+
+    lapState = {
+        active: true,
+        startTime: now,
+        startJwh: currentJwh,
+        laps: [],
+        currentJwh: currentJwh
+    };
+
+    console.log(`🏁 Yarış başlatıldı! Başlangıç Jwh: ${currentJwh}`);
+    broadcastLapState();
+
+    res.json({
+        success: true,
+        message: 'Yarış başlatıldı',
+        startTime: now,
+        startJwh: currentJwh
+    });
+});
+
+// Tur kaydet (SADECE ADMIN)
+app.post('/api/laps/lap', requireAdmin, (req, res) => {
+    if (!lapState.active) {
+        return res.status(400).json({ error: 'Yarış aktif değil' });
+    }
+
+    const now = Date.now();
+    const currentJwh = latestTelemetryData ? (parseFloat(latestTelemetryData.jwh) || 0) : 0;
+    const lapNum = lapState.laps.length + 1;
+
+    const lapStartTime = lapState.laps.length > 0
+        ? lapState.laps[lapState.laps.length - 1].endTime
+        : lapState.startTime;
+
+    const lapStartJwh = lapState.laps.length > 0
+        ? lapState.laps[lapState.laps.length - 1].endJwh
+        : lapState.startJwh;
+
+    const lap = {
+        lapNum: lapNum,
+        startTime: lapStartTime,
+        endTime: now,
+        lapDuration: now - lapStartTime,
+        startJwh: lapStartJwh,
+        endJwh: currentJwh,
+        lapJwh: currentJwh - lapStartJwh
+    };
+
+    lapState.laps.push(lap);
+    lapState.currentJwh = currentJwh;
+
+    console.log(`🏁 Tur ${lapNum} kaydedildi! Süre: ${lap.lapDuration}ms, Wh: ${lap.lapJwh.toFixed(3)}`);
+    broadcastLapState();
+
+    res.json({
+        success: true,
+        message: `Tur ${lapNum} kaydedildi`,
+        lap: lap
+    });
+});
+
+// Yarışı durdur (SADECE ADMIN)
+app.post('/api/laps/stop', requireAdmin, (req, res) => {
+    if (!lapState.active) {
+        return res.status(400).json({ error: 'Yarış aktif değil' });
+    }
+
+    lapState.active = false;
+    console.log(`🏁 Yarış durduruldu! Toplam ${lapState.laps.length} tur`);
+    broadcastLapState();
+
+    res.json({
+        success: true,
+        message: 'Yarış durduruldu',
+        lapCount: lapState.laps.length
+    });
+});
+
+// Yarışı sıfırla (SADECE ADMIN) - mevcut verileri kaydet ve sıfırla
+app.post('/api/laps/reset', requireAdmin, (req, res) => {
+    // Mevcut tur varsa dosyaya kaydet
+    let savedFile = null;
+    if (lapState.laps.length > 0) {
+        savedFile = saveRaceToFile();
+    }
+
+    lapState = {
+        active: false,
+        startTime: null,
+        startJwh: null,
+        laps: [],
+        currentJwh: 0
+    };
+
+    console.log(`🏁 Yarış sıfırlandı!${savedFile ? ` Kaydedilen dosya: ${savedFile}` : ''}`);
+    broadcastLapState();
+
+    res.json({
+        success: true,
+        message: savedFile ? `Yarış kaydedildi ve sıfırlandı` : 'Yarış sıfırlandı',
+        savedFile: savedFile
+    });
+});
+
+// Eski yarış kayıtlarını listele
+app.get('/api/races/list', requireAuth, (req, res) => {
+    if (!fs.existsSync(RACES_DIR)) {
+        return res.json({ races: [] });
+    }
+
+    const races = fs.readdirSync(RACES_DIR)
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+            try {
+                const filePath = path.join(RACES_DIR, f);
+                const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                return data;
+            } catch (e) {
+                return null;
+            }
+        })
+        .filter(r => r !== null)
+        .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+    res.json({ races });
+});
+
+// Eski yarış CSV dosyasını indir
+app.get('/api/races/download/:fileName', requireAuth, (req, res) => {
+    const fileName = req.params.fileName;
+
+    if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+
+    const filePath = path.join(RACES_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    const encodedFileName = encodeURIComponent(fileName);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
+    res.sendFile(filePath);
 });
 
 // ============================================
@@ -1242,7 +1537,7 @@ app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
 });
 
 function serveStaticWithAuth(req, res, next) {
-    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules', '/sectors.html', '/race.html'];
+    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules', '/sectors.html', '/race.html', '/laps.html'];
     if (blockedFiles.some(blocked => req.path.startsWith(blocked))) {
         return res.status(403).send('Forbidden');
     }
