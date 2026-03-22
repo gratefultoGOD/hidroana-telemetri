@@ -850,8 +850,8 @@
             const optData = rows.map(r => ({ s: Math.round(r.s), v: r.v }));
             setOptimumData(optData);
 
-            // ── 5. Haritada sektörlere göre renkli yolları çiz ──
-            const sectorColors = ['#00ff88', '#ffd200', '#ff6b6b', '#74b9ff', '#a29bfe', '#fd79a8', '#55efc4', '#fdcb6e'];
+            // ── 5. Haritada sektörlere göre renkli yolları çiz (sectors.html stili) ──
+            let lastSectorEndCoordIdx = 0;
 
             sectorNos.forEach((no, idx) => {
                 // O sektöre ait koordinatları al
@@ -859,28 +859,23 @@
                 const coords = sectorRows.map(r => [r.lat, r.lon]);
                 if (coords.length < 2) return;
 
-                const color = sectorColors[(no - 1) % sectorColors.length];
+                const avgSpd = sectorMap[no].speeds.reduce((a, b) => a + b, 0) / sectorMap[no].speeds.length;
+                const color = getColorForSpeed(avgSpd);
+                const sectorLength = sectorMap[no].maxS - sectorMap[no].minS;
+
                 const poly = L.polyline(coords, {
                     color: color,
-                    weight: 5,
-                    opacity: 0.85
+                    weight: 6,
+                    opacity: 0.8
                 }).addTo(map);
 
-                const avgSpd = sectorMap[no].speeds.reduce((a, b) => a + b, 0) / sectorMap[no].speeds.length;
-                poly.bindPopup(`<strong>Sector ${no}</strong><br>${sectorMap[no].minS.toFixed(0)}m – ${sectorMap[no].maxS.toFixed(0)}m<br>Ort. Hız: ${avgSpd.toFixed(1)} km/h`);
+                poly.bindPopup(`
+                    <strong>Sector ${no}</strong><br>
+                    ${sectorMap[no].minS.toFixed(0)}m - ${sectorMap[no].maxS.toFixed(0)}m<br>
+                    Uzunluk: ${sectorLength.toFixed(0)} m<br>
+                    Hedef Hız: ${avgSpd.toFixed(1)} km/h
+                `);
                 csvTrackLayers.push(poly);
-
-                // Sektör başlangıç etiketi
-                const startCoord = coords[0];
-                const label = L.marker(startCoord, {
-                    icon: L.divIcon({
-                        className: '',
-                        html: `<div style="background:${color};color:#000;font-size:10px;font-weight:bold;padding:2px 5px;border-radius:4px;white-space:nowrap;">S${no}</div>`,
-                        iconAnchor: [10, 10]
-                    }),
-                    interactive: false
-                }).addTo(map);
-                csvTrackLayers.push(label);
             });
 
             // Haritayı fit et

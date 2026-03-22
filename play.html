@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Oynatıcı — Hidroana Telemetri</title>
+    <link rel="icon" type="image/x-icon" href="/logo.ico">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --success: #43e97b;
+            --success-dark: #38f9d7;
+            --warning: #feca57;
+            --danger: #ff4444;
+            --bg-deep: #0d0d1a;
+            --bg-dark: #1a1a2e;
+            --bg-card: #16213e;
+            --bg-card2: #1e2a45;
+            --border: rgba(102, 126, 234, 0.2);
+            --text: #e8eaf6;
+            --text-muted: #8892b0;
+            --fuel-color: #ffa726;
+            --battery-color: #43e97b;
+            --joule-color: #667eea;
+            --speed-color: #ff6b9d;
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* ===================== LAYOUT ===================== */
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            flex-shrink: 0;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            white-space: nowrap;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .back-link:hover {
+            background: rgba(102, 126, 234, 0.12);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .file-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-selector select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 7px 12px;
+            font-size: 13px;
+            min-width: 220px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .file-selector select:focus {
+            border-color: var(--primary);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* MAIN AREA */
+        .main-area {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* LEFT PANEL */
+        .left-panel {
+            width: 320px;
+            flex-shrink: 0;
+            background: var(--bg-dark);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #map {
+            flex: 1;
+            width: 100%;
+            background: #111;
+            min-height: 0;
+        }
+
+        .left-stats {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .left-stats::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .left-stats::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .stat-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-unit {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .stat-card.speed .stat-value {
+            color: var(--speed-color);
+        }
+
+        .stat-card.battery .stat-value {
+            color: var(--battery-color);
+        }
+
+        .stat-card.fuel .stat-value {
+            color: var(--fuel-color);
+        }
+
+        .stat-card.joule .stat-value {
+            color: var(--joule-color);
+        }
+
+        .soc-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .soc-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), var(--success-dark));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        /* RIGHT PANEL (charts) */
+        .right-panel {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .charts-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .charts-area::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .charts-area::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            flex-shrink: 0;
+        }
+
+        .chart-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .chart-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .chart-val {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .chart-canvas-wrap {
+            height: 130px;
+            position: relative;
+        }
+
+        .chart-canvas-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .chart-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* ===================== TIMELINE / CONTROLS ===================== */
+        .player-bar {
+            background: var(--bg-dark);
+            border-top: 1px solid var(--border);
+            padding: 10px 20px 14px;
+            flex-shrink: 0;
+        }
+
+        .timeline-wrap {
+            position: relative;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .timeline-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+            pointer-events: none;
+        }
+
+        .timeline-thumb {
+            position: absolute;
+            top: 50%;
+            left: 0%;
+            transform: translate(-50%, -50%);
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 0 0 3px var(--primary), 0 2px 8px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            transition: left 0.1s linear;
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .controls-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .controls-center {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ctrl-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .ctrl-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 8px 20px;
+            font-size: 14px;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.85;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 7px 14px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--primary);
+        }
+
+        .btn-danger {
+            background: rgba(255, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            padding: 7px 14px;
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 68, 68, 0.25);
+        }
+
+        .btn-load {
+            background: linear-gradient(135deg, var(--success), var(--success-dark));
+            color: #1a1a2e;
+            padding: 8px 20px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .btn-load:hover {
+            opacity: 0.9;
+            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
+        }
+
+        .time-display {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary);
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.25);
+            padding: 6px 14px;
+            border-radius: 8px;
+            min-width: 140px;
+            text-align: center;
+        }
+
+        .speed-selector {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .speed-selector:focus {
+            border-color: var(--primary);
+        }
+
+        .data-count {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ===================== STATES ===================== */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            opacity: 0.4;
+        }
+
+        .empty-state-text {
+            font-size: 15px;
+        }
+
+        .playing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--success);
+            background: rgba(67, 233, 123, 0.1);
+            border: 1px solid rgba(67, 233, 123, 0.2);
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .playing-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        /* ===================== LEAFLET OVERRIDE ===================== */
+        .leaflet-container {
+            background: #111;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page-wrapper">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <a href="/" class="back-link">← Ana Sayfa</a>
+                <h1>🎬 Test Oynatıcı</h1>
+                <div id="playingBadge" style="display:none;" class="playing-badge">
+                    <span class="dot"></span>OYNATILIYOR
+                </div>
+            </div>
+
+            <div class="file-selector">
+                <select id="fileSelect" onchange="loadSelectedFile()">
+                    <option value="">Yükleniyor...</option>
+                </select>
+                <span id="loadingIndicator" style="font-size:12px;color:var(--text-muted);display:none;">⏳
+                    Yükleniyor...</span>
+            </div>
+
+            <div class="header-right">
+                <span class="data-count" id="dataMeta"></span>
+                <div
+                    style="display:flex;align-items:center;gap:6px;background:rgba(160,196,255,0.08);border:1px solid rgba(160,196,255,0.2);border-radius:8px;padding:4px 12px;">
+                    <span style="font-size:10px;color:var(--text-muted);">📶 GSM</span>
+                    <span id="header-gs" style="font-size:14px;font-weight:700;color:#a0c4ff;">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN -->
+        <div class="main-area">
+
+            <!-- LEFT: Map -->
+            <div class="left-panel">
+                <div id="map"></div>
+            </div>
+
+            <!-- RIGHT: Charts -->
+            <div class="right-panel">
+                <div class="charts-area" id="chartsArea">
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-state-icon">🎬</div>
+                        <div class="empty-state-text">Bir test dosyası yükleyip Başlat'a basın</div>
+                    </div>
+
+                    <!-- Charts (hidden until data loaded) -->
+                    <div id="chartsGroup" style="display:none; display:flex; flex-direction:column; gap:10px;">
+
+                        <!-- Hız -->
+                        <div class="chart-card">
+                            <div class="chart-card-header">
+                                <span class="chart-title" style="color:var(--speed-color)">⚡ Anlık Hız</span>
+                                <span class="chart-val" id="cv-h" style="color:var(--speed-color);"><span
+                                        id="cv-h-val">--</span> <span
+                                        style="font-size:10px;font-weight:400;">km/h</span></span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartH"></canvas></div>
+                        </div>
+
+                        <!-- Battery row -->
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--battery-color)">🔋 SOC</span>
+                                    <span class="chart-val" id="cv-soc" style="color:var(--battery-color);"><span
+                                            id="cv-soc-val">--</span> <span
+                                            style="font-size:10px;font-weight:400;">%</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartSoc"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--battery-color)">⚡ Kalan Enerji</span>
+                                    <span class="chart-val" id="cv-ke" style="color:var(--battery-color);"><span
+                                            id="cv-ke-val">--</span> <span
+                                            style="font-size:10px;font-weight:400;">kWh</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartKe"></canvas></div>
+                            </div>
+                        </div>
+
+
+                        <!-- Batarya Voltaj & Akım -->
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:#43e97b">🔋 Batarya Voltaj</span>
+                                    <span class="chart-val" style="color:#43e97b"><span id="cv-bv">--</span> <span
+                                            style="font-size:10px;font-weight:400">V</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartBv"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:#ffd200">🔋 Batarya Akım</span>
+                                    <span class="chart-val" style="color:#ffd200"><span id="cv-bc">--</span> <span
+                                            style="font-size:10px;font-weight:400">A</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartBc"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Battery Power & Wh -->
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--battery-color)">🔌 Batarya Güç</span>
+                                    <span class="chart-val" id="cv-bw" style="color:var(--battery-color);"><span
+                                            id="cv-bw-val">--</span> <span
+                                            style="font-size:10px;font-weight:400;">W</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartBw"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--battery-color)">📊 Batarya Wh</span>
+                                    <span class="chart-val" id="cv-bwh" style="color:var(--battery-color);"><span
+                                            id="cv-bwh-val">--</span> <span
+                                            style="font-size:10px;font-weight:400;">Wh</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartBwh"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Yakıt Hücresi Voltaj & Akım -->
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:#ffa726">🔥 FC Voltaj</span>
+                                    <span class="chart-val" style="color:#ffa726"><span id="cv-fv">--</span> <span
+                                            style="font-size:10px;font-weight:400">V</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartFv"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:#ff5722">🔥 FC Akım</span>
+                                    <span class="chart-val" style="color:#ff5722"><span id="cv-fa">--</span> <span
+                                            style="font-size:10px;font-weight:400">A</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartFa"></canvas></div>
+                            </div>
+                        </div>
+
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--fuel-color)">⚡ FC Güç</span>
+                                    <span class="chart-val" style="color:var(--fuel-color);"><span id="cv-fw">--</span>
+                                        <span style="font-size:10px;font-weight:400;">W</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartFw"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--fuel-color)">🌡️ FC Sıcaklık (Dış /
+                                        İç)</span>
+                                    <div style="display:flex;gap:14px;">
+                                        <span class="chart-val" style="color:#ff7043;"><span id="cv-fet">--</span> <span
+                                                style="font-size:10px;font-weight:400;">°C dış</span></span>
+                                        <span class="chart-val" style="color:#ffb74d;"><span id="cv-fit">--</span> <span
+                                                style="font-size:10px;font-weight:400;">°C iç</span></span>
+                                    </div>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartFcTemp"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Joulmetre Voltaj & Akım -->
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:#667eea">⚡ JM Voltaj</span>
+                                    <span class="chart-val" style="color:#667eea"><span id="cv-jv">--</span> <span
+                                            style="font-size:10px;font-weight:400">V</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartJv"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:#ab47bc">⚡ JM Akım</span>
+                                    <span class="chart-val" style="color:#ab47bc"><span id="cv-jc">--</span> <span
+                                            style="font-size:10px;font-weight:400">A</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartJc"></canvas></div>
+                            </div>
+                        </div>
+
+                        <div class="chart-row-2">
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--joule-color)">🔌 Joulmetre Güç</span>
+                                    <span class="chart-val" style="color:var(--joule-color);"><span id="cv-jw">--</span>
+                                        <span style="font-size:10px;font-weight:400;">W</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartJw"></canvas></div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-card-header">
+                                    <span class="chart-title" style="color:var(--joule-color)">📈 Joulmetre Wh</span>
+                                    <span class="chart-val" style="color:var(--joule-color);"><span
+                                            id="cv-jwh">--</span> <span
+                                            style="font-size:10px;font-weight:400;">Wh</span></span>
+                                </div>
+                                <div class="chart-canvas-wrap"><canvas id="chartJwh"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Battery Temps -->
+                        <div class="chart-card">
+                            <div class="chart-card-header">
+                                <span class="chart-title">🌡️ Batarya Sıcaklıkları</span>
+                                <div style="display:flex;gap:14px;">
+                                    <span class="chart-val" style="color:#ef5350;"><span id="cv-t1">--</span> <span
+                                            style="font-size:10px;font-weight:400;">T1</span></span>
+                                    <span class="chart-val" style="color:#ff8a65;"><span id="cv-t2">--</span> <span
+                                            style="font-size:10px;font-weight:400;">T2</span></span>
+                                    <span class="chart-val" style="color:#ffd54f;"><span id="cv-t3">--</span> <span
+                                            style="font-size:10px;font-weight:400;">T3</span></span>
+                                </div>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartBatTemp"></canvas></div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- PLAYER BAR -->
+                <div class="player-bar">
+                    <!-- Timeline -->
+                    <div class="timeline-wrap" id="timelineWrap">
+                        <div class="timeline-fill" id="timelineFill"></div>
+                        <div class="timeline-thumb" id="timelineThumb"></div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="player-controls">
+                        <div class="controls-left">
+                            <span class="time-display" id="timeDisplay">00:00:00.000 / 00:00:00.000</span>
+                            <span class="data-count" id="frameCounter">0 / 0</span>
+                        </div>
+
+                        <div class="controls-center">
+                            <button class="ctrl-btn btn-secondary" id="minus5Btn" onclick="seek(-5000)"
+                                title="-5 saniye">⏮ -5s</button>
+                            <button class="ctrl-btn btn-primary" id="playBtn" onclick="togglePlay()">▶ Başlat</button>
+                            <button class="ctrl-btn btn-secondary" id="plus5Btn" onclick="seek(+5000)"
+                                title="+5 saniye">+5s ⏭</button>
+                        </div>
+
+                        <div class="controls-right">
+                            <label style="font-size:12px; color:var(--text-muted);">Hız:</label>
+                            <select class="speed-selector" id="speedSelect" onchange="changeSpeed(this.value)">
+                                <option value="0.25">0.25x</option>
+                                <option value="0.5">0.5x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="2">2x</option>
+                                <option value="4">4x</option>
+                                <option value="8">8x</option>
+                                <option value="16">16x</option>
+                            </select>
+                            <button class="ctrl-btn btn-danger" onclick="resetPlayer()" title="Sıfırla">↺
+                                Sıfırla</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // =============================================
+        // AUTH CHECK — Admin only
+        // =============================================
+        fetch('/api/auth/check')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    window.location.href = '/login';
+                } else if (data.user.role !== 'admin') {
+                    document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;color:#e8eaf6;font-family:Inter,sans-serif">
+                    <div style="font-size:48px">🔒</div>
+                    <div style="font-size:20px;font-weight:700">Yetkisiz Erişim</div>
+                    <div style="color:#8892b0">Bu sayfa yalnızca admin kullanıcılar içindir.</div>
+                    <a href="/" style="color:#667eea;text-decoration:none;margin-top:8px">← Ana Sayfaya Dön</a>
+                </div>`;
+                } else {
+                    // Admin doğrulandı — dosya listesini çek ve ilk dosyayı otomatik yükle
+                    loadFileList();
+                }
+            })
+            .catch(() => { window.location.href = '/login'; });
+
+        // =============================================
+        // MAP INIT
+        // =============================================
+        const map = L.map('map', { zoomControl: true, attributionControl: false });
+
+        // Ana sayfayla aynı katmanlar
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        });
+        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20
+        });
+
+        // Varsayılan: uydu görünümü
+        googleHybrid.addTo(map);
+
+        // Katman geçiş kontrolü
+        L.control.layers({
+            'Sokak Haritası': streetLayer,
+            'Uydu Görünümü': googleHybrid
+        }, {}, { position: 'topright' }).addTo(map);
+
+
+        let vehicleMarker = null;
+        let trackPolyline = null;
+        let visitedPolyline = null;
+
+        const vehicleIcon = L.divIcon({
+            className: '',
+            html: `<div id="vehicleArrow" style="width:32px;height:32px;transform-origin:center;">
+        <svg width="32" height="32" viewBox="0 0 32 32">
+            <path d="M16 4 L25 24 L16 20 L7 24 Z" fill="#667eea" stroke="white" stroke-width="2"/>
+            <circle cx="16" cy="16" r="3" fill="white"/>
+        </svg>
+    </div>`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        // =============================================
+        // STATE
+        // =============================================
+        let fileData = [];           // parsed CSV rows
+        let playbackIdx = 0;        // current row index
+        let isPlaying = false;
+        let playbackSpeed = 1.0;
+        let playbackTimeout = null;
+        let lastBearing = 0;
+
+        const MAX_CHART_POINTS = 10;
+
+        // =============================================
+        // CSV PARSER
+        // =============================================
+        function parseCSV(csvText) {
+            const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+            if (lines.length < 2) return [];
+            const headers = lines[0].split(';').map(h => h.trim().replace(/\uFEFF/g, ''));
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const vals = lines[i].split(';');
+                const obj = {};
+                headers.forEach((h, idx) => {
+                    const raw = vals[idx] !== undefined ? vals[idx].trim() : '';
+                    // Zaman stringleri (HH:MM:SS veya tarih içerenler) sayıya çevrilmemeli
+                    if (raw.includes(':') || raw.includes('-')) {
+                        obj[h] = raw;   // string olarak sakla
+                    } else {
+                        const num = parseFloat(raw);
+                        obj[h] = (!isNaN(num) && raw !== '') ? num : raw;
+                    }
+                });
+                rows.push(obj);
+            }
+            return rows;
+        }
+
+        // Parse "HH:MM:SS.mmm" veya "HH:MM:SS" to milliseconds
+        function timeToMs(t) {
+            if (!t) return 0;
+            if (typeof t === 'number') return t;  // zaten ms ise kullan
+            if (typeof t !== 'string') return 0;
+            // Trim ve BOM temizle
+            t = t.trim().replace(/\uFEFF/g, '');
+            if (!t.includes(':')) return parseFloat(t) * 1000 || 0;
+            const dotIdx = t.indexOf('.');
+            const timePart = dotIdx >= 0 ? t.slice(0, dotIdx) : t;
+            const msPart = dotIdx >= 0 ? t.slice(dotIdx + 1) : '0';
+            const segs = timePart.split(':').map(Number);
+            let h = 0, m = 0, s = 0;
+            if (segs.length === 3) { [h, m, s] = segs; }
+            else if (segs.length === 2) { [m, s] = segs; }
+            else { s = segs[0] || 0; }
+            const ms = parseInt((msPart + '000').slice(0, 3));
+            return h * 3600000 + m * 60000 + s * 1000 + ms;
+        }
+
+        function msToStr(ms) {
+            const h = Math.floor(ms / 3600000);
+            const m = Math.floor((ms % 3600000) / 60000);
+            const s = Math.floor((ms % 60000) / 1000);
+            const msRem = Math.floor(ms % 1000);
+            return `${pad(h)}:${pad(m)}:${pad(s)}.${String(msRem).padStart(3, '0')}`;
+        }
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+
+        // =============================================
+        // FILE LIST — Sayfa açılınca otomatik çalışır
+        // =============================================
+        async function loadFileList() {
+            const sel = document.getElementById('fileSelect');
+            const ind = document.getElementById('loadingIndicator');
+            sel.disabled = true;
+            ind.style.display = '';
+            try {
+                const res = await fetch('/api/test/files');
+                if (!res.ok) throw new Error('Listelenemedi: ' + res.status);
+                const data = await res.json();
+                sel.innerHTML = '';
+                if (!data.files || data.files.length === 0) {
+                    sel.innerHTML = '<option value="">Test dosyası bulunamadı</option>';
+                    return;
+                }
+                // En son dosya başta (API zaten tarihe göre sıralar)
+                data.files.forEach((f, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = f.fileName;
+                    opt.textContent = `${f.fileName}  (${f.dataCount} satır, ${f.date} ${f.time})`;
+                    sel.appendChild(opt);
+                });
+                // İlk (en son) dosyayı otomatik seç ve yükle
+                sel.selectedIndex = 0;
+                await loadSelectedFile();
+            } catch (e) {
+                sel.innerHTML = '<option value="">❌ Listelenemedi</option>';
+                console.error(e);
+            } finally {
+                sel.disabled = false;
+                ind.style.display = 'none';
+            }
+        }
+
+        async function loadSelectedFile() {
+            const sel = document.getElementById('fileSelect');
+            const fileName = sel.value;
+            if (!fileName) return;
+            const ind = document.getElementById('loadingIndicator');
+            ind.style.display = '';
+            try {
+                const res = await fetch('/api/test/download/' + encodeURIComponent(fileName));
+                if (!res.ok) throw new Error('İndirilemedi: ' + res.status);
+                const text = await res.text();
+                fileData = parseCSV(text);
+                if (fileData.length === 0) { alert('Dosya boş veya format hatalı.'); return; }
+                initPlayer();
+            } catch (e) {
+                alert('Dosya yüklenemedi: ' + e.message);
+            } finally {
+                ind.style.display = 'none';
+            }
+        }
+
+        // =============================================
+        // CHARTS INIT
+        // =============================================
+        let charts = {};
+
+        const chartDefs = [
+            { id: 'chartH', label: 'Hız (km/h)', color: '#ff6b9d', fields: ['h'] },
+            { id: 'chartSoc', label: 'SOC (%)', color: '#43e97b', fields: ['soc'], maxY: 100, minY: 0 },
+            { id: 'chartKe', label: 'Kalan Enerji (kWh)', color: '#38f9d7', fields: ['ke'] },
+            // Batarya
+            { id: 'chartBv', label: 'Batarya Voltaj (V)', color: '#43e97b', fields: ['bv'] },
+            { id: 'chartBc', label: 'Batarya Akım (A)', color: '#ffd200', fields: ['bc'] },
+            { id: 'chartBw', label: 'Batarya Güç (W)', color: '#43e97b', fields: ['bw'] },
+            { id: 'chartBwh', label: 'Batarya Wh', color: '#38f9d7', fields: ['bwh'] },
+            // Yakıt Hücresi
+            { id: 'chartFv', label: 'FC Voltaj (V)', color: '#ffa726', fields: ['fv'] },
+            { id: 'chartFa', label: 'FC Akım (A)', color: '#ff5722', fields: ['fa'] },
+            { id: 'chartFw', label: 'FC Güç (W)', color: '#ffa726', fields: ['fw'] },
+            {
+                id: 'chartFcTemp', label: 'FC Sıcaklık (°C)', color: '#ff7043', fields: ['fet', 'fit'],
+                dual: true, dualColors: ['#ff7043', '#ffb74d'], dualLabels: ['FC Dış (°C)', 'FC İç (°C)']
+            },
+            // Joulmetre
+            { id: 'chartJv', label: 'JM Voltaj (V)', color: '#667eea', fields: ['jv'] },
+            { id: 'chartJc', label: 'JM Akım (A)', color: '#ab47bc', fields: ['jc'] },
+            { id: 'chartJw', label: 'JM Güç (W)', color: '#667eea', fields: ['jw'] },
+            { id: 'chartJwh', label: 'JM Wh', color: '#7e57c2', fields: ['jwh'] },
+            // Batarya sıcaklıkları
+            {
+                id: 'chartBatTemp', label: 'Bat. Sıcaklıkları', color: '#ef5350', fields: ['t1', 't2', 't3'],
+                dual: true, dualColors: ['#ef5350', '#ff8a65', '#ffd54f'], dualLabels: ['T1 (°C)', 'T2 (°C)', 'T3 (°C)']
+            },
+        ];
+
+        function makeChartConfig(def) {
+            const datasets = def.dual
+                ? def.fields.map((f, i) => ({
+                    label: def.dualLabels[i],
+                    data: [],
+                    borderColor: def.dualColors[i],
+                    backgroundColor: def.dualColors[i] + '18',
+                    tension: 0.35,
+                    fill: i === 0,
+                    pointRadius: 0,
+                    borderWidth: 1.8
+                }))
+                : [{
+                    label: def.label,
+                    data: [],
+                    borderColor: def.color,
+                    backgroundColor: def.color + '20',
+                    tension: 0.35,
+                    fill: true,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }];
+
+            const cfg = {
+                type: 'line',
+                data: { labels: [], datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: !!def.dual,
+                            labels: { color: '#8892b0', font: { size: 9 }, boxWidth: 14, padding: 8 }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(13,13,26,0.9)',
+                            titleColor: '#e8eaf6',
+                            bodyColor: '#8892b0',
+                            borderColor: def.dualColors ? def.dualColors[0] : def.color,
+                            borderWidth: 1,
+                            padding: 8,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#4a5568', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+                            grid: { color: 'rgba(255,255,255,0.03)' }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: { color: '#4a5568', font: { size: 9 } },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            afterDataLimits(scale) { if (scale.min < 0) scale.min = 0; }
+                        }
+                    }
+                }
+            };
+
+            if (def.maxY !== undefined) {
+                cfg.options.scales.y.max = def.maxY;
+                cfg.options.scales.y.min = def.minY ?? 0;
+                delete cfg.options.scales.y.afterDataLimits;
+            }
+
+            return cfg;
+        }
+
+        function initCharts() {
+            chartDefs.forEach(def => {
+                const canvas = document.getElementById(def.id);
+                if (!canvas) return;
+                if (charts[def.id]) { charts[def.id].destroy(); }
+                charts[def.id] = new Chart(canvas.getContext('2d'), makeChartConfig(def));
+            });
+            initStatElements();
+        }
+
+        // Her grafik kartına 15s ve genel ortalama span'larını dinamik ekle
+        function initStatElements() {
+            chartDefs.forEach(def => {
+                const canvas = document.getElementById(def.id);
+                if (!canvas) return;
+                const card = canvas.closest('.chart-card');
+                if (!card) return;
+                const header = card.querySelector('.chart-card-header');
+                if (!header) return;
+                // Daha önce eklenmemişse ekle
+                if (header.querySelector('.stat-strip')) return;
+                const strip = document.createElement('div');
+                strip.className = 'stat-strip';
+                strip.style.cssText = 'display:flex;gap:12px;font-size:9px;margin-top:3px;flex-wrap:wrap;';
+                def.fields.forEach(field => {
+                    strip.innerHTML += `
+                <span style="color:#4a5568;">${field.toUpperCase()}:</span>
+                <span id="avg15-${field}" style="color:#7ecef4;" title="Son 15 saniye ortalaması">--</span>
+                <span style="color:#4a5568;">15s</span>
+                <span id="avgAll-${field}" style="color:#a0aec0;" title="Genel ortalama">--</span>
+                <span style="color:#4a5568;">Genel ve 15 ortalamaları</span>
+            `;
+                });
+                // header'a yeni satır olarak ekle
+                header.style.flexWrap = 'wrap';
+                header.appendChild(strip);
+            });
+        }
+
+        function pushToChart(def, timeLabel, row) {
+            const ch = charts[def.id];
+            if (!ch) return;
+
+            if (ch.data.labels.length >= MAX_CHART_POINTS) {
+                ch.data.labels.shift();
+                ch.data.datasets.forEach(ds => ds.data.shift());
+            }
+
+            ch.data.labels.push(timeLabel);
+            def.fields.forEach((f, i) => {
+                const v = row[f];
+                ch.data.datasets[i].data.push(v !== undefined && v !== '' ? Number(v) : null);
+            });
+            ch.update('none');
+        }
+
+        function resetCharts() {
+            Object.values(charts).forEach(ch => {
+                ch.data.labels = [];
+                ch.data.datasets.forEach(ds => ds.data = []);
+                ch.update('none');
+            });
+        }
+
+        // Grafikleri sıfırlayıp toIdx'e kadar olan son MAX_CHART_POINTS noktasını yeniden çiz
+        function rebuildChartsUpTo(toIdx) {
+            if (fileData.length === 0 || Object.keys(charts).length === 0) return;
+
+            const clampedIdx = Math.max(0, Math.min(toIdx, fileData.length - 1));
+            const fromIdx = Math.max(0, clampedIdx - MAX_CHART_POINTS + 1);
+            const t0ms = getRowTimeMs(0);
+
+            // Tüm grafikleri temizle
+            Object.values(charts).forEach(ch => {
+                ch.data.labels = [];
+                ch.data.datasets.forEach(ds => ds.data = []);
+            });
+
+            // Penceredeki tüm satırları ekle
+            for (let i = fromIdx; i <= clampedIdx; i++) {
+                const row = fileData[i];
+                const elapsedMs = getRowTimeMs(i) - t0ms;
+                const timeLabel = (elapsedMs / 1000).toFixed(1) + 's';
+
+                chartDefs.forEach(def => {
+                    const ch = charts[def.id];
+                    if (!ch) return;
+                    ch.data.labels.push(timeLabel);
+                    def.fields.forEach((f, fi) => {
+                        const v = row[f];
+                        ch.data.datasets[fi].data.push(
+                            v !== undefined && v !== '' && !isNaN(Number(v)) ? Number(v) : null
+                        );
+                    });
+                });
+            }
+
+            // Tek seferde tüm grafikleri güncelle
+            Object.values(charts).forEach(ch => ch.update('none'));
+        }
+
+        // =============================================
+        // MAP HELPERS
+        // =============================================
+        function bearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        }
+
+        function initMap(rows) {
+            // Full track polyline (dim)
+            const coords = rows.filter(r => r.x && r.y && !isNaN(Number(r.x)) && !isNaN(Number(r.y)))
+                .map(r => [Number(r.x), Number(r.y)]);
+            if (coords.length === 0) return;
+
+            if (trackPolyline) { trackPolyline.remove(); }
+            if (visitedPolyline) { visitedPolyline.remove(); }
+            if (vehicleMarker) { vehicleMarker.remove(); }
+
+            trackPolyline = L.polyline(coords, { color: '#334155', weight: 3, opacity: 0.5 }).addTo(map);
+            visitedPolyline = L.polyline([], { color: '#667eea', weight: 4, opacity: 0.9 }).addTo(map);
+
+            vehicleMarker = L.marker(coords[0], { icon: vehicleIcon }).addTo(map);
+            map.fitBounds(trackPolyline.getBounds(), { padding: [20, 20] });
+        }
+
+        function updateMap(row, prevRow) {
+            const lat = Number(row.x), lon = Number(row.y);
+            if (!lat || !lon || isNaN(lat) || isNaN(lon)) return;
+
+            if (!vehicleMarker) {
+                vehicleMarker = L.marker([lat, lon], { icon: vehicleIcon }).addTo(map);
+            }
+
+            vehicleMarker.setLatLng([lat, lon]);
+
+            // Rotate arrow
+            let brg = lastBearing;
+            if (prevRow && prevRow.x && prevRow.y) {
+                const pLat = Number(prevRow.x), pLon = Number(prevRow.y);
+                if (!isNaN(pLat) && !isNaN(pLon) && (lat !== pLat || lon !== pLon)) {
+                    brg = bearing(pLat, pLon, lat, lon);
+                    lastBearing = brg;
+                }
+            }
+            const el = document.getElementById('vehicleArrow');
+            if (el) el.style.transform = `rotate(${brg}deg)`;
+
+            // Extend visited polyline
+            if (visitedPolyline) {
+                visitedPolyline.addLatLng([lat, lon]);
+            }
+
+            map.panTo([lat, lon], { animate: true, duration: 0.2 });
+        }
+
+        // =============================================
+        // PLAYER INIT
+        // =============================================
+        function initPlayer() {
+            // Reset
+            resetPlayer(false);
+
+            // Draw full track
+            initMap(fileData);
+
+            // Init charts
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('chartsGroup').style.display = 'flex';
+            initCharts();
+
+            // Duration info
+            const totalMs = getTotalMs();
+            document.getElementById('dataMeta').textContent =
+                `${fileData.length} satır | Süre: ${msToStr(totalMs)}`;
+            updateTimeDisplay();
+
+            updateFrameCounter();
+        }
+
+        // Her satır için ms cinsinden mutlak zamanı döndür
+        // Öncelik: test_time (elapsed) > time (wall clock)
+        function getRowTimeField(row) {
+            // test_time öncelikli (00:MM:SS.mmm formatı — elapsed)
+            if (row.test_time && typeof row.test_time === 'string' && row.test_time.includes(':')) return row.test_time;
+            // time alanı (HH:MM:SS.mmm wall clock)
+            if (row.time && typeof row.time === 'string' && row.time.includes(':')) return row.time;
+            return null;
+        }
+
+        function getTotalMs() {
+            if (fileData.length < 2) return 0;
+            const t0 = timeToMs(getRowTimeField(fileData[0]));
+            const tn = timeToMs(getRowTimeField(fileData[fileData.length - 1]));
+            return Math.max(0, tn - t0);
+        }
+
+        function getRowTimeMs(idx) {
+            return timeToMs(getRowTimeField(fileData[idx]));
+        }
+
+        function getCurrentMs() {
+            if (fileData.length === 0) return 0;
+            const t0 = getRowTimeMs(0);
+            const tnow = getRowTimeMs(Math.min(playbackIdx, fileData.length - 1));
+            return Math.max(0, tnow - t0);
+        }
+
+        // =============================================
+        // PLAYBACK ENGINE
+        // =============================================
+        function scheduleNext() {
+            if (!isPlaying || playbackIdx >= fileData.length) {
+                if (playbackIdx >= fileData.length) {
+                    isPlaying = false;
+                    updatePlayBtn();
+                    document.getElementById('playingBadge').style.display = 'none';
+                }
+                return;
+            }
+
+            const nextIdx = playbackIdx + 1;
+            if (nextIdx >= fileData.length) {
+                // Last frame reached
+                renderFrame(playbackIdx);
+                isPlaying = false;
+                updatePlayBtn();
+                document.getElementById('playingBadge').style.display = 'none';
+                return;
+            }
+
+            // Calculate actual time gap between current and next frame
+            const t0 = getRowTimeMs(playbackIdx);
+            const t1 = getRowTimeMs(nextIdx);
+            const gapMs = Math.max(0, t1 - t0);
+            const delay = Math.max(16, gapMs / playbackSpeed);
+
+            playbackTimeout = setTimeout(() => {
+                renderFrame(playbackIdx);
+                playbackIdx = nextIdx;
+                scheduleNext();
+            }, delay);
+        }
+
+        // Tam değer gösterici (yuvarlama YOK)
+        const formatExact = v => {
+            if (v === undefined || v === '' || isNaN(Number(v))) return '--';
+            const n = Number(v);
+            if (Number.isInteger(n)) return String(n);
+            // Fazla ondalık varsa 4 anlamlı basamakla sınırla ama sondaki sıfırları at
+            return parseFloat(n.toFixed(4)).toString();
+        };
+        const setCv = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = formatExact(val); };
+
+        // rebuildMode = true  → seek/scrub: grafikleri sıfırlayıp yeniden çiz
+        // rebuildMode = false → normal oynatma: tek nokta ekle
+        function renderFrame(idx, rebuildMode = false) {
+            if (idx < 0 || idx >= fileData.length) return;
+            const row = fileData[idx];
+            const prevRow = idx > 0 ? fileData[idx - 1] : null;
+
+            if (rebuildMode) {
+                rebuildChartsUpTo(idx);
+            } else {
+                const elapsedMs = getRowTimeMs(idx) - getRowTimeMs(0);
+                const timeLabel = formatExact(elapsedMs / 1000) + 's';
+                chartDefs.forEach(def => pushToChart(def, timeLabel, row));
+            }
+
+            // Grafik başlıklarındaki anlık değerleri güncelle
+            setCv('cv-h-val', row.h);
+            setCv('cv-soc-val', row.soc);
+            setCv('cv-ke-val', row.ke);
+            setCv('cv-bv', row.bv);
+            setCv('cv-bc', row.bc);
+            setCv('cv-bw-val', row.bw);
+            setCv('cv-bwh-val', row.bwh);
+            setCv('cv-fv', row.fv); setCv('cv-fa', row.fa);
+            setCv('cv-fw', row.fw); setCv('cv-fet', row.fet); setCv('cv-fit', row.fit);
+            setCv('cv-jv', row.jv); setCv('cv-jc', row.jc);
+            setCv('cv-jw', row.jw); setCv('cv-jwh', row.jwh);
+            setCv('cv-t1', row.t1); setCv('cv-t2', row.t2); setCv('cv-t3', row.t3);
+
+            // GSM: hem grafik başlığında hem header'da güncelle
+            setCv('cv-gs', row.gs);
+            const headerGs = document.getElementById('header-gs');
+            if (headerGs) headerGs.textContent = formatExact(row.gs);
+
+            // İstatistikler: 15s ortalama + genel ortalama
+            updateFieldStats(idx);
+
+            // Harita
+            updateMap(row, prevRow);
+
+            // Timeline
+            updateTimeline(idx);
+            updateTimeDisplay();
+            updateFrameCounter();
+        }
+
+        function setStatVal(elId, val, suffix) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (val === undefined || val === '' || isNaN(Number(val))) {
+                el.innerHTML = '--<span class="stat-unit">' + suffix + '</span>';
+            } else {
+                const num = Number(val);
+                const disp = Number.isInteger(num) ? num : num.toFixed(2);
+                el.innerHTML = disp + '<span class="stat-unit">' + suffix + '</span>';
+            }
+        }
+
+        // Her alan i\u00e7in 15s ortalama + genel ortalama hesapla ve DOM'a yaz
+        function updateFieldStats(idx) {
+            if (fileData.length === 0) return;
+            const tNow = getRowTimeMs(idx);
+            const t15Start = tNow - 15000;
+
+            // chartDefs'teki t\u00fcm alanlar\u0131 topla
+            const allFields = new Set();
+            chartDefs.forEach(def => def.fields.forEach(f => allFields.add(f)));
+
+            allFields.forEach(field => {
+                let sum15 = 0, count15 = 0, sumAll = 0, countAll = 0;
+                for (let i = 0; i <= idx; i++) {
+                    const v = fileData[i][field];
+                    if (v === undefined || v === '' || isNaN(Number(v))) continue;
+                    const n = Number(v);
+                    sumAll += n; countAll++;
+                    if (getRowTimeMs(i) >= t15Start) { sum15 += n; count15++; }
+                }
+                const fmtAvg = n => parseFloat(n.toFixed(4)).toString();
+                const el15 = document.getElementById('avg15-' + field);
+                const elAll = document.getElementById('avgAll-' + field);
+                if (el15) el15.textContent = count15 > 0 ? fmtAvg(sum15 / count15) : '--';
+                if (elAll) elAll.textContent = countAll > 0 ? fmtAvg(sumAll / countAll) : '--';
+            });
+        }
+
+
+
+        // =============================================
+        // CONTROLS
+        // =============================================
+        function togglePlay() {
+            if (fileData.length === 0) { alert('Önce bir test dosyası yükleyiniz.'); return; }
+            if (isPlaying) {
+                pausePlayback();
+            } else {
+                startPlayback();
+            }
+        }
+
+        function startPlayback() {
+            isPlaying = true;
+            updatePlayBtn();
+            document.getElementById('playingBadge').style.display = '';
+            scheduleNext();
+        }
+
+        function pausePlayback() {
+            isPlaying = false;
+            clearTimeout(playbackTimeout);
+            playbackTimeout = null;
+            updatePlayBtn();
+            document.getElementById('playingBadge').style.display = 'none';
+        }
+
+        function resetPlayer(redraw = true) {
+            pausePlayback();
+            playbackIdx = 0;
+            lastBearing = 0;
+
+            if (visitedPolyline) {
+                visitedPolyline.setLatLngs([]);
+            }
+
+            resetCharts();
+            updateTimeline(0);
+            updateTimeDisplay();
+            updateFrameCounter();
+
+            if (redraw && fileData.length > 0) {
+                renderFrame(0, true);  // sıfırlama sonrası rebuild
+            }
+        }
+
+        function seek(deltaMs) {
+            if (fileData.length === 0) return;
+            const wasPausd = !isPlaying;
+            pausePlayback();
+
+            const t0 = getRowTimeMs(0);
+            const targetMs = getCurrentMs() + deltaMs;
+
+            // Binary search for closest index
+            let lo = 0, hi = fileData.length - 1;
+            while (lo < hi) {
+                const mid = (lo + hi + 1) >> 1;
+                if (getRowTimeMs(mid) - t0 <= targetMs) lo = mid;
+                else hi = mid - 1;
+            }
+            playbackIdx = Math.max(0, Math.min(lo, fileData.length - 1));
+
+            renderFrame(playbackIdx, true);  // seek → yeniden çiz
+            if (!wasPausd) startPlayback();
+        }
+
+        function changeSpeed(val) {
+            playbackSpeed = parseFloat(val);
+        }
+
+        function updatePlayBtn() {
+            const btn = document.getElementById('playBtn');
+            btn.textContent = isPlaying ? '⏸ Duraklat' : '▶ Başlat';
+            btn.className = `ctrl-btn ${isPlaying ? 'btn-danger' : 'btn-primary'}`;
+        }
+
+        function updateTimeline(idx) {
+            if (fileData.length === 0) return;
+            const pct = (idx / (fileData.length - 1)) * 100;
+            document.getElementById('timelineFill').style.width = pct + '%';
+            document.getElementById('timelineThumb').style.left = pct + '%';
+        }
+
+        function updateTimeDisplay() {
+            const cur = msToStr(getCurrentMs());
+            const tot = msToStr(getTotalMs());
+            document.getElementById('timeDisplay').textContent = `${cur} / ${tot}`;
+        }
+
+        function updateFrameCounter() {
+            document.getElementById('frameCounter').textContent =
+                `${fileData.length > 0 ? playbackIdx + 1 : 0} / ${fileData.length}`;
+        }
+
+        // Timeline scrubbing
+        const timelineWrap = document.getElementById('timelineWrap');
+        let scrubbing = false;
+
+        function timelineSeekByEvent(e) {
+            if (fileData.length === 0) return;
+            const rect = timelineWrap.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const newIdx = Math.round(pct * (fileData.length - 1));
+            const wasPlaying = isPlaying;
+            pausePlayback();
+            playbackIdx = newIdx;
+            renderFrame(playbackIdx, true);  // timeline scrub → yeniden çiz
+            if (wasPlaying) startPlayback();
+        }
+
+        timelineWrap.addEventListener('mousedown', e => {
+            scrubbing = true;
+            timelineSeekByEvent(e);
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (scrubbing) timelineSeekByEvent(e);
+        });
+
+        document.addEventListener('mouseup', () => { scrubbing = false; });
+
+        timelineWrap.addEventListener('touchstart', e => {
+            scrubbing = true;
+            timelineSeekByEvent(e.touches[0]);
+        }, { passive: true });
+
+        document.addEventListener('touchmove', e => {
+            if (scrubbing) timelineSeekByEvent(e.touches[0]);
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => { scrubbing = false; });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+            if (e.code === 'ArrowLeft') seek(-5000);
+            if (e.code === 'ArrowRight') seek(+5000);
+        });
+    </script>
+</body>
+
+</html>

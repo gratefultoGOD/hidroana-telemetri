@@ -6,7 +6,7 @@
 
 const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000/data';
 //const TARGET_URL = process.env.TARGET_URL || 'https://telemetri.hidroana.com/data';
-const SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 1000; // ms
+let SEND_INTERVAL = parseInt(process.env.SEND_INTERVAL) || 100; // ms
 
 // Silesia Ring pist koordinatları (ana noktalar - daha hızlı simülasyon için)
 const trackCoordinates = [
@@ -196,6 +196,7 @@ async function sendData() {
     const queryString = buildQueryString();
     const url = `${TARGET_URL}?${queryString}`;
     //console.log(url);
+
     try {
         const response = await fetch(url);
         const text = await response.text();
@@ -208,6 +209,8 @@ async function sendData() {
     } catch (error) {
         console.error(`❌ Bağlantı hatası: ${error.message}`);
     }
+    SEND_INTERVAL += 100;
+    setTimeout(sendData, SEND_INTERVAL);
 }
 
 console.log(`\n🚗 Fake Telemetry Client - Silesia Ring Simulator`);
@@ -218,5 +221,5 @@ console.log(`📋 Format: GET ?h=&x=&y=&gp=&gs=&fv=&fa=&fw=&...`);
 console.log(`\n⚠️  Ana sunucunun HTTP modunda olduğundan emin olun!\n`);
 
 // Periyodik gönderim
-setInterval(sendData, SEND_INTERVAL);
+//setInterval(sendData, SEND_INTERVAL);
 sendData();

@@ -1260,6 +1260,11 @@ app.get('/laps', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'laps.html'));
 });
 
+app.get('/play', requireAdmin, (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.sendFile(path.join(__dirname, 'play.html'));
+});
+
 // ============================================
 // LAP/RACE API ENDPOINTS
 // ============================================
@@ -1537,10 +1542,20 @@ app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
 });
 
 function serveStaticWithAuth(req, res, next) {
-    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules', '/sectors.html', '/race.html', '/laps.html'];
+    const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules', '/sectors.html', '/race.html', '/laps.html', '/play.html'];
     if (blockedFiles.some(blocked => req.path.startsWith(blocked))) {
         return res.status(403).send('Forbidden');
     }
+
+    // Veri dizinlerine doğrudan erişim SADECE ADMIN için (dosya yolu ile indirme engeli)
+    const adminOnlyDirs = ['/telemetry_data/', '/test_data/', '/races_data/', '/sectors_data/'];
+    if (adminOnlyDirs.some(dir => req.path.startsWith(dir))) {
+        if (req.session && req.session.userId && req.session.userRole === 'admin') {
+            return next();
+        }
+        return res.status(403).json({ error: 'Bu dosyalara erişim için admin yetkisi gerekiyor' });
+    }
+
     if (req.path.match(/\.(css|js|jpg|jpeg|gif|ico|svg)$/)) {
         if (req.session && req.session.userId) next();
         else res.status(401).send('Unauthorized');
