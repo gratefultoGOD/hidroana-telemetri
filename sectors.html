@@ -253,7 +253,7 @@
 
         .back-btn {
             position: absolute;
-            top: 10px;
+            top: 80px;
             left: 10px;
             z-index: 1000;
             background: rgba(0, 0, 0, 0.8);
@@ -287,8 +287,7 @@
 <body>
     <div class="container">
         <div class="sidebar">
-            <h1>🏁 Silesia Ring - Sector Analizi</h1>
-
+            <h1>Sektör Oluşturucu</h1>
             <div class="track-info">
                 <div><strong>Pist:</strong> Silesia Ring, Poland</div>
                 <div><strong>Toplam Uzunluk:</strong> <span id="totalLength">Hesaplanıyor...</span></div>
@@ -297,10 +296,10 @@
 
             <div class="controls">
                 <div class="control-group">
-                    <label>Sector Sayısı</label>
+                    <label>Sektör Sayısı</label>
                     <input type="number" id="sectorCount" min="1" max="20" value="7">
                 </div>
-                <button onclick="generateSectors()">Sector'leri Oluştur</button>
+                <button onclick="generateSectors()">Sektörleri Oluştur</button>
                 <button class="secondary" onclick="applySectors()">Haritaya Uygula</button>
                 <button class="secondary" onclick="showSaveDialog()">Kaydet</button>
                 <button class="secondary" onclick="showLoadDialog()">Yükle</button>
@@ -321,8 +320,8 @@
         </div>
 
         <div class="map-container">
-            <a href="/" class="back-btn">← Ana Sayfa</a>
             <div id="map"></div>
+            <a href="/" class="back-btn">← Ana Sayfa</a>
             <div class="legend">
                 <div class="legend-title">Hız Renk Kodları</div>
                 <div class="legend-item">

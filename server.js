@@ -5,6 +5,7 @@ const fs = require('fs');
 const fsPromises = require('fs').promises;  // Asenkron dosya işlemleri için
 const mqtt = require('mqtt');
 const favicon = require('serve-favicon');
+const XLSX = require('xlsx');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 let DATA_SOURCE = process.env.DATA_SOURCE || 'HTTP'; // 'MQTT' veya 'HTTP'
 
 // MQTT Configuration
-const MQTT_BROKER_URL = 'mqtt://45.94.4.153:1883';
+const MQTT_BROKER_URL = 'mqtt://45.74.244.67:1883';
 const MQTT_OPTIONS = {
     username: 'hidroana',
     password: 'hidro2626'
@@ -65,6 +66,7 @@ const DATA_DIR = path.join(__dirname, 'telemetry_data');
 const TEST_DIR = path.join(__dirname, 'test_data');
 const SECTORS_DIR = path.join(__dirname, 'sectors_data');
 const RACES_DIR = path.join(__dirname, 'races_data');
+const TUBITAK_DIR = path.join(__dirname, 'tubitak_data');
 let pendingData = []; // Dosyaya yazılmayı bekleyen veriler
 const FLUSH_THRESHOLD = 1; // Her veri geldiğinde hemen dosyaya yaz
 
@@ -76,6 +78,11 @@ if (!fs.existsSync(SECTORS_DIR)) {
 // Races dizinini oluştur
 if (!fs.existsSync(RACES_DIR)) {
     fs.mkdirSync(RACES_DIR, { recursive: true });
+}
+
+// TÜBİTAK dizinini oluştur
+if (!fs.existsSync(TUBITAK_DIR)) {
+    fs.mkdirSync(TUBITAK_DIR, { recursive: true });
 }
 
 // ============================================
@@ -124,7 +131,7 @@ function saveRaceToFile() {
 
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
-    const fileName = `race_${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.csv`;
+    const fileName = `race_${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.csv`;
     const filePath = path.join(RACES_DIR, fileName);
 
     // CSV oluştur
@@ -176,6 +183,81 @@ let testMode = {
     pendingTestData: []
 };
 
+// ============================================
+// TÜBİTAK KAYIT SİSTEMİ
+// ============================================
+// Her server başlatmasında eşsiz bir dosya oluşturulur.
+// Her gelen veri anında kaydedilir.
+// Başlık: zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh
+const TUBITAK_HEADERS = 'zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh';
+
+let tubitakSession = {
+    startTime: null,  // İlk veri alındığında set edilir (ms, epoch)
+    fileName: null,   // Aktif TÜBİTAK dosyasının adı
+    pending: []       // Yazılmayı bekleyen satırlar
+};
+
+// TÜBİTAK oturumunu başlat — now parametresi ile sıfır-zaman tutarsızlığı önlenir
+function initTubitakSession(now) {
+    const pad = n => String(n).padStart(2, '0');
+    const fileName = `tubitak_${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.csv`;
+
+    tubitakSession.startTime = now.getTime(); // processIncomingData'daki now ile aynı
+    tubitakSession.fileName = fileName;
+    tubitakSession.pending = [];
+
+    // Başlık satırını yaz
+    const filePath = path.join(TUBITAK_DIR, fileName);
+    fs.writeFileSync(filePath, '\uFEFF' + TUBITAK_HEADERS + '\n', 'utf8');
+    console.log(`📋 TÜBİTAK kayıt dosyası oluşturuldu: ${fileName}`);
+}
+
+// TÜBİTAK verisini dosyaya yaz (asenkron)
+let isFlushingTubitak = false;
+async function flushTubitakData() {
+    if (tubitakSession.pending.length === 0) return;
+    if (isFlushingTubitak) return;
+    isFlushingTubitak = true;
+
+    const rows = [...tubitakSession.pending];
+    tubitakSession.pending = [];
+
+    const filePath = path.join(TUBITAK_DIR, tubitakSession.fileName);
+    try {
+        const content = rows.join('\n') + '\n';
+        await fsPromises.appendFile(filePath, content, 'utf8');
+        console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
+    } catch (err) {
+        console.error('TÜBİTAK dosya yazma hatası:', err);
+        tubitakSession.pending = [...rows, ...tubitakSession.pending];
+    } finally {
+        isFlushingTubitak = false;
+    }
+}
+
+// TÜBİTAK dosyalarını listele
+function getTubitakFiles() {
+    if (!fs.existsSync(TUBITAK_DIR)) return [];
+    return fs.readdirSync(TUBITAK_DIR)
+        .filter(f => f.startsWith('tubitak_') && f.endsWith('.csv'))
+        .map(f => {
+            const filePath = path.join(TUBITAK_DIR, f);
+            const stats = fs.statSync(filePath);
+            const content = fs.readFileSync(filePath, 'utf8');
+            const lines = content.split('\n').filter(l => l.trim());
+            const dataCount = Math.max(0, lines.length - 1);
+            // Dosya adından tarih/saat çıkar: tubitak_DD-MM-YYYY_HH-MM-SS.csv
+            const match = f.match(/tubitak_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.csv/);
+            let dateStr = '', timeStr = '';
+            if (match) {
+                dateStr = match[1];
+                timeStr = match[2].replace(/-/g, ':');
+            }
+            return { fileName: f, date: dateStr, time: timeStr, dataCount, fileSize: stats.size, lastModified: stats.mtime };
+        })
+        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+}
+
 // Data klasörlerini oluştur
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -194,6 +276,31 @@ function getDailyFileName(date = new Date()) {
 
 // CSV başlıkları
 const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
+
+// CSV içeriğini XLSX buffer'a dönüştür (semicolon separated)
+function csvToXlsxBuffer(csvContent, sheetName = 'Veri') {
+    // BOM karakterini kaldır
+    const cleanCsv = csvContent.replace(/^\uFEFF/, '');
+    const lines = cleanCsv.split('\n').filter(line => line.trim());
+    if (lines.length === 0) return null;
+
+    const rows = lines.map(line => {
+        return line.split(';').map(cell => {
+            const trimmed = cell.trim();
+            // Sayısal değerleri number olarak dönüştür (date/time hariç)
+            const num = Number(trimmed);
+            if (trimmed !== '' && !isNaN(num) && !trimmed.includes(':') && !trimmed.includes('-')) {
+                return num;
+            }
+            return trimmed;
+        });
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+}
 
 // Dosyaya veri yaz - ASENKRON (non-blocking)
 let isFlushingData = false;  // Eşzamanlı yazma kontrolü
@@ -369,6 +476,46 @@ let connectionStatus = {
 // Ortalama hesaplama için veri alanları
 const numericFields = ['h', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
 
+// Running Average değişkenleri
+let dailyAverages = {};
+let dailyAveragesCount = 0;
+let currentDailyFile = getDailyFileName();
+numericFields.forEach(f => dailyAverages[f] = 0);
+
+function initDailyAverages() {
+    const filePath = path.join(DATA_DIR, currentDailyFile);
+    dailyAveragesCount = 0;
+    numericFields.forEach(f => dailyAverages[f] = 0);
+
+    if (fs.existsSync(filePath)) {
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            const lines = content.split('\n').filter(line => line.trim());
+
+            if (lines.length > 1) {
+                const headers = lines[0].replace('\uFEFF', '').split(';');
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(';');
+                    dailyAveragesCount++;
+
+                    numericFields.forEach(field => {
+                        const index = headers.indexOf(field);
+                        if (index !== -1) {
+                            const val = parseFloat(values[index]);
+                            if (!isNaN(val)) {
+                                dailyAverages[field] += (val - dailyAverages[field]) / dailyAveragesCount;
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('Günlük ortalamalar hesaplanırken hata:', e);
+        }
+    }
+}
+// Başlangıçta ortalamaları hesapla
+initDailyAverages();
 // Ortalama hesaplama fonksiyonu (sadece son 15 saniye için)
 function calculateAverages() {
     const now = Date.now();
@@ -378,7 +525,7 @@ function calculateAverages() {
     recentData = recentData.filter(d => d.timestamp >= fifteenSecondsAgo);
     let recent = [];
     const averages = {
-        allTime: {}, // Artık dosyadan hesaplanmıyor, sadece bugünkü veri sayısı
+        allTime: {}, // Running average yöntemiyle hesaplanan günlük ortalama
         last15Seconds: {},
         allTimeCount: getTodayDataCount() + pendingData.length,
         last15SecondsCount: recentData.length
@@ -391,15 +538,18 @@ function calculateAverages() {
             ? (recentValues.reduce((a, b) => a + b, 0) / recentValues.length).toFixed(2)
             : null;
 
-        // Genel ortalama artık hesaplanmıyor (bellek tasarrufu)
-        averages.allTime[field] = recentValues.pop();
+        // Running average genel ortalama
+        averages.allTime[field] = dailyAveragesCount > 0 ? dailyAverages[field].toFixed(2) : null;
     });
 
     return averages;
 }
 
+// Debug: initDailyAverages sonuçlarını logla
+console.log(`📊 initDailyAverages: count=${dailyAveragesCount}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
+
 // Yıldız ile ayrılmış veriyi JSON'a dönüştür
-const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
+const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt'];
 
 function parseStarSeparatedData(rawMessage) {
     let dataString = rawMessage;
@@ -427,6 +577,23 @@ function processIncomingData(data) {
         receivedAt: now.getTime(), // Frontend için veri alım zamanı
         dataCounter: dataCounter // Frontend için veri sayacı
     };
+
+    // Gün değişimi kontrolü ve Running Average güncellemesi
+    const newDailyFile = getDailyFileName(now);
+    if (newDailyFile !== currentDailyFile) {
+        currentDailyFile = newDailyFile;
+        dailyAveragesCount = 0;
+        numericFields.forEach(f => dailyAverages[f] = 0);
+    }
+
+    dailyAveragesCount++;
+    numericFields.forEach(field => {
+        const val = parseFloat(dataWithTimestamp[field]);
+        if (!isNaN(val)) {
+            dailyAverages[field] += (val - dailyAverages[field]) / dailyAveragesCount;
+        }
+    });
+    console.log(`📊 Running avg update: count=${dailyAveragesCount}, fv_val=${dataWithTimestamp.fv}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
 
     latestTelemetryData = dataWithTimestamp; // Sonra güncelle
 
@@ -457,6 +624,28 @@ function processIncomingData(data) {
             flushTestDataToFile();
         }
     }
+
+    // TÜBİTAK formatında kaydet — her veri geldiğinde
+    // İlk veri geldiğinde oturumu başlat (aynı `now` geçilir → elapsedMs = 0)
+    if (!tubitakSession.startTime) {
+        initTubitakSession(now);
+    }
+    const elapsedMs = now.getTime() - tubitakSession.startTime;
+    // hiz_kmh
+    const tbkHiz = dataWithTimestamp.h != null ? dataWithTimestamp.h : '';
+    // T_bat_C: t1, t2, t3 arasından en yüksek değer
+    const tbkTemps = [dataWithTimestamp.t1, dataWithTimestamp.t2, dataWithTimestamp.t3]
+        .map(v => parseFloat(v)).filter(v => !isNaN(v));
+    const tbkTBat = tbkTemps.length > 0 ? Math.max(...tbkTemps) : '';
+    // T_tank_C: şimdilik yakıt hücresi harici sıcaklık (fet)
+    const tbkTTank = dataWithTimestamp.fet != null ? dataWithTimestamp.fet : '';
+    // V_bat_V: toplam batarya gerilimi
+    const tbkVBat = dataWithTimestamp.bv != null ? dataWithTimestamp.bv : '';
+    // kalan_enerji_Wh
+    const tbkKalan = dataWithTimestamp.ke != null ? dataWithTimestamp.ke : '';
+    const tubitakRow = `${elapsedMs};${tbkHiz};${tbkTBat};${tbkTTank};${tbkVBat};${tbkKalan}`;
+    tubitakSession.pending.push(tubitakRow);
+    flushTubitakData();
 
     connectionStatus.connected = true;
     connectionStatus.lastUpdate = now.toISOString();
@@ -670,7 +859,7 @@ app.get('/data', (req, res) => {
             jc: q.jc || null,
             jw: q.jw || null,
             jwh: q.jwh || null,
-            meter: q.meter !== undefined ? parseFloat(q.meter) : null,
+            mt: q.mt || null,
             id: q.id || null,
             //key: q.key || null
         };
@@ -990,6 +1179,37 @@ app.get('/api/test/download/:fileName', requireAdmin, (req, res) => {
     res.sendFile(filePath);
 });
 
+// Test dosyasını XLSX olarak indir (SADECE ADMIN)
+app.get('/api/test/download-xlsx/:fileName', requireAdmin, (req, res) => {
+    const fileName = req.params.fileName;
+
+    if (!fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+
+    const filePath = path.join(TEST_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+
+    try {
+        const csvContent = fs.readFileSync(filePath, 'utf8');
+        const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Test Verisi');
+        if (!xlsxBuffer) {
+            return res.status(404).json({ error: 'Dosya boş' });
+        }
+        const xlsxFileName = fileName.replace('.csv', '.xlsx');
+        const encodedFileName = encodeURIComponent(xlsxFileName);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${xlsxFileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
+        res.send(xlsxBuffer);
+    } catch (error) {
+        console.error('XLSX dönüştürme hatası:', error);
+        res.status(500).json({ error: 'XLSX dosyası oluşturulamadı' });
+    }
+});
+
 // Test dosyasını yeniden adlandır (SADECE ADMIN)
 app.patch('/api/test/rename/:fileName', requireAdmin, (req, res) => {
     const oldFileName = req.params.fileName;
@@ -1065,6 +1285,53 @@ app.delete('/api/test/delete/:fileName', requireAdmin, (req, res) => {
     res.json({ success: true, message: `${fileName} silindi` });
 });
 
+// ============================================
+// TÜBİTAK API ENDPOINTS
+// ============================================
+
+// TÜBİTAK dosyalarını listele (SADECE ADMIN)
+app.get('/api/tubitak/files', requireAdmin, (req, res) => {
+    const files = getTubitakFiles();
+    res.json({ files });
+});
+
+// TÜBİTAK dosyasını indir (SADECE ADMIN)
+app.get('/api/tubitak/download/:fileName', requireAdmin, (req, res) => {
+    const fileName = req.params.fileName;
+
+    if (!fileName.startsWith('tubitak_') || !fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+
+    const filePath = path.join(TUBITAK_DIR, fileName);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    const encodedFileName = encodeURIComponent(fileName);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
+    res.sendFile(filePath);
+});
+
+// TÜBİTAK dosyasını sil (SADECE ADMIN)
+app.delete('/api/tubitak/delete/:fileName', requireAdmin, (req, res) => {
+    const fileName = req.params.fileName;
+
+    if (!fileName.startsWith('tubitak_') || !fileName.endsWith('.csv') || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+
+    const filePath = path.join(TUBITAK_DIR, fileName);
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+
+    fs.unlinkSync(filePath);
+    console.log(`🗑️ TÜBİTAK dosyası silindi: ${fileName}`);
+    res.json({ success: true, message: `${fileName} silindi` });
+});
+
 // Belirli bir günün verisini indir (SADECE ADMIN)
 app.get('/api/telemetry/download/:fileName', requireAdmin, (req, res) => {
     const fileName = req.params.fileName;
@@ -1087,6 +1354,37 @@ app.get('/api/telemetry/download/:fileName', requireAdmin, (req, res) => {
     res.sendFile(filePath);
 });
 
+// Belirli bir günün verisini XLSX olarak indir (SADECE ADMIN)
+app.get('/api/telemetry/download-xlsx/:fileName', requireAdmin, (req, res) => {
+    const fileName = req.params.fileName;
+
+    if (!fileName.endsWith('_verileri.csv') || fileName.includes('..') || fileName.includes('/')) {
+        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+    }
+
+    const filePath = path.join(DATA_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Dosya bulunamadı' });
+    }
+
+    try {
+        const csvContent = fs.readFileSync(filePath, 'utf8');
+        const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Telemetri');
+        if (!xlsxBuffer) {
+            return res.status(404).json({ error: 'Dosya boş' });
+        }
+        const xlsxFileName = fileName.replace('.csv', '.xlsx');
+        const encodedFileName = encodeURIComponent(xlsxFileName);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${xlsxFileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
+        res.send(xlsxBuffer);
+    } catch (error) {
+        console.error('XLSX dönüştürme hatası:', error);
+        res.status(500).json({ error: 'XLSX dosyası oluşturulamadı' });
+    }
+});
+
 // Bugünün verisini indir (bekleyen veriler dahil) (SADECE ADMIN)
 app.get('/api/telemetry/download-today', requireAdmin, (req, res) => {
     // Önce bekleyen verileri dosyaya yaz
@@ -1104,6 +1402,34 @@ app.get('/api/telemetry/download-today', requireAdmin, (req, res) => {
     const encodedFileName = encodeURIComponent(fileName);
     res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
     res.sendFile(filePath);
+});
+
+// Bugünün verisini XLSX olarak indir (SADECE ADMIN)
+app.get('/api/telemetry/download-today-xlsx', requireAdmin, (req, res) => {
+    flushDataToFile();
+
+    const fileName = getDailyFileName();
+    const filePath = path.join(DATA_DIR, fileName);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Bugün henüz veri toplanmadı' });
+    }
+
+    try {
+        const csvContent = fs.readFileSync(filePath, 'utf8');
+        const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Bugün');
+        if (!xlsxBuffer) {
+            return res.status(404).json({ error: 'Dosya boş' });
+        }
+        const xlsxFileName = fileName.replace('.csv', '.xlsx');
+        const encodedFileName = encodeURIComponent(xlsxFileName);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${xlsxFileName.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFileName}`);
+        res.send(xlsxBuffer);
+    } catch (error) {
+        console.error('XLSX dönüştürme hatası:', error);
+        res.status(500).json({ error: 'XLSX dosyası oluşturulamadı' });
+    }
 });
 
 // Belirli bir günün verisini sil (SADECE ADMIN)
@@ -1124,7 +1450,7 @@ app.delete('/api/telemetry/delete/:fileName', requireAdmin, (req, res) => {
     console.log(`🗑️ Dosya silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
-
+/*
 // Bugünün verilerini temizle (SADECE ADMIN)
 app.delete('/api/telemetry/clear', requireAdmin, (req, res) => {
     // Bugünün dosyasını sil ve bekleyen verileri temizle
@@ -1145,7 +1471,7 @@ app.delete('/api/telemetry/clear', requireAdmin, (req, res) => {
     console.log(`Bugünün verileri temizlendi. Silinen kayıt: ${clearedCount}`);
     res.json({ success: true, clearedCount });
 });
-
+*/
 // ============================================
 // /data ENDPOINT YUKARI TAŞINDI (Middleware optimizasyonu)
 // Bkz: Satır ~443 - EXPRESS MIDDLEWARE bölümünden önce
@@ -1198,6 +1524,43 @@ app.get('/api/telemetry/csv', requireAdmin, (req, res) => {
     const encodedFilename = encodeURIComponent(filename);
     res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`);
     res.send(csv);
+});
+
+// XLSX export - Tüm günlerin verilerini birleştir (SADECE ADMIN)
+app.get('/api/telemetry/xlsx', requireAdmin, (req, res) => {
+    flushDataToFile();
+
+    const days = getAvailableDays();
+
+    if (days.length === 0) {
+        return res.status(404).json({ error: 'Henüz veri toplanmadı' });
+    }
+
+    let csv = CSV_HEADERS.join(';') + '\n';
+
+    days.forEach(day => {
+        const filePath = path.join(DATA_DIR, day.fileName);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n').filter(line => line.trim());
+        lines.slice(1).forEach(line => {
+            if (line.trim()) csv += line + '\n';
+        });
+    });
+
+    try {
+        const xlsxBuffer = csvToXlsxBuffer(csv, 'Tüm Veriler');
+        if (!xlsxBuffer) {
+            return res.status(404).json({ error: 'Veri bulunamadı' });
+        }
+        const filename = `telemetry_tum_veriler_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+        const encodedFilename = encodeURIComponent(filename);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`);
+        res.send(xlsxBuffer);
+    } catch (error) {
+        console.error('XLSX dönüştürme hatası:', error);
+        res.status(500).json({ error: 'XLSX dosyası oluşturulamadı' });
+    }
 });
 
 // ============================================

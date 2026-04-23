@@ -290,6 +290,31 @@ average kısmında pop kullanılıyor (düşüyor son eleman)
 /data da id querye gerek yok
 csv den sector oluşturucu düzeltilecek
 
-Test oynatma
-mobilde grafikler oynatılamıyor
+Test oynatma[+]
+excel formatında indirme olmadı csv iyileştir, verileri başka biçimde okuyor excel [+]
 verileri kimseyle paylaşma (yönetime sor)
+ipleri değiş mqtt [+]
+yarış izle sayfasında verimlilik kısmına tüm fuel cell verileri, bir kutucuk daha joulmetre, konum kartını sil [+]
+çöp kovası butonunu kaldır, endpointi de kaldırıldı [+]
+yarış izle ve sector sayfasında üst üste binen zoom ve ana sayfa butonlarını düzelt [+]
+test oynat responsive değil [+]
+test oynat grafikleri saniye değil saat olsun [+]
+test oynat grafikleri hareket ettirebilme, açma kapama, büyütme küçültme [+]
+
+genel ortalamayı artık yap [+] [test edilmesi lazım] [mobilde de çalışıyor mu kontrol et]
+
+mobilde grafikler oynatılamıyor [+]
+test veri kısmını genişlet (kutuyu büyüt) [+]
+15 saniyelik ortalama bak, özellikle play 
+eski yılların test verileri play de oynatılabilir xsls [+] [test edilecek]
+dark mode getir
+sayfa yenilendiğinde grafiklerde en son veride refresh saati yazıyor
+TUBİTAK için istedikleri formatta verileri kaydet [+] [ama fieldlarda değişiklikler yapılacak]
+mqtt stringe meter ekle [+]
+arka plana alınınca tüm veriler belleğe yazılıyor kastırıyor, optimize et
+aks de mqtt tarafında meter byte ayarlancak
+
+test oynatta gps verisi gelmeyen test kayıtlarında eski gps verisi olan kayıtın gps i kalıyor
+
+
+tübitak kayıtlarına bak.

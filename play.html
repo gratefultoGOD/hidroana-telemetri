@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -272,6 +273,11 @@
             border-radius: 12px;
             padding: 12px 16px;
             flex-shrink: 0;
+            transition: all 0.2s ease;
+            break-inside: avoid;
+            margin-bottom: 10px;
+            display: inline-block;
+            width: 100%;
         }
 
         .chart-card-header {
@@ -279,6 +285,20 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .chart-card-header:active {
+            cursor: grabbing;
+        }
+
+        .chart-card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
         }
 
         .chart-title {
@@ -294,6 +314,59 @@
             font-weight: 700;
         }
 
+        /* Toggle icon */
+        .play-toggle-icon {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-secondary);
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        .play-toggle-icon:hover {
+            background: rgba(102, 126, 234, 0.15);
+            color: var(--primary);
+        }
+
+        /* Collapsed state */
+        .chart-card.collapsed .chart-canvas-wrap,
+        .chart-card.collapsed .stat-strip {
+            display: none;
+        }
+
+        .chart-card.collapsed {
+            padding: 8px 12px !important;
+        }
+
+        .chart-card.collapsed .chart-card-header {
+            margin-bottom: 0;
+        }
+
+        /* Drag & Drop states */
+        .draggable-item.dragging {
+            opacity: 0.4;
+            transform: scale(0.97);
+        }
+
+        .draggable-item.drag-over-item {
+            border-top: 3px solid var(--primary) !important;
+            margin-top: 2px;
+        }
+
+        .charts-area.drag-over-container {
+            background: rgba(102, 126, 234, 0.06);
+            border-radius: 12px;
+        }
+
         .chart-canvas-wrap {
             height: 130px;
             position: relative;
@@ -304,10 +377,13 @@
             height: 100% !important;
         }
 
-        .chart-row-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+        #chartsGroup {
+            column-count: 2;
+            column-gap: 10px;
+        }
+
+        .chart-card-full {
+            grid-column: 1 / -1;
         }
 
         /* ===================== TIMELINE / CONTROLS ===================== */
@@ -533,6 +609,187 @@
         .leaflet-container {
             background: #111;
         }
+
+        /* ===================== RESPONSIVE ===================== */
+
+        /* Tablet & small laptop */
+        @media (max-width: 1024px) {
+            .left-panel {
+                width: 260px;
+            }
+
+            .chart-canvas-wrap {
+                height: 110px;
+            }
+
+            .header h1 {
+                font-size: 15px;
+            }
+
+            .file-selector select {
+                min-width: 180px;
+            }
+        }
+
+        /* Mobile / narrow screens */
+        @media (max-width: 768px) {
+
+            html,
+            body {
+                overflow: auto;
+            }
+
+            .page-wrapper {
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 10px 12px;
+                gap: 8px;
+            }
+
+            .header-left {
+                justify-content: space-between;
+            }
+
+            .header h1 {
+                font-size: 14px;
+            }
+
+            .file-selector {
+                width: 100%;
+            }
+
+            .file-selector select {
+                width: 100%;
+                min-width: unset;
+            }
+
+            .header-right {
+                justify-content: space-between;
+            }
+
+            .main-area {
+                flex-direction: column;
+                min-height: unset;
+            }
+
+            .left-panel {
+                width: 100%;
+                flex-shrink: 0;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            #map {
+                height: 220px;
+                min-height: 220px;
+                flex: none;
+            }
+
+            .left-stats {
+                max-height: none;
+                overflow-y: visible;
+            }
+
+            .right-panel {
+                overflow: visible;
+            }
+
+            .charts-area {
+                overflow-y: visible;
+                padding: 10px;
+                gap: 8px;
+            }
+
+            #chartsGroup {
+                column-count: 1;
+            }
+
+            .chart-canvas-wrap {
+                height: 120px;
+            }
+
+            /* Player bar */
+            .player-bar {
+                padding: 10px 12px 14px;
+                position: sticky;
+                bottom: 0;
+                z-index: 1000;
+            }
+
+            .player-controls {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .controls-left {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .time-display {
+                font-size: 11px;
+                padding: 5px 8px;
+                min-width: unset;
+            }
+
+            .controls-center {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .controls-right {
+                flex: 1;
+                justify-content: flex-end;
+            }
+
+            .ctrl-btn {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+
+            .btn-primary {
+                padding: 7px 14px;
+                font-size: 13px;
+            }
+        }
+
+        /* Very small phones */
+        @media (max-width: 480px) {
+            #map {
+                height: 180px;
+                min-height: 180px;
+            }
+
+            .stat-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+            }
+
+            .stat-card {
+                padding: 8px 10px;
+            }
+
+            .stat-value {
+                font-size: 15px;
+            }
+
+            .chart-card {
+                padding: 10px 12px;
+            }
+
+            .chart-canvas-wrap {
+                height: 100px;
+            }
+
+            .controls-center .ctrl-btn.btn-secondary {
+                display: none;
+            }
+        }
     </style>
 </head>
 
@@ -584,180 +841,215 @@
                     </div>
 
                     <!-- Charts (hidden until data loaded) -->
-                    <div id="chartsGroup" style="display:none; display:flex; flex-direction:column; gap:10px;">
+                    <div id="chartsGroup" style="display:none;">
 
                         <!-- Hız -->
-                        <div class="chart-card">
+                        <div class="chart-card draggable-item">
                             <div class="chart-card-header">
-                                <span class="chart-title" style="color:var(--speed-color)">⚡ Anlık Hız</span>
-                                <span class="chart-val" id="cv-h" style="color:var(--speed-color);"><span
-                                        id="cv-h-val">--</span> <span
-                                        style="font-size:10px;font-weight:400;">km/h</span></span>
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:var(--speed-color)">⚡ Anlık Hız</span>
+                                    <span class="chart-val" id="cv-h" style="color:var(--speed-color);"><span
+                                            id="cv-h-val">--</span> <span
+                                            style="font-size:10px;font-weight:400;">km/h</span></span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
                             <div class="chart-canvas-wrap"><canvas id="chartH"></canvas></div>
                         </div>
 
-                        <!-- Battery row -->
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <!-- SOC & Kalan Enerji -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--battery-color)">🔋 SOC</span>
                                     <span class="chart-val" id="cv-soc" style="color:var(--battery-color);"><span
                                             id="cv-soc-val">--</span> <span
                                             style="font-size:10px;font-weight:400;">%</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartSoc"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartSoc"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--battery-color)">⚡ Kalan Enerji</span>
                                     <span class="chart-val" id="cv-ke" style="color:var(--battery-color);"><span
                                             id="cv-ke-val">--</span> <span
                                             style="font-size:10px;font-weight:400;">kWh</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartKe"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartKe"></canvas></div>
                         </div>
 
-
                         <!-- Batarya Voltaj & Akım -->
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:#43e97b">🔋 Batarya Voltaj</span>
                                     <span class="chart-val" style="color:#43e97b"><span id="cv-bv">--</span> <span
                                             style="font-size:10px;font-weight:400">V</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartBv"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartBv"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:#ffd200">🔋 Batarya Akım</span>
                                     <span class="chart-val" style="color:#ffd200"><span id="cv-bc">--</span> <span
                                             style="font-size:10px;font-weight:400">A</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartBc"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartBc"></canvas></div>
                         </div>
 
-                        <!-- Battery Power & Wh -->
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <!-- Batarya Güç & Wh -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--battery-color)">🔌 Batarya Güç</span>
                                     <span class="chart-val" id="cv-bw" style="color:var(--battery-color);"><span
                                             id="cv-bw-val">--</span> <span
                                             style="font-size:10px;font-weight:400;">W</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartBw"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartBw"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--battery-color)">📊 Batarya Wh</span>
                                     <span class="chart-val" id="cv-bwh" style="color:var(--battery-color);"><span
                                             id="cv-bwh-val">--</span> <span
                                             style="font-size:10px;font-weight:400;">Wh</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartBwh"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartBwh"></canvas></div>
                         </div>
 
-                        <!-- Yakıt Hücresi Voltaj & Akım -->
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <!-- FC Voltaj & Akım -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:#ffa726">🔥 FC Voltaj</span>
                                     <span class="chart-val" style="color:#ffa726"><span id="cv-fv">--</span> <span
                                             style="font-size:10px;font-weight:400">V</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartFv"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartFv"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:#ff5722">🔥 FC Akım</span>
                                     <span class="chart-val" style="color:#ff5722"><span id="cv-fa">--</span> <span
                                             style="font-size:10px;font-weight:400">A</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartFa"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartFa"></canvas></div>
                         </div>
 
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <!-- FC Güç & Sıcaklık -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--fuel-color)">⚡ FC Güç</span>
                                     <span class="chart-val" style="color:var(--fuel-color);"><span id="cv-fw">--</span>
                                         <span style="font-size:10px;font-weight:400;">W</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartFw"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartFw"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--fuel-color)">🌡️ FC Sıcaklık (Dış /
                                         İç)</span>
-                                    <div style="display:flex;gap:14px;">
+                                    <div style="display:flex;gap:10px;">
                                         <span class="chart-val" style="color:#ff7043;"><span id="cv-fet">--</span> <span
-                                                style="font-size:10px;font-weight:400;">°C dış</span></span>
+                                                style="font-size:10px;font-weight:400;">°C</span></span>
                                         <span class="chart-val" style="color:#ffb74d;"><span id="cv-fit">--</span> <span
-                                                style="font-size:10px;font-weight:400;">°C iç</span></span>
+                                                style="font-size:10px;font-weight:400;">°C</span></span>
                                     </div>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartFcTemp"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartFcTemp"></canvas></div>
                         </div>
 
-                        <!-- Joulmetre Voltaj & Akım -->
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <!-- JM Voltaj & Akım -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:#667eea">⚡ JM Voltaj</span>
                                     <span class="chart-val" style="color:#667eea"><span id="cv-jv">--</span> <span
                                             style="font-size:10px;font-weight:400">V</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartJv"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartJv"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:#ab47bc">⚡ JM Akım</span>
                                     <span class="chart-val" style="color:#ab47bc"><span id="cv-jc">--</span> <span
                                             style="font-size:10px;font-weight:400">A</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartJc"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartJc"></canvas></div>
                         </div>
 
-                        <div class="chart-row-2">
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                        <!-- JM Güç & Wh -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--joule-color)">🔌 Joulmetre Güç</span>
                                     <span class="chart-val" style="color:var(--joule-color);"><span id="cv-jw">--</span>
                                         <span style="font-size:10px;font-weight:400;">W</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartJw"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
-                            <div class="chart-card">
-                                <div class="chart-card-header">
+                            <div class="chart-canvas-wrap"><canvas id="chartJw"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
                                     <span class="chart-title" style="color:var(--joule-color)">📈 Joulmetre Wh</span>
                                     <span class="chart-val" style="color:var(--joule-color);"><span
                                             id="cv-jwh">--</span> <span
                                             style="font-size:10px;font-weight:400;">Wh</span></span>
                                 </div>
-                                <div class="chart-canvas-wrap"><canvas id="chartJwh"></canvas></div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartJwh"></canvas></div>
                         </div>
 
-                        <!-- Battery Temps -->
-                        <div class="chart-card">
+                        <!-- Batarya Sıcaklıkları -->
+                        <div class="chart-card draggable-item">
                             <div class="chart-card-header">
-                                <span class="chart-title">🌡️ Batarya Sıcaklıkları</span>
-                                <div style="display:flex;gap:14px;">
-                                    <span class="chart-val" style="color:#ef5350;"><span id="cv-t1">--</span> <span
-                                            style="font-size:10px;font-weight:400;">T1</span></span>
-                                    <span class="chart-val" style="color:#ff8a65;"><span id="cv-t2">--</span> <span
-                                            style="font-size:10px;font-weight:400;">T2</span></span>
-                                    <span class="chart-val" style="color:#ffd54f;"><span id="cv-t3">--</span> <span
-                                            style="font-size:10px;font-weight:400;">T3</span></span>
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
+                                    <span class="chart-title">🌡️ Batarya Sıcaklıkları</span>
+                                    <div style="display:flex;gap:10px;">
+                                        <span class="chart-val" style="color:#ef5350;"><span id="cv-t1">--</span> <span
+                                                style="font-size:10px;font-weight:400;">T1</span></span>
+                                        <span class="chart-val" style="color:#ff8a65;"><span id="cv-t2">--</span> <span
+                                                style="font-size:10px;font-weight:400;">T2</span></span>
+                                        <span class="chart-val" style="color:#ffd54f;"><span id="cv-t3">--</span> <span
+                                                style="font-size:10px;font-weight:400;">T3</span></span>
+                                    </div>
                                 </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
                             <div class="chart-canvas-wrap"><canvas id="chartBatTemp"></canvas></div>
                         </div>
@@ -889,6 +1181,38 @@
         // =============================================
         function parseCSV(csvText) {
             const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+            if (lines.length === 0 || !lines[0]) return [];
+
+            // Eski format kontrolü: ilk satırda 't:' ve 's:' varsa (key:value formatı)
+            if (lines[0].includes('t:') && lines[0].includes('s:')) {
+                const rows = [];
+                for (let i = 0; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const pairs = lines[i].split(';');
+                    const obj = {};
+                    pairs.forEach(pair => {
+                        let [key, ...valParts] = pair.split(':');
+                        if (!key) return;
+                        key = key.trim().toLowerCase();
+                        let raw = valParts.join(':').trim();
+                        
+                        // Eski formatı yeni formata eşle
+                        if (key === 't') key = 'date';
+                        if (key === 's') key = 'time';
+                        
+                        if (raw.includes(':') || raw.includes('-')) {
+                            obj[key] = raw;
+                        } else {
+                            const num = parseFloat(raw);
+                            obj[key] = (!isNaN(num) && raw !== '') ? num : raw;
+                        }
+                    });
+                    rows.push(obj);
+                }
+                return rows;
+            }
+
+            // Yeni format (standart CSV)
             if (lines.length < 2) return [];
             const headers = lines[0].split(';').map(h => h.trim().replace(/\uFEFF/g, ''));
             const rows = [];
@@ -1172,7 +1496,6 @@
 
             const clampedIdx = Math.max(0, Math.min(toIdx, fileData.length - 1));
             const fromIdx = Math.max(0, clampedIdx - MAX_CHART_POINTS + 1);
-            const t0ms = getRowTimeMs(0);
 
             // Tüm grafikleri temizle
             Object.values(charts).forEach(ch => {
@@ -1183,8 +1506,7 @@
             // Penceredeki tüm satırları ekle
             for (let i = fromIdx; i <= clampedIdx; i++) {
                 const row = fileData[i];
-                const elapsedMs = getRowTimeMs(i) - t0ms;
-                const timeLabel = (elapsedMs / 1000).toFixed(1) + 's';
+                const timeLabel = getRowTimeLabel(row);
 
                 chartDefs.forEach(def => {
                     const ch = charts[def.id];
@@ -1273,7 +1595,7 @@
 
             // Init charts
             document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('chartsGroup').style.display = 'flex';
+            document.getElementById('chartsGroup').style.display = 'block';
             initCharts();
 
             // Duration info
@@ -1304,6 +1626,20 @@
 
         function getRowTimeMs(idx) {
             return timeToMs(getRowTimeField(fileData[idx]));
+        }
+
+        // Verinin gerçek zamanını grafik etiketi olarak döndür (HH:MM:SS)
+        function getRowTimeLabel(row) {
+            // test_time varsa onu göster (elapsed), yoksa time (wall clock)
+            const tf = (row.test_time && typeof row.test_time === 'string' && row.test_time.includes(':'))
+                ? row.test_time
+                : (row.time && typeof row.time === 'string' && row.time.includes(':'))
+                    ? row.time
+                    : null;
+            if (!tf) return '--';
+            // Millisaniye kısmını kes, sadece HH:MM:SS göster
+            const dotIdx = tf.indexOf('.');
+            return dotIdx >= 0 ? tf.slice(0, dotIdx) : tf;
         }
 
         function getCurrentMs() {
@@ -1369,8 +1705,7 @@
             if (rebuildMode) {
                 rebuildChartsUpTo(idx);
             } else {
-                const elapsedMs = getRowTimeMs(idx) - getRowTimeMs(0);
-                const timeLabel = formatExact(elapsedMs / 1000) + 's';
+                const timeLabel = getRowTimeLabel(row);
                 chartDefs.forEach(def => pushToChart(def, timeLabel, row));
             }
 
@@ -1586,6 +1921,165 @@
             if (e.code === 'ArrowLeft') seek(-5000);
             if (e.code === 'ArrowRight') seek(+5000);
         });
+
+        // =============================================
+        // TOGGLE (COLLAPSE/EXPAND) CHART CARDS
+        // =============================================
+        function playToggleCard(iconEl) {
+            const card = iconEl.closest('.chart-card');
+            if (!card) return;
+            const isCollapsed = card.classList.toggle('collapsed');
+            iconEl.textContent = isCollapsed ? '▶' : '▼';
+
+            // Resize charts after toggle animation
+            if (!isCollapsed) {
+                setTimeout(resizePlayCharts, 100);
+            }
+        }
+
+        function resizePlayCharts() {
+            Object.values(charts).forEach(ch => { if (ch) ch.resize(); });
+            if (map) map.invalidateSize();
+        }
+
+        // =============================================
+        // DRAG & DROP FOR CHART ITEMS
+        // =============================================
+        // DRAG & DROP — Pointer Events (Mouse + Touch)
+        // =============================================
+        let _play_ghost = null;
+        let _play_dragged = null;
+        let _play_offsetX = 0;
+        let _play_offsetY = 0;
+        let _play_originParent = null;
+        let _play_originNext = null;
+
+        function initPlayDragDrop() {
+            const container = document.getElementById('chartsGroup');
+            if (!container) return;
+
+            const items = container.querySelectorAll('.draggable-item');
+            items.forEach(item => {
+                const headers = item.querySelectorAll('.chart-card-header');
+                headers.forEach(header => {
+                    header.style.cursor = 'grab';
+                    header.style.touchAction = 'none';
+                    header.addEventListener('pointerdown', _play_onPointerDown);
+                });
+            });
+        }
+
+        function _play_onPointerDown(e) {
+            if (e.target.closest('.play-toggle-icon')) return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+            const item = this.closest('.draggable-item');
+            if (!item) return;
+
+            e.preventDefault();
+            this.setPointerCapture(e.pointerId);
+
+            _play_dragged = item;
+            _play_originParent = item.parentElement;
+            _play_originNext = item.nextElementSibling;
+
+            const rect = item.getBoundingClientRect();
+            _play_offsetX = e.clientX - rect.left;
+            _play_offsetY = e.clientY - rect.top;
+
+            _play_ghost = item.cloneNode(true);
+            _play_ghost.style.cssText = `
+                position: fixed;
+                width: ${rect.width}px;
+                height: ${rect.height}px;
+                left: ${rect.left}px;
+                top: ${rect.top}px;
+                opacity: 0.6;
+                pointer-events: none;
+                z-index: 99999;
+                box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+                transform: scale(1.03);
+                transition: none;
+                border-radius: 12px;
+            `;
+            document.body.appendChild(_play_ghost);
+
+            item.classList.add('dragging');
+            item.style.opacity = '0.2';
+
+            this.addEventListener('pointermove', _play_onPointerMove);
+            this.addEventListener('pointerup', _play_onPointerUp);
+            this.addEventListener('pointercancel', _play_onPointerUp);
+        }
+
+        function _play_onPointerMove(e) {
+            if (!_play_ghost) return;
+            e.preventDefault();
+            _play_ghost.style.left = (e.clientX - _play_offsetX) + 'px';
+            _play_ghost.style.top  = (e.clientY - _play_offsetY) + 'px';
+        }
+
+        function _play_onPointerUp(e) {
+            if (!_play_dragged) return;
+
+            this.removeEventListener('pointermove', _play_onPointerMove);
+            this.removeEventListener('pointerup', _play_onPointerUp);
+            this.removeEventListener('pointercancel', _play_onPointerUp);
+
+            if (_play_ghost) { _play_ghost.remove(); _play_ghost = null; }
+
+            _play_dragged.classList.remove('dragging');
+            _play_dragged.style.opacity = '';
+
+            // Ghost'u geçici olarak gizle ve drop noktasını bul
+            let underEl;
+            try {
+                const tmp = document.createElement('div');
+                tmp.style.cssText = 'position:fixed;width:1px;height:1px;pointer-events:none;';
+                document.body.appendChild(tmp);
+                underEl = document.elementFromPoint(e.clientX, e.clientY);
+                tmp.remove();
+            } catch(_) { underEl = null; }
+
+            const container = underEl && underEl.closest('#chartsGroup');
+
+            if (container) {
+                const after = _play_getDropTarget(container, e.clientY);
+                if (after === null) {
+                    container.appendChild(_play_dragged);
+                } else {
+                    container.insertBefore(_play_dragged, after);
+                }
+                setTimeout(resizePlayCharts, 100);
+            } else {
+                // Geçerli hedef yok — orijinal yere geri koy
+                if (_play_originNext) {
+                    _play_originParent.insertBefore(_play_dragged, _play_originNext);
+                } else {
+                    _play_originParent.appendChild(_play_dragged);
+                }
+            }
+
+            _play_dragged = null;
+            _play_originParent = null;
+            _play_originNext = null;
+        }
+
+        function _play_getDropTarget(container, clientY) {
+            const cards = [...container.querySelectorAll('.draggable-item')].filter(el => el !== _play_dragged);
+            for (const card of cards) {
+                const box = card.getBoundingClientRect();
+                if (clientY < box.top + box.height / 2) return card;
+            }
+            return null;
+        }
+
+        // Init drag-drop after charts are shown
+        const _origInitPlayer = initPlayer;
+        initPlayer = function () {
+            _origInitPlayer();
+            initPlayDragDrop();
+        };
     </script>
 </body>
 

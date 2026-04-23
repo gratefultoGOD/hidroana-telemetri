@@ -38,6 +38,16 @@
                 <span id="username"></span>
                 <button class="logout-btn" onclick="logout()">Çıkış</button>
             </div>
+            <!-- Dark / Light Mode Toggle -->
+            <label class="theme-toggle" id="themeToggle" title="Tema değiştir (Koyu / Açık)">
+                <span class="theme-toggle-icon" id="themeIcon">🌙</span>
+                <span class="theme-switch">
+                    <input type="checkbox" id="themeCheckbox" onchange="toggleTheme(this.checked)">
+                    <span class="theme-switch-track"></span>
+                    <span class="theme-switch-thumb"></span>
+                </span>
+                <span class="theme-toggle-label" id="themeLabel">Koyu</span>
+            </label>
             <div class="filter-buttons">
                 <button class="filter-btn active" data-category="all" onclick="toggleFilter('all', this)">Tümü</button>
                 <button class="filter-btn active" data-category="speed"
@@ -70,11 +80,15 @@
                     📅 Kayıtlar
                 </button>
                 <button class="export-btn server-csv admin-only" id="downloadTodayBtn" onclick="downloadTodayCSV()"
-                    title="Bugünün verilerini indir" style="display:none;">
+                    title="Bugünün verilerini CSV olarak indir" style="display:none;">
                     📥 Bugün (<span id="dataCount">0</span>)
                 </button>
-                <button class="export-btn admin-only" id="clearDataBtn" onclick="clearServerData()"
-                    title="Bugünün verilerini temizle" style="display:none;">🗑️</button>
+                <button class="export-btn server-csv admin-only" id="downloadTodayXlsxBtn" onclick="downloadTodayXLSX()"
+                    title="Bugünün verilerini Excel (XLSX) olarak indir" style="display:none;">
+                    📊 Excel
+                </button>
+                <!-- <button class="export-btn admin-only" id="clearDataBtn" onclick="clearServerData()"
+                    title="Bugünün verilerini temizle" style="display:none;">🗑️</button> -->
 
                 <button class="export-btn admin-only" style="display: none;"
                     onclick="window.location.href='/sectors'">🏁 Sektör Oluştur</button>
@@ -83,7 +97,11 @@
                 <button class="export-btn" onclick="window.location.href='/laps'">🏁
                     Tur Takip</button>
                 <button class="export-btn admin-only" id="playPageBtn" style="display:none;"
-                    onclick="window.location.href='/play'">🎬 Test Oynat</button>
+                    onclick="window.location.href='/play'">🎥 Test Oynat</button>
+                <button class="export-btn admin-only" id="tubitakFilesBtn" onclick="showTubitakModal()"
+                    title="TÜBİTAK formatındaki kayıtları görüntüle" style="display:none;">
+                    📊 TÜBİTAK Kayıtları
+                </button>
 
             </div>
         </header>
@@ -326,7 +344,10 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="modal-btn" onclick="downloadAllCSV()">📥 Tüm Verileri İndir</button>
+                <button class="modal-btn" onclick="downloadAllCSV()">📥 Tüm Veriler (CSV)</button>
+                <button class="modal-btn" onclick="downloadAllXLSX()"
+                    style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">📊 Tüm Veriler
+                    (Excel)</button>
                 <button class="modal-btn secondary" onclick="closeDaysModal()">Kapat</button>
             </div>
         </div>
@@ -350,6 +371,25 @@
         </div>
     </div>
 
+    <!-- TÜBİTAK Kayıtları Modal -->
+    <div id="tubitakModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 TÜBİTAK Kayıtları</h2>
+                <span class="modal-close" onclick="closeTubitakModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color:#aaa;font-size:12px;margin-bottom:12px;">TÜBİTAK'a sunulmak üzere hazırlanan format: <code style="color:#43e97b;">zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh;</code><br>Her server başlatılmasında yeni bir eşsiz dosya oluşturulur. Kayıtlar arasında en fazla 5 saniye fark vardır.</p>
+                <div id="tubitakFilesList" class="days-list">
+                    <p>Yükleniyor...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeTubitakModal()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <style>
         .modal {
             position: fixed;
@@ -367,12 +407,15 @@
         .modal-content {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             border-radius: 12px;
-            width: 90%;
-            max-width: 600px;
+            width: fit-content;
+            min-width: min(600px, 90vw);
+            max-width: 95vw;
             max-height: 80vh;
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-header {
@@ -404,6 +447,7 @@
             padding: 20px;
             max-height: 50vh;
             overflow-y: auto;
+            overflow-x: auto;
         }
 
         .modal-footer {
@@ -446,6 +490,8 @@
             background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 15px;
+            min-width: max-content;
         }
 
         .day-item:hover {
@@ -462,6 +508,7 @@
             color: #fff;
             font-weight: 600;
             font-size: 15px;
+            white-space: nowrap;
         }
 
         .day-stats {
@@ -472,6 +519,7 @@
         .day-actions {
             display: flex;
             gap: 8px;
+            flex-shrink: 0;
         }
 
         .day-btn {
@@ -492,6 +540,11 @@
         .day-btn.rename {
             background: rgba(67, 233, 123, 0.2);
             color: #43e97b;
+        }
+
+        .day-btn.xlsx {
+            background: rgba(33, 150, 83, 0.25);
+            color: #27ae60;
         }
 
         .day-btn:hover {
@@ -616,23 +669,33 @@
             window.location.href = '/api/telemetry/csv';
         }
 
-        // Bugünün verisini indir
+        // Sunucudan XLSX indir (tüm veriler)
+        function downloadAllXLSX() {
+            window.location.href = '/api/telemetry/xlsx';
+        }
+
+        // Bugünün verisini indir (CSV)
         function downloadTodayCSV() {
             window.location.href = '/api/telemetry/download-today';
         }
 
-        // Sunucudaki verileri temizle (bugün)
-        function clearServerData() {
-            if (confirm('Bugün toplanan tüm veriler silinecek. Emin misiniz?')) {
-                fetch('/api/telemetry/clear', { method: 'DELETE' })
-                    .then(res => res.json())
-                    .then(data => {
-                        alert(`${data.clearedCount} kayıt silindi.`);
-                        updateDataCount();
-                    })
-                    .catch(err => alert('Hata: ' + err.message));
-            }
+        // Bugünün verisini XLSX olarak indir
+        function downloadTodayXLSX() {
+            window.location.href = '/api/telemetry/download-today-xlsx';
         }
+        /*
+                // Sunucudaki verileri temizle (bugün)
+                function clearServerData() {
+                    if (confirm('Bugün toplanan tüm veriler silinecek. Emin misiniz?')) {
+                        fetch('/api/telemetry/clear', { method: 'DELETE' })
+                            .then(res => res.json())
+                            .then(data => {
+                                alert(`${data.clearedCount} kayıt silindi.`);
+                                updateDataCount();
+                            })
+                            .catch(err => alert('Hata: ' + err.message));
+                    }
+                }*/
 
         // Veri sayısını güncelle
         function updateDataCount() {
@@ -675,7 +738,8 @@
                                 <span class="day-stats">${day.dataCount} kayıt • ${formatFileSize(day.fileSize)}</span>
                             </div>
                             <div class="day-actions">
-                                <button class="day-btn" onclick="downloadDay('${day.fileName}')">📥 İndir</button>
+                                <button class="day-btn" onclick="downloadDay('${day.fileName}')" title="CSV olarak indir">📥 CSV</button>
+                                <button class="day-btn xlsx" onclick="downloadDayXLSX('${day.fileName}')" title="Excel olarak indir">📊 Excel</button>
                                 <button class="day-btn delete" onclick="deleteDay('${day.fileName}', '${day.date}')">🗑️</button>
                             </div>
                         </div>
@@ -694,6 +758,10 @@
 
         function downloadDay(fileName) {
             window.location.href = '/api/telemetry/download/' + encodeURIComponent(fileName);
+        }
+
+        function downloadDayXLSX(fileName) {
+            window.location.href = '/api/telemetry/download-xlsx/' + encodeURIComponent(fileName);
         }
 
         function deleteDay(fileName, date) {
@@ -847,7 +915,8 @@
                             </div>
                             <div class="day-actions">
                                 <button class="day-btn rename" onclick="renameTestFile('${file.fileName}')" title="Yeniden Adlandır">✏️</button>
-                                <button class="day-btn" onclick="downloadTestFile('${file.fileName}')">📥 İndir</button>
+                                <button class="day-btn" onclick="downloadTestFile('${file.fileName}')" title="CSV olarak indir">📥 CSV</button>
+                                <button class="day-btn xlsx" onclick="downloadTestFileXLSX('${file.fileName}')" title="Excel olarak indir">📊 Excel</button>
                                 <button class="day-btn delete" onclick="deleteTestFile('${file.fileName}', '${file.date} ${file.time}')">🗑️</button>
                             </div>
                         </div>
@@ -860,6 +929,10 @@
 
         function downloadTestFile(fileName) {
             window.location.href = '/api/test/download/' + encodeURIComponent(fileName);
+        }
+
+        function downloadTestFileXLSX(fileName) {
+            window.location.href = '/api/test/download-xlsx/' + encodeURIComponent(fileName);
         }
 
         function renameTestFile(fileName) {
@@ -895,6 +968,65 @@
                     .then(data => {
                         if (data.success) {
                             loadTestFilesList();
+                        } else {
+                            alert('Hata: ' + data.error);
+                        }
+                    })
+                    .catch(err => alert('Hata: ' + err.message));
+            }
+        }
+
+        // TÜBİTAK kayıtları modalı
+        function showTubitakModal() {
+            document.getElementById('tubitakModal').style.display = 'flex';
+            loadTubitakFilesList();
+        }
+
+        function closeTubitakModal() {
+            document.getElementById('tubitakModal').style.display = 'none';
+        }
+
+        function loadTubitakFilesList() {
+            const listEl = document.getElementById('tubitakFilesList');
+            listEl.innerHTML = '<p style="color:#aaa;text-align:center;">Yükleniyor...</p>';
+
+            fetch('/api/tubitak/files')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.files || data.files.length === 0) {
+                        listEl.innerHTML = '<div class="no-data">📭 Henüz TÜBİTAK kaydı yok</div>';
+                        return;
+                    }
+
+                    listEl.innerHTML = data.files.map(file => `
+                        <div class="day-item">
+                            <div class="day-info">
+                                <span class="day-date">📋 ${file.date} ${file.time}</span>
+                                <span class="day-stats">${file.dataCount} kayıt • ${formatFileSize(file.fileSize)}</span>
+                            </div>
+                            <div class="day-actions">
+                                <button class="day-btn" onclick="downloadTubitakFile('${file.fileName}')" title="TÜBİTAK CSV olarak indir">📥 CSV</button>
+                                <button class="day-btn delete" onclick="deleteTubitakFile('${file.fileName}', '${file.date} ${file.time}')">🗑️</button>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(err => {
+                    listEl.innerHTML = '<div class="no-data">❌ Yüklenirken hata oluştu</div>';
+                });
+        }
+
+        function downloadTubitakFile(fileName) {
+            window.location.href = '/api/tubitak/download/' + encodeURIComponent(fileName);
+        }
+
+        function deleteTubitakFile(fileName, dateTime) {
+            if (confirm(`${dateTime} tarihli TÜBİTAK kaydı silinecek. Emin misiniz?`)) {
+                fetch('/api/tubitak/delete/' + encodeURIComponent(fileName), { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadTubitakFilesList();
                         } else {
                             alert('Hata: ' + data.error);
                         }

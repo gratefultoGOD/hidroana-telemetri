@@ -1,3 +1,88 @@
+// ============================================
+// DARK / LIGHT MODE (Tema Yönetimi)
+// ============================================
+
+function initDarkMode() {
+    const saved = localStorage.getItem('hidroana-theme'); // 'dark' | 'light'
+    const isLight = saved === 'light';
+    applyTheme(isLight);
+}
+
+function toggleTheme(checked) {
+    // checked = true → Aydınlık mod
+    applyTheme(checked);
+    localStorage.setItem('hidroana-theme', checked ? 'light' : 'dark');
+}
+
+function applyTheme(isLight) {
+    const body = document.body;
+    const icon = document.getElementById('themeIcon');
+    const label = document.getElementById('themeLabel');
+    const checkbox = document.getElementById('themeCheckbox');
+
+    if (isLight) {
+        body.classList.add('light-mode');
+        if (icon) icon.textContent = '☀️';
+        if (label) label.textContent = 'Açık';
+        if (checkbox) checkbox.checked = true;
+    } else {
+        body.classList.remove('light-mode');
+        if (icon) icon.textContent = '🌙';
+        if (label) label.textContent = 'Koyu';
+        if (checkbox) checkbox.checked = false;
+    }
+
+    // Chart.js global defaults'u temaya göre ayarla
+    updateChartTheme(isLight);
+}
+
+function updateChartTheme(isLight) {
+    const textColor = isLight ? '#333' : '#e8eaf6';
+    const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = gridColor;
+        Chart.defaults.scale.grid.color = gridColor;
+        Chart.defaults.scale.ticks.color = textColor;
+
+        // Mevcut tüm chart'ları yeniden çiz
+        const allCharts = [
+            typeof speedometerChart !== 'undefined' ? speedometerChart : null,
+            typeof fvChart !== 'undefined' ? fvChart : null,
+            typeof faChart !== 'undefined' ? faChart : null,
+            typeof fwChart !== 'undefined' ? fwChart : null,
+            typeof ftempChart !== 'undefined' ? ftempChart : null,
+            typeof socChart !== 'undefined' ? socChart : null,
+            typeof keChart !== 'undefined' ? keChart : null,
+            typeof bwChart !== 'undefined' ? bwChart : null,
+            typeof bwhChart !== 'undefined' ? bwhChart : null,
+            typeof batteryVCChart !== 'undefined' ? batteryVCChart : null,
+            typeof batteryTempChart !== 'undefined' ? batteryTempChart : null,
+            typeof jvChart !== 'undefined' ? jvChart : null,
+            typeof jcChart !== 'undefined' ? jcChart : null,
+            typeof jwChart !== 'undefined' ? jwChart : null,
+            typeof jwhChart !== 'undefined' ? jwhChart : null,
+        ];
+        allCharts.forEach(chart => {
+            if (!chart) return;
+            if (chart.options.scales) {
+                Object.values(chart.options.scales).forEach(scale => {
+                    if (scale.grid) scale.grid.color = gridColor;
+                    if (scale.ticks) scale.ticks.color = textColor;
+                });
+            }
+            if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                chart.options.plugins.legend.labels.color = textColor;
+            }
+            chart.update('none');
+        });
+    }
+}
+
+// Sayfa yüklenince temayı uygula
+document.addEventListener('DOMContentLoaded', initDarkMode);
+
 // Safe DOM element helper
 function setElementText(id, text) {
     const el = document.getElementById(id);
@@ -8,6 +93,7 @@ function setElementStyle(id, prop, value) {
     const el = document.getElementById(id);
     if (el) el.style[prop] = value;
 }
+
 
 // Vehicle telemetry data fields
 const dataFields = {
@@ -1026,7 +1112,7 @@ async function updateAverages() {
         const avg = await res.json();
         const a = avg.allTime;
         const r = avg.last15Seconds;
-
+        console.log(avg);
         // Fuel cell - format: (15s: X | Genel: Y)
         setElementText('fvAvg', `(15s: ${r.fv || '--'} | Genel: ${a.fv || '--'} V)`);
         setElementText('faAvg', `(15s: ${r.fa || '--'} | Genel: ${a.fa || '--'} A)`);
@@ -1169,125 +1255,174 @@ function filterView(view, button) {
 }
 
 
-// Drag and Drop functionality
-let draggedElement = null;
+// =============================================
+// DRAG AND DROP — Pointer Events (Mouse + Touch)
+// =============================================
+let _dnd_ghost = null;
+let _dnd_dragged = null;
+let _dnd_offsetX = 0;
+let _dnd_offsetY = 0;
+let _dnd_originParent = null;
+let _dnd_originNext = null;
 
 function initDragAndDrop() {
     const allCards = document.querySelectorAll('.stat-card, .chart-container, .map-section');
-
     allCards.forEach(card => {
-        const header = card.querySelector('.card-header') || card.querySelector('.drag-handle');
-
-        if (header) {
-            header.addEventListener('mousedown', function (e) {
-                if (e.target.classList.contains('toggle-icon') || e.target.closest('.toggle-icon')) return;
-                card.setAttribute('draggable', 'true');
-            });
-
-            header.addEventListener('mouseup', () => {
-                setTimeout(() => card.removeAttribute('draggable'), 50);
-            });
-
-            header.addEventListener('mouseleave', () => {
-                setTimeout(() => {
-                    if (!card.classList.contains('dragging')) {
-                        card.removeAttribute('draggable');
-                    }
-                }, 50);
-            });
-        }
-
-        card.addEventListener('dragstart', handleDragStart);
-        card.addEventListener('dragend', handleDragEnd);
-        card.addEventListener('dragover', handleDragOverElement);
-    });
-
-    const containers = ['.left-charts', '.center-section', '.right-charts'];
-    containers.forEach(selector => {
-        const container = document.querySelector(selector);
-        if (container) {
-            container.addEventListener('dragover', handleDragOver);
-            container.addEventListener('drop', handleDrop);
-            container.addEventListener('dragenter', handleDragEnter);
-            container.addEventListener('dragleave', handleDragLeave);
+        const handle = card.querySelector('.card-header') || card.querySelector('.drag-handle');
+        if (handle) {
+            handle.style.cursor = 'grab';
+            handle.style.touchAction = 'none';
+            handle.addEventListener('pointerdown', _dnd_onPointerDown);
         }
     });
 }
 
-function handleDragStart(e) {
-    draggedElement = this;
-    this.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-}
+function _dnd_onPointerDown(e) {
+    // Tıklanan şey toggle ikon ise sürükleme başlatma
+    if (e.target.classList.contains('toggle-icon') || e.target.closest('.toggle-icon')) return;
+    // Sadece sol tık veya touch
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-function handleDragEnd() {
-    this.classList.remove('dragging');
-    this.removeAttribute('draggable');
-    document.querySelectorAll('.drag-over, .drag-over-item').forEach(el => {
-        el.classList.remove('drag-over', 'drag-over-item');
-    });
-}
+    const card = this.closest('.stat-card, .chart-container, .map-section');
+    if (!card) return;
 
-function handleDragOverElement(e) {
     e.preventDefault();
-    if (this === draggedElement) return;
-    document.querySelectorAll('.drag-over-item').forEach(el => el.classList.remove('drag-over-item'));
-    this.classList.add('drag-over-item');
+    this.setPointerCapture(e.pointerId);
+
+    _dnd_dragged = card;
+    _dnd_originParent = card.parentElement;
+    _dnd_originNext = card.nextElementSibling;
+
+    const rect = card.getBoundingClientRect();
+    _dnd_offsetX = e.clientX - rect.left;
+    _dnd_offsetY = e.clientY - rect.top;
+
+    // Ghost (hayalet kart) oluştur
+    _dnd_ghost = card.cloneNode(true);
+    _dnd_ghost.style.cssText = `
+        position: fixed;
+        width: ${rect.width}px;
+        height: ${rect.height}px;
+        left: ${rect.left}px;
+        top: ${rect.top}px;
+        opacity: 0.6;
+        pointer-events: none;
+        z-index: 99999;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        transform: scale(1.03);
+        transition: none;
+        border-radius: 12px;
+    `;
+    document.body.appendChild(_dnd_ghost);
+
+    card.classList.add('dragging');
+    card.style.opacity = '0.2';
+
+    this.addEventListener('pointermove', _dnd_onPointerMove);
+    this.addEventListener('pointerup', _dnd_onPointerUp);
+    this.addEventListener('pointercancel', _dnd_onPointerUp);
 }
 
-function handleDragOver(e) {
+function _dnd_onPointerMove(e) {
+    if (!_dnd_ghost) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+
+    const x = e.clientX - _dnd_offsetX;
+    const y = e.clientY - _dnd_offsetY;
+    _dnd_ghost.style.left = x + 'px';
+    _dnd_ghost.style.top = y + 'px';
+
+    // Drop hedefini bul
+    _dnd_ghost.style.display = 'none';
+    const underEl = document.elementFromPoint(e.clientX, e.clientY);
+    _dnd_ghost.style.display = '';
+
+    // Tüm vurgu sınıflarını temizle
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+    const container = underEl && underEl.closest('.left-charts, .center-section, .right-charts');
+    if (container) container.classList.add('drag-over');
 }
 
-function handleDragEnter() {
-    if (this !== draggedElement && !this.contains(draggedElement)) {
-        this.classList.add('drag-over');
-    }
-}
+function _dnd_onPointerUp(e) {
+    if (!_dnd_dragged) return;
 
-function handleDragLeave(e) {
-    if (e.target === this) this.classList.remove('drag-over');
-}
+    this.removeEventListener('pointermove', _dnd_onPointerMove);
+    this.removeEventListener('pointerup', _dnd_onPointerUp);
+    this.removeEventListener('pointercancel', _dnd_onPointerUp);
 
-function handleDrop(e) {
-    e.stopPropagation();
-    e.preventDefault();
-    this.classList.remove('drag-over');
+    // Ghost'u kaldır
+    if (_dnd_ghost) { _dnd_ghost.remove(); _dnd_ghost = null; }
 
-    if (draggedElement && (this.classList.contains('left-charts') ||
-        this.classList.contains('center-section') ||
-        this.classList.contains('right-charts'))) {
+    // Vurgu temizle
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
 
-        const afterElement = getDragAfterElement(this, e.clientY);
-        if (afterElement == null) {
-            this.appendChild(draggedElement);
+    _dnd_dragged.classList.remove('dragging');
+    _dnd_dragged.style.opacity = '';
+
+    // Hangi konteynere bırakıldı?
+    _dnd_ghost = null;
+    const tmpGhost = document.createElement('div');
+    tmpGhost.style.cssText = 'position:fixed;width:1px;height:1px;pointer-events:none;';
+    document.body.appendChild(tmpGhost);
+
+    let underEl;
+    try {
+        underEl = document.elementFromPoint(e.clientX, e.clientY);
+    } catch (_) { underEl = null; }
+    tmpGhost.remove();
+
+    const container = underEl && underEl.closest('.left-charts, .center-section, .right-charts');
+
+    if (container) {
+        // En yakın kartı bul ve önüne yerleştir
+        const after = _dnd_getDropTarget(container, e.clientY);
+        if (after === null) {
+            container.appendChild(_dnd_dragged);
         } else {
-            this.insertBefore(draggedElement, afterElement);
+            container.insertBefore(_dnd_dragged, after);
         }
-
         setTimeout(resizeAllCharts, 100);
-    }
-}
-
-function getDragAfterElement(container, y) {
-    const draggableElements = [...container.children].filter(child => {
-        return (child.classList.contains('stat-card') ||
-            child.classList.contains('chart-container') ||
-            child.classList.contains('map-section') ||
-            child.classList.contains('stats-row')) &&
-            !child.classList.contains('dragging');
-    });
-
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-            return { offset: offset, element: child };
+    } else {
+        // Geçerli bir hedef yok — orijinal yerine geri koy
+        if (_dnd_originNext) {
+            _dnd_originParent.insertBefore(_dnd_dragged, _dnd_originNext);
+        } else {
+            _dnd_originParent.appendChild(_dnd_dragged);
         }
-        return closest;
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    _dnd_dragged = null;
+    _dnd_originParent = null;
+    _dnd_originNext = null;
 }
+
+function _dnd_getDropTarget(container, clientY) {
+    const cards = [...container.children].filter(el =>
+        (el.classList.contains('stat-card') ||
+         el.classList.contains('chart-container') ||
+         el.classList.contains('map-section') ||
+         el.classList.contains('stats-row')) &&
+        el !== _dnd_dragged
+    );
+
+    for (const card of cards) {
+        const box = card.getBoundingClientRect();
+        if (clientY < box.top + box.height / 2) return card;
+    }
+    return null;
+}
+
+// Eski kodla uyumluluk için stub fonksiyonlar
+function handleDragStart(e) {}
+function handleDragEnd() {}
+function handleDragOverElement(e) {}
+function handleDragOver(e) { e.preventDefault(); }
+function handleDragEnter(e) { e.preventDefault(); }
+function handleDragLeave(e) {}
+function handleDrop(e) { e.preventDefault(); }
+function getDragAfterElement(container, y) { return null; }
+
 
 // Card resize functionality
 let resizeState = {
@@ -1307,18 +1442,24 @@ function initCardResize() {
         bottomHandle.className = 'resize-handle resize-handle-bottom';
         card.appendChild(bottomHandle);
         bottomHandle.addEventListener('mousedown', (e) => startResize(e, card));
+        bottomHandle.addEventListener('touchstart', (e) => startResize(e, card), { passive: false });
     });
 
     document.addEventListener('mousemove', doResize);
     document.addEventListener('mouseup', stopResize);
+    document.addEventListener('touchmove', doResize, { passive: false });
+    document.addEventListener('touchend', stopResize);
 }
 
 function startResize(e, card) {
-    e.preventDefault();
+    if (!e.type.includes('touch') || e.cancelable) {
+        e.preventDefault();
+    }
     e.stopPropagation();
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
     resizeState.isResizing = true;
     resizeState.currentCard = card;
-    resizeState.startY = e.clientY;
+    resizeState.startY = clientY;
     resizeState.startHeight = card.offsetHeight;
     card.classList.add('resizing');
     document.body.style.cursor = 'ns-resize';
@@ -1327,7 +1468,8 @@ function startResize(e, card) {
 function doResize(e) {
     if (!resizeState.isResizing || !resizeState.currentCard) return;
 
-    const deltaY = e.clientY - resizeState.startY;
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+    const deltaY = clientY - resizeState.startY;
     let newHeight = Math.max(resizeState.minHeight, Math.min(resizeState.startHeight + deltaY, resizeState.maxHeight));
 
     resizeState.currentCard.style.height = newHeight + 'px';
@@ -1377,18 +1519,25 @@ function initColumnResize() {
     mainContent.insertBefore(rightHandle, rightCharts);
 
     leftHandle.addEventListener('mousedown', (e) => startColumnResize(e, leftCharts, centerSection));
+    leftHandle.addEventListener('touchstart', (e) => startColumnResize(e, leftCharts, centerSection), { passive: false });
     rightHandle.addEventListener('mousedown', (e) => startColumnResize(e, centerSection, rightCharts));
+    rightHandle.addEventListener('touchstart', (e) => startColumnResize(e, centerSection, rightCharts), { passive: false });
 
     document.addEventListener('mousemove', doColumnResize);
     document.addEventListener('mouseup', stopColumnResize);
+    document.addEventListener('touchmove', doColumnResize, { passive: false });
+    document.addEventListener('touchend', stopColumnResize);
 }
 
 function startColumnResize(e, currentCol, nextCol) {
-    e.preventDefault();
+    if (!e.type.includes('touch') || e.cancelable) {
+        e.preventDefault();
+    }
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
     columnResizeState.isResizing = true;
     columnResizeState.currentColumn = currentCol;
     columnResizeState.nextColumn = nextCol;
-    columnResizeState.startX = e.clientX;
+    columnResizeState.startX = clientX;
     columnResizeState.startWidth = currentCol.offsetWidth;
     columnResizeState.nextStartWidth = nextCol.offsetWidth;
     document.body.style.cursor = 'col-resize';
@@ -1398,7 +1547,8 @@ function startColumnResize(e, currentCol, nextCol) {
 function doColumnResize(e) {
     if (!columnResizeState.isResizing) return;
 
-    const deltaX = e.clientX - columnResizeState.startX;
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    const deltaX = clientX - columnResizeState.startX;
     const newWidth = columnResizeState.startWidth + deltaX;
     const newNextWidth = columnResizeState.nextStartWidth - deltaX;
 
@@ -1530,6 +1680,11 @@ document.addEventListener('DOMContentLoaded', function () {
     initDragAndDrop();
     initCardResize();
     initColumnResize();
+
+    // Tema chart'lara da uygula (DOMContentLoaded'da hem initDarkMode hem initCharts çalışır;
+    // initCharts sonrasında chart temalarını senkronize etmek için tekrar çağır)
+    const savedTheme = localStorage.getItem('hidroana-theme');
+    updateChartTheme(savedTheme === 'light');
 
     // SSE bağlantısını başlat (Event-Driven)
     connectToSSE();

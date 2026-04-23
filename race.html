@@ -200,8 +200,8 @@
 
         .back-btn {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 8px;
+            left: 5px;
             z-index: 1000;
             background: rgba(0, 0, 0, 0.8);
             color: white;
@@ -327,8 +327,8 @@
     <div class="container">
         <div class="top-area">
             <div class="sidebar">
+                <a href="/" class="back-btn">← Ana Sayfa</a>
                 <h1>🏁 Yarış İzleme</h1>
-
                 <div class="status-box">
                     <div class="status-row">
                         <span class="status-label">Bağlantı:</span>
@@ -364,7 +364,7 @@
                         <span id="speedStatus">-</span>
                     </div>
                 </div>
-
+                <!--
                 <div class="efficiency-box">
                     <h3 style="font-size: 14px; margin-bottom: 8px;">Konum & Yönelim</h3>
                     <div class="efficiency-row">
@@ -376,9 +376,34 @@
                         <span class="efficiency-value" id="coordinates" style="font-size: 10px;">-</span>
                     </div>
                 </div>
-
+            -->
                 <div class="efficiency-box">
                     <h3 style="font-size: 14px; margin-bottom: 8px;">Verimlilik</h3>
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Fuel Cell Gücü:</span>
+                        <span class="efficiency-value" id="fuelPower">- W</span>
+                    </div>
+
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Fuel Cell Voltajı: </span>
+                        <span class="efficiency-value" id="fuelV">- V</span>
+                    </div>
+
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Fuel Cell Sıcaklık:</span>
+                        <span class="efficiency-value" id="fuelTempInt">Int: °C</span>
+                        <span class="efficiency-value" id="fuelTempExt">Ext: °C</span>
+                    </div>
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Fuel Cell Akımı:</span>
+                        <span class="efficiency-value" id="fuelA">- W</span>
+                    </div>
+
+
                     <div class="efficiency-row">
                         <span class="efficiency-label">SOC:</span>
                         <span class="efficiency-value" id="soc">-%</span>
@@ -391,11 +416,35 @@
                         <span class="efficiency-label">Batarya Gücü:</span>
                         <span class="efficiency-value" id="batteryPower">- W</span>
                     </div>
-                    <div class="efficiency-row">
-                        <span class="efficiency-label">Fuel Cell Gücü:</span>
-                        <span class="efficiency-value" id="fuelPower">- W</span>
-                    </div>
                 </div>
+
+
+                <div class="efficiency-box">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Joulmetre</h3>
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Joulmetre Voltajı:</span>
+                        <span class="efficiency-value" id="joulmetreVoltage">- V</span>
+                    </div>
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Joulmetre Akımı:</span>
+                        <span class="efficiency-value" id="joulmetreCurrent">- A</span>
+                    </div>
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Joulmetre Gücü:</span>
+                        <span class="efficiency-value" id="joulmetrePower">- W</span>
+                    </div>
+
+                    <div class="efficiency-row">
+                        <span class="efficiency-label">Joulmetre Watt Saat:</span>
+                        <span class="efficiency-value" id="joulmetreWattHour">- Wh</span>
+                    </div>
+
+
+                </div>
+
 
                 <button onclick="showLoadDialog()">Sector Planı Yükle</button>
 
@@ -407,7 +456,7 @@
             </div>
 
             <div class="map-container">
-                <a href="/" class="back-btn">← Ana Sayfa</a>
+                <!--<a href="/" class="back-btn">← Ana Sayfa</a>-->
                 <div id="map"></div>
             </div>
         </div>
@@ -631,14 +680,14 @@
             const bearing = Math.atan2(y, x) * 180 / Math.PI;
             return (bearing + 360) % 360;
         }
-
-        // Bearing'i yön ismine çevir
-        function bearingToDirection(bearing) {
-            const directions = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];
-            const index = Math.round(bearing / 45) % 8;
-            return directions[index];
-        }
-
+        /*
+                // Bearing'i yön ismine çevir
+                function bearingToDirection(bearing) {
+                    const directions = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];
+                    const index = Math.round(bearing / 45) % 8;
+                    return directions[index];
+                }
+        */
         // Haritayı başlat
         function initMap() {
             map = L.map('map').setView([50.5284, 18.0975], 15);
@@ -1021,8 +1070,8 @@
                     vehicleMarker.setIcon(vehicleIcon);
 
                     // Bearing bilgisini göster
-                    const direction = bearingToDirection(currentBearing);
-                    document.getElementById('bearing').textContent = `${currentBearing.toFixed(0)}° (${direction})`;
+                    //const direction = bearingToDirection(currentBearing);
+                    //document.getElementById('bearing').textContent = `${currentBearing.toFixed(0)}° (${direction})`;
                 }
 
                 vehicleMarker.setLatLng(newPosition);
@@ -1030,7 +1079,7 @@
                 lastPosition = newPosition;
 
                 // Koordinatları göster
-                document.getElementById('coordinates').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                //document.getElementById('coordinates').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 
                 // Hangi sector'da olduğunu bul
                 const sectorIndex = findCurrentSector(lat, lng);
@@ -1045,9 +1094,18 @@
 
             // Verimlilik verileri
             document.getElementById('soc').textContent = (parseFloat(data.soc || 0)).toFixed(0) + '%';
-            document.getElementById('remainingEnergy').textContent = (parseFloat(data.ke || 0)).toFixed(1) + ' kWh';
-            document.getElementById('batteryPower').textContent = (parseFloat(data.bw || 0)).toFixed(0) + ' W';
-            document.getElementById('fuelPower').textContent = (parseFloat(data.fw || 0)).toFixed(0) + ' W';
+            document.getElementById('remainingEnergy').textContent = (parseFloat(data.ke || 0)).toFixed(2) + ' kWh';
+            document.getElementById('batteryPower').textContent = (parseFloat(data.bw || 0)).toFixed(2) + ' W';
+            document.getElementById('fuelPower').textContent = (parseFloat(data.fw || 0)).toFixed(2) + ' W';
+            document.getElementById('fuelV').textContent = (parseFloat(data.fv || 0)).toFixed(2) + ' V';
+            document.getElementById('fuelA').textContent = (parseFloat(data.fa || 0)).toFixed(2) + ' A';
+            document.getElementById('fuelTempInt').textContent = 'İç: ' + (parseFloat(data.fit || 0)).toFixed(2) + ' °C';
+            document.getElementById('fuelTempExt').textContent = 'Dış: ' + (parseFloat(data.fet || 0)).toFixed(2) + ' °C';
+
+            document.getElementById('joulmetreVoltage').textContent = (parseFloat(data.jv || 0)).toFixed(2) + ' V';
+            document.getElementById('joulmetreCurrent').textContent = (parseFloat(data.jc || 0)).toFixed(2) + ' A';
+            document.getElementById('joulmetrePower').textContent = (parseFloat(data.jw || 0)).toFixed(2) + ' W';
+            document.getElementById('joulmetreWattHour').textContent = (parseFloat(data.jwh || 0)).toFixed(2) + ' Wh';
         }
 
         // Sector bilgisini güncelle
