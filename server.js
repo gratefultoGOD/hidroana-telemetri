@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 let DATA_SOURCE = process.env.DATA_SOURCE || 'HTTP'; // 'MQTT' veya 'HTTP'
 
 // MQTT Configuration
-const MQTT_BROKER_URL = 'mqtt://45.74.244.67:1883';
+const MQTT_BROKER_URL = 'mqtt://213.142.148.28:1883';
 const MQTT_OPTIONS = {
     username: 'hidroana',
     password: 'hidro2626'
@@ -193,6 +193,7 @@ const TUBITAK_HEADERS = 'zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_
 
 let tubitakSession = {
     startTime: null,  // İlk veri alındığında set edilir (ms, epoch)
+    lastDataTime: null, // Son veri alım zamanı (ms, epoch) — 60s gap kontrolü için
     fileName: null,   // Aktif TÜBİTAK dosyasının adı
     pending: []       // Yazılmayı bekleyen satırlar
 };
@@ -397,13 +398,19 @@ function getTestFiles() {
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
 
-            // Dosya adından tarih ve saat bilgisini çıkar
-            // Format: test_DD-MM-YYYY_HH-MM-SS.csv
-            const match = f.match(/test_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.csv/);
+            // Dosya içeriğindeki ilk veri satırından tarih ve saat bilgisini çıkar
+            // Başlık: test_time;date;time;...  →  İlk veri satırı: 00:00:00.075;2026-03-17;17:50:04.908;...
             let dateStr = '', timeStr = '';
-            if (match) {
-                dateStr = match[1];
-                timeStr = match[2].replace(/-/g, ':');
+            if (lines.length > 1) {
+                const firstDataRow = lines[1].split(';');
+                // Eski format kontrolü: başlıkta 'date' var mı?
+                const headers = lines[0].replace('\uFEFF', '').split(';');
+                const dateIdx = headers.indexOf('date');
+                const timeIdx = headers.indexOf('time');
+                if (dateIdx !== -1 && timeIdx !== -1 && firstDataRow[dateIdx] && firstDataRow[timeIdx]) {
+                    dateStr = firstDataRow[dateIdx].trim();  // YYYY-MM-DD
+                    timeStr = firstDataRow[timeIdx].trim();  // HH:MM:SS.mmm
+                }
             }
 
             return {
@@ -415,7 +422,14 @@ function getTestFiles() {
                 lastModified: stats.mtime
             };
         })
-        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+        .sort((a, b) => {
+            // Dosya içerisindeki tarih ve saate göre sırala (en yeni en üstte)
+            const parseDateTime = (d, t) => {
+                if (!d || !t) return 0;
+                return new Date(`${d}T${t}`).getTime();
+            };
+            return parseDateTime(b.date, b.time) - parseDateTime(a.date, a.time);
+        });
 
     return files;
 }
@@ -564,6 +578,14 @@ function parseStarSeparatedData(rawMessage) {
     return data;
 }
 
+function parseID(rawMessage) {
+    let dataString = rawMessage;
+    if (rawMessage.includes('_')) {
+        dataString = rawMessage.split('_')[0];
+    }
+    return dataString;
+}
+
 // Veriyi işle ve kaydet
 function processIncomingData(data) {
     dataCounter++; // Her yeni veri geldiğinde counter'ı artır
@@ -626,10 +648,24 @@ function processIncomingData(data) {
     }
 
     // TÜBİTAK formatında kaydet — her veri geldiğinde
-    // İlk veri geldiğinde oturumu başlat (aynı `now` geçilir → elapsedMs = 0)
-    if (!tubitakSession.startTime) {
+    // İlk veri veya 60 saniyeden uzun boşluk → yeni dosya başlat
+    const tubitakGap = tubitakSession.lastDataTime
+        ? (now.getTime() - tubitakSession.lastDataTime)
+        : 0;
+    /*if (!tubitakSession.startTime || tubitakGap > 60000) {
+        if (tubitakGap > 60000) {
+            console.log(`📋 TÜBİTAK: ${(tubitakGap / 1000).toFixed(0)}s boşluk algılandı → yeni dosya oluşturuluyor`);
+        }
+        initTubitakSession(now);
+    
+    }*/
+
+    if (parseID(dataString) == "01") {
         initTubitakSession(now);
     }
+
+
+    tubitakSession.lastDataTime = now.getTime();
     const elapsedMs = now.getTime() - tubitakSession.startTime;
     // hiz_kmh
     const tbkHiz = dataWithTimestamp.h != null ? dataWithTimestamp.h : '';
@@ -683,7 +719,7 @@ function startMQTT() {
     mqttClient.on('connect', () => {
         console.log('MQTT broker bağlandı!');
         connectionStatus.connected = true;
-        mqttClient.subscribe(MQTT_TOPIC, { qos: 1 }, (error) => {
+        mqttClient.subscribe(MQTT_TOPIC, { qos: 0 }, (error) => {
             if (error) {
                 console.error('Topice abone olma hatası:', error);
             } else {

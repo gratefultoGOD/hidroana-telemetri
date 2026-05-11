@@ -318,3 +318,7 @@ test oynatta gps verisi gelmeyen test kayıtlarında eski gps verisi olan kayıt
 
 
 tübitak kayıtlarına bak.
+
+Test kaydedilirken eğer bir sorun olursa telemetri üzerinden problem açıklaması girilsin ve test oynatmada ve csv dosyasında gözüksün
+tübitak verileri için yeni dosyaya yazma işi için verilere 1 ondan sonra hep 0 gelecek bende her bir geldiğinde yeni dosyaya yazacağım inşaallah.
+hidroana.com güvenlik ve tasarımı iyileştir.
