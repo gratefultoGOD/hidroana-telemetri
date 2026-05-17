@@ -14,6 +14,20 @@ function toggleTheme(checked) {
     localStorage.setItem('hidroana-theme', checked ? 'light' : 'dark');
 }
 
+function pullCordTheme() {
+    const cb = document.getElementById('themeCheckbox');
+    if (cb) {
+        cb.checked = !cb.checked;
+        toggleTheme(cb.checked);
+        
+        const cord = document.querySelector('.pull-cord-container');
+        if (cord) {
+            cord.classList.add('pulled');
+            setTimeout(() => cord.classList.remove('pulled'), 400);
+        }
+    }
+}
+
 function applyTheme(isLight) {
     const body = document.body;
     const icon = document.getElementById('themeIcon');
@@ -53,16 +67,13 @@ function updateChartTheme(isLight) {
             typeof faChart !== 'undefined' ? faChart : null,
             typeof fwChart !== 'undefined' ? fwChart : null,
             typeof ftempChart !== 'undefined' ? ftempChart : null,
-            typeof socChart !== 'undefined' ? socChart : null,
-            typeof keChart !== 'undefined' ? keChart : null,
             typeof bwChart !== 'undefined' ? bwChart : null,
-            typeof bwhChart !== 'undefined' ? bwhChart : null,
-            typeof batteryVCChart !== 'undefined' ? batteryVCChart : null,
+            typeof bvChart !== 'undefined' ? bvChart : null,
+            typeof bcChart !== 'undefined' ? bcChart : null,
             typeof batteryTempChart !== 'undefined' ? batteryTempChart : null,
             typeof jvChart !== 'undefined' ? jvChart : null,
             typeof jcChart !== 'undefined' ? jcChart : null,
             typeof jwChart !== 'undefined' ? jwChart : null,
-            typeof jwhChart !== 'undefined' ? jwhChart : null,
         ];
         allCharts.forEach(chart => {
             if (!chart) return;
@@ -128,8 +139,8 @@ let currentBearing = 0;
 // Chart instances
 let speedometerChart;
 let fvChart, faChart, fwChart, ftempChart;
-let socChart, keChart, bwChart, bwhChart, batteryVCChart, batteryTempChart;
-let jvChart, jcChart, jwChart, jwhChart;
+let bwChart, bvChart, bcChart, batteryTempChart;
+let jvChart, jcChart, jwChart;
 
 // History data for charts (last 10 seconds)
 let history = {
@@ -450,33 +461,19 @@ function initCharts() {
         ]);
     }
 
-    // Battery charts - SOC, Remaining Energy, Power, Watt-Hour
-    const socCtx = getCanvasContext('socChart');
-    if (socCtx) {
-        socChart = createLineChart(socCtx, 'SOC (%)', '#43e97b', 100);
-    }
-
-    const keCtx = getCanvasContext('keChart');
-    if (keCtx) {
-        keChart = createLineChart(keCtx, 'Kalan Enerji (kWh)', '#667eea');
-    }
-
     const bwCtx = getCanvasContext('bwChart');
     if (bwCtx) {
         bwChart = createLineChart(bwCtx, 'Güç (W)', '#4facfe');
     }
 
-    const bwhCtx = getCanvasContext('bwhChart');
-    if (bwhCtx) {
-        bwhChart = createLineChart(bwhCtx, 'Watt Saat (Wh)', '#fa709a');
+    const bvCtx = getCanvasContext('bvChart');
+    if (bvCtx) {
+        bvChart = createLineChart(bvCtx, 'Voltaj (V)', '#667eea');
     }
 
-    const batteryVCCtx = getCanvasContext('batteryVCChart');
-    if (batteryVCCtx) {
-        batteryVCChart = createMultiLineChart(batteryVCCtx, [
-            { label: 'Voltaj (V)', color: '#667eea' },
-            { label: 'Akım (A)', color: '#43e97b' }
-        ]);
+    const bcCtx = getCanvasContext('bcChart');
+    if (bcCtx) {
+        bcChart = createLineChart(bcCtx, 'Akım (A)', '#43e97b');
     }
 
     const batteryTempCtx = getCanvasContext('batteryTempChart');
@@ -504,10 +501,6 @@ function initCharts() {
         jwChart = createLineChart(jwCtx, 'Watt (W)', '#4facfe');
     }
 
-    const jwhCtx = getCanvasContext('jwhChart');
-    if (jwhCtx) {
-        jwhChart = createLineChart(jwhCtx, 'Watt Saat (Wh)', '#fa709a');
-    }
 }
 
 // ============================================
@@ -801,18 +794,17 @@ function processQueuedData(data, queueTimestamp) {
     updateMultiChart(ftempChart, time, [telemetry.fet, telemetry.fit]);
 
     // Battery charts
-    updateChart(socChart, time, telemetry.soc);
+    //updateChart(socChart, time, telemetry.soc);
     updateChart(keChart, time, telemetry.ke);
     updateChart(bwChart, time, telemetry.bw);
-    updateChart(bwhChart, time, telemetry.bwh);
-    updateMultiChart(batteryVCChart, time, [telemetry.bv, telemetry.bc]);
+    updateChart(bvChart, time, telemetry.bv);
+    updateChart(bcChart, time, telemetry.bc);
     updateMultiChart(batteryTempChart, time, [telemetry.t1, telemetry.t2, telemetry.t3]);
 
     // Joulemeter charts
     updateChart(jvChart, time, telemetry.jv);
     updateChart(jcChart, time, telemetry.jc);
     updateChart(jwChart, time, telemetry.jw);
-    updateChart(jwhChart, time, telemetry.jwh);
 }
 
 // Update connection status indicator
@@ -934,6 +926,35 @@ function updateMultiChart(chart, time, values, maxPoints = 9) {
     chart.update('none');
 }
 
+// ============================================
+// LEAK ALARM SYSTEM
+// ============================================
+let leakAlarmActive = false;
+let leakAlarmDismissed = false;
+
+function triggerLeakAlarm(ppmValue) {
+    if (leakAlarmDismissed) return;
+
+    if (!leakAlarmActive) {
+        leakAlarmActive = true;
+        const popup = document.getElementById('leakAlarmPopup');
+        if (popup) {
+            popup.classList.add('show');
+        }
+    }
+
+    setElementText('alarmPpmValue', ppmValue.toFixed(1));
+}
+
+function closeLeakAlarm() {
+    leakAlarmActive = false;
+    leakAlarmDismissed = true;
+
+    const popup = document.getElementById('leakAlarmPopup');
+    if (popup) {
+        popup.classList.remove('show');
+    }
+}
 
 // ============================================
 // GERÇEK ZAMANLI VERİ İŞLEME (SSE için)
@@ -971,7 +992,10 @@ function processRealTimeData(data) {
         jv: parseFloat(data.jv || data.jouleVoltage || 0),
         jc: parseFloat(data.jc || data.jouleCurrent || 0),
         jw: parseFloat(data.jw || data.jouleWatt || 0),
-        jwh: parseFloat(data.jwh || data.jouleWh || 0)
+        jwh: parseFloat(data.jwh || data.jouleWh || 0),
+        mt: parseFloat(data.mt || 0),
+        watt: parseFloat(data.watt || 0),
+        ppm: parseFloat(data.ppm || 0)
     };
 
     // Update map position
@@ -1001,7 +1025,7 @@ function processRealTimeData(data) {
         marker.setLatLng(newPosition);
         map.panTo(newPosition);
 
-        setElementText('coordinate-label', `Koordinatlar: ${telemetry.y.toFixed(6)}, ${telemetry.x.toFixed(6)} (Lat, Long)`);
+        setElementText('coordinate-label', `${telemetry.y.toFixed(6)}, ${telemetry.x.toFixed(6)} (Lat, Long)`);
     }
 
     // Update GSM signal
@@ -1017,7 +1041,7 @@ function processRealTimeData(data) {
         ];
         speedometerChart.update('none');
     }
-    setElementText('speedValue', `${telemetry.h.toFixed(0)} km/h`);
+    setElementText('speedValue', `${telemetry.h.toFixed(2)} km/h`);
 
     // Update stat cards
     setElementText('socValue', `${telemetry.soc.toFixed(0)}%`);
@@ -1029,6 +1053,36 @@ function processRealTimeData(data) {
     setElementText('bwhValue', `${telemetry.bwh.toFixed(1)} Wh`);
     setElementText('jwValue', `${telemetry.jw.toFixed(0)} W`);
     setElementText('jwhValue', `${telemetry.jwh.toFixed(1)} Wh`);
+
+    // Update new data box values
+    setElementText('valMT', data.mt !== undefined ? `${telemetry.mt.toFixed(1)} m` : '-- m');
+    setElementText('valWATT', data.watt !== undefined ? `${telemetry.watt.toFixed(1)} W` : '-- W');
+    setElementText('valPPM', data.ppm !== undefined ? `${telemetry.ppm.toFixed(1)} ppm` : '-- ppm');
+
+    // Update chart header current values
+    setElementText('fvCurrent', `[${telemetry.fv.toFixed(1)} V]`);
+    setElementText('faCurrent', `[${telemetry.fa.toFixed(1)} A]`);
+    setElementText('fwCurrent', `[${telemetry.fw.toFixed(1)} W]`);
+    setElementText('ftempCurrent', `[Dış: ${telemetry.fet.toFixed(1)}°C, İç: ${telemetry.fit.toFixed(1)}°C]`);
+
+    setElementText('bwCurrent', `[${telemetry.bw.toFixed(1)} W]`);
+    setElementText('bvCurrent', `[${telemetry.bv.toFixed(1)} V]`);
+    setElementText('bcCurrent', `[${telemetry.bc.toFixed(1)} A]`);
+    setElementText('btempCurrent', `[T1: ${telemetry.t1.toFixed(1)}°C, T2: ${telemetry.t2.toFixed(1)}°C, T3: ${telemetry.t3.toFixed(1)}°C]`);
+
+    setElementText('jvCurrent', `[${telemetry.jv.toFixed(1)} V]`);
+    setElementText('jcCurrent', `[${telemetry.jc.toFixed(1)} A]`);
+    setElementText('jwCurrent', `[${telemetry.jw.toFixed(1)} W]`);
+
+    // Leak alarm check
+    if (telemetry.ppm > 850) {
+        triggerLeakAlarm(telemetry.ppm);
+    } else if (telemetry.ppm <= 800) {
+        leakAlarmDismissed = false;
+        if (leakAlarmActive) {
+            closeLeakAlarm();
+        }
+    }
 
     // Store in history
     history.timestamp.push(simTime);
@@ -1081,18 +1135,15 @@ function processRealTimeData(data) {
     updateMultiChart(ftempChart, time, [telemetry.fet, telemetry.fit]);
 
     // Battery charts
-    updateChart(socChart, time, telemetry.soc);
-    updateChart(keChart, time, telemetry.ke);
     updateChart(bwChart, time, telemetry.bw);
-    updateChart(bwhChart, time, telemetry.bwh);
-    updateMultiChart(batteryVCChart, time, [telemetry.bv, telemetry.bc]);
+    updateChart(bvChart, time, telemetry.bv);
+    updateChart(bcChart, time, telemetry.bc);
     updateMultiChart(batteryTempChart, time, [telemetry.t1, telemetry.t2, telemetry.t3]);
 
     // Joulemeter charts
     updateChart(jvChart, time, telemetry.jv);
     updateChart(jcChart, time, telemetry.jc);
     updateChart(jwChart, time, telemetry.jw);
-    updateChart(jwhChart, time, telemetry.jwh);
 
     // Son veri zamanını güncelle
     updateLastDataTime(data.receivedAt || Date.now(), data.date, data.time);
@@ -1123,13 +1174,13 @@ async function updateAverages() {
         setElementText('socAvg', `(15s: ${r.soc || '--'} | Genel: ${a.soc || '--'}%)`);
         setElementText('keAvg', `(15s: ${r.ke || '--'} | Genel: ${a.ke || '--'} kWh)`);
         setElementText('bwAvg', `(15s: ${r.bw || '--'} | Genel: ${a.bw || '--'} W)`);
-        setElementText('bwhAvg', `(15s: ${r.bwh || '--'} | Genel: ${a.bwh || '--'} Wh)`);
+        setElementText('bvAvg', `(15s: ${r.bv || '--'} | Genel: ${a.bv || '--'} V)`);
+        setElementText('bcAvg', `(15s: ${r.bc || '--'} | Genel: ${a.bc || '--'} A)`);
 
         // Joulemeter
         setElementText('jvAvg', `(15s: ${r.jv || '--'} | Genel: ${a.jv || '--'} V)`);
         setElementText('jcAvg', `(15s: ${r.jc || '--'} | Genel: ${a.jc || '--'} A)`);
         setElementText('jwAvgLabel', `(15s: ${r.jw || '--'} | Genel: ${a.jw || '--'} W)`);
-        setElementText('jwhAvg', `(15s: ${r.jwh || '--'} | Genel: ${a.jwh || '--'} Wh)`);
     } catch (e) {
         console.error('Ortalama verisi alınamadı:', e);
     }
@@ -1167,8 +1218,8 @@ function toggleCard(element) {
 // Resize all charts
 function resizeAllCharts() {
     const charts = [speedometerChart, fvChart, faChart, fwChart, ftempChart,
-        socChart, keChart, bwChart, bwhChart, batteryVCChart, batteryTempChart,
-        jvChart, jcChart, jwChart, jwhChart];
+        bwChart, bvChart, bcChart, batteryTempChart,
+        jvChart, jcChart, jwChart];
     charts.forEach(chart => {
         if (chart) chart.resize();
     });
@@ -1400,9 +1451,9 @@ function _dnd_onPointerUp(e) {
 function _dnd_getDropTarget(container, clientY) {
     const cards = [...container.children].filter(el =>
         (el.classList.contains('stat-card') ||
-         el.classList.contains('chart-container') ||
-         el.classList.contains('map-section') ||
-         el.classList.contains('stats-row')) &&
+            el.classList.contains('chart-container') ||
+            el.classList.contains('map-section') ||
+            el.classList.contains('stats-row')) &&
         el !== _dnd_dragged
     );
 
@@ -1414,12 +1465,12 @@ function _dnd_getDropTarget(container, clientY) {
 }
 
 // Eski kodla uyumluluk için stub fonksiyonlar
-function handleDragStart(e) {}
-function handleDragEnd() {}
-function handleDragOverElement(e) {}
+function handleDragStart(e) { }
+function handleDragEnd() { }
+function handleDragOverElement(e) { }
 function handleDragOver(e) { e.preventDefault(); }
 function handleDragEnter(e) { e.preventDefault(); }
-function handleDragLeave(e) {}
+function handleDragLeave(e) { }
 function handleDrop(e) { e.preventDefault(); }
 function getDragAfterElement(container, y) { return null; }
 

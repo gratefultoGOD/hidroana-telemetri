@@ -1051,3 +1051,139 @@ body.light-mode .theme-switch-thumb {
     transform: translateX(16px);
     background: #ffffff;
 }
+
+/* Leak Alarm Popup - Modern & Professional */
+.leak-alarm-popup {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: 24px 30px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    border-left: 8px solid var(--danger-color);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.leak-alarm-popup.show {
+    transform: translateX(0);
+}
+
+.leak-alarm-popup-icon {
+    color: var(--danger-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    background: rgba(255, 68, 68, 0.1);
+    border-radius: 50%;
+}
+
+.leak-alarm-popup-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.leak-alarm-popup-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.leak-alarm-popup-title {
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--danger-color);
+    letter-spacing: 0.3px;
+}
+
+.leak-alarm-popup-text {
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
+.leak-alarm-popup-text span {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.leak-alarm-popup-close {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 32px;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 15px;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.leak-alarm-popup-close:hover {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   DARK / LIGHT MODE PULL CORD
+   ============================================ */
+.pull-cord-container {
+    position: fixed;
+    top: -5px;
+    right: 40px;
+    z-index: 10000;
+    cursor: grab;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 40px;
+}
+.pull-cord-container:active {
+    cursor: grabbing;
+}
+.cord-string {
+    width: 2px;
+    height: 40px;
+    background: var(--text-secondary);
+    transition: height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 1px 0 2px rgba(0,0,0,0.3);
+}
+.cord-handle {
+    width: 28px;
+    height: 28px;
+    background: var(--surface-card);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s ease;
+    color: var(--text-primary);
+    position: relative;
+    z-index: 2;
+    margin-top: -2px; /* overlap string slightly */
+}
+.pull-cord-container.pulled .cord-string {
+    height: 70px;
+}
+.pull-cord-container.pulled .cord-handle {
+    transform: translateY(30px);
+}
+.pull-cord-container:hover .cord-handle {
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+    background: var(--bg-badge);
+}
+
+/* Hide original theme toggle elements but keep them for logic */
+.theme-toggle {
+    display: none !important;
+}

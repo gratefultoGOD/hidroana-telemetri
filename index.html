@@ -33,21 +33,21 @@
                     <span id="lastDataTime">-- : --</span>
                 </span>
             </div>
-            <span class="coordinate-container" id="coordinate-label">Koordinatlar: --</span>
+            <span class="coordinate-container" id="coordinate-label">--</span>
             <div class="user-info" id="userInfo">
                 <span id="username"></span>
                 <button class="logout-btn" onclick="logout()">Çıkış</button>
             </div>
             <!-- Dark / Light Mode Toggle -->
-            <label class="theme-toggle" id="themeToggle" title="Tema değiştir (Koyu / Açık)">
-                <span class="theme-toggle-icon" id="themeIcon">🌙</span>
-                <span class="theme-switch">
-                    <input type="checkbox" id="themeCheckbox" onchange="toggleTheme(this.checked)">
-                    <span class="theme-switch-track"></span>
-                    <span class="theme-switch-thumb"></span>
-                </span>
-                <span class="theme-toggle-label" id="themeLabel">Koyu</span>
-            </label>
+            <div class="pull-cord-container" onclick="pullCordTheme()" title="Tema değiştir (Koyu / Açık)">
+                <div class="cord-string" id="cordString"></div>
+                <div class="cord-handle" id="cordHandle">
+                    <span id="themeIcon" style="font-size: 14px; display: block; text-align: center; line-height: 24px;">🌙</span>
+                </div>
+            </div>
+            
+            <input type="checkbox" id="themeCheckbox" style="display:none;" onchange="toggleTheme(this.checked)">
+            <span id="themeLabel" style="display:none;">Koyu</span>
             <div class="filter-buttons">
                 <button class="filter-btn active" data-category="all" onclick="toggleFilter('all', this)">Tümü</button>
                 <button class="filter-btn active" data-category="speed"
@@ -83,10 +83,7 @@
                     title="Bugünün verilerini CSV olarak indir" style="display:none;">
                     📥 Bugün (<span id="dataCount">0</span>)
                 </button>
-                <button class="export-btn server-csv admin-only" id="downloadTodayXlsxBtn" onclick="downloadTodayXLSX()"
-                    title="Bugünün verilerini Excel (XLSX) olarak indir" style="display:none;">
-                    📊 Excel
-                </button>
+
                 <!-- <button class="export-btn admin-only" id="clearDataBtn" onclick="clearServerData()"
                     title="Bugünün verilerini temizle" style="display:none;">🗑️</button> -->
 
@@ -122,10 +119,35 @@
                     </div>
                 </div>
 
+                <!-- New Data Boxes -->
+                <div class="stats-row" style="margin-bottom: 8px;">
+                    <div class="mini-stat-card" style="padding: 10px;">
+                        <div class="mini-stat-icon">🌡️</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Metre</span>
+                            <span class="mini-stat-value" id="valMT" style="font-size: 14px;">--</span>
+                        </div>
+                    </div>
+                    <div class="mini-stat-card" style="padding: 10px;">
+                        <div class="mini-stat-icon">⚡</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Supercap W</span>
+                            <span class="mini-stat-value" id="valWATT" style="font-size: 14px;">-- W</span>
+                        </div>
+                    </div>
+                    <div class="mini-stat-card" style="padding: 10px;">
+                        <div class="mini-stat-icon">💨</div>
+                        <div class="mini-stat-content">
+                            <span class="mini-stat-label">Kaçak</span>
+                            <span class="mini-stat-value" id="valPPM" style="font-size: 14px;">-- ppm</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Fuel Cell Voltage -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvAvg"
+                        <div class="card-header-left"><span class="card-title">Yakıt Pili Voltaj <span id="fvCurrent" class="current-val-label"></span> <span id="fvAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -135,7 +157,7 @@
                 <!-- Fuel Cell Current -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fa-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faAvg"
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faCurrent" class="current-val-label"></span> <span id="faAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -145,7 +167,7 @@
                 <!-- Fuel Cell Watt -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwAvg"
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwCurrent" class="current-val-label"></span> <span id="fwAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -155,7 +177,7 @@
                 <!-- Fuel Cell Temperature -->
                 <div class="chart-container collapsible fuel-related" data-card-id="ftemp-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span id="ftempCurrent" class="current-val-label"></span> <span
                                     id="ftempAvg" class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -204,59 +226,42 @@
                         </div>
                     </div>
                 </div>
-                <!-- SOC Chart -->
-                <div class="chart-container collapsible battery-related" data-card-id="soc-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">SOC (Şarj Durumu) <span id="socAvg"
-                                    class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="socChart"></canvas></div>
-                </div>
-                <!-- Battery Remaining Energy Chart -->
-                <div class="chart-container collapsible battery-related" data-card-id="ke-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Kalan Enerji <span id="keAvg"
-                                    class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="keChart"></canvas></div>
-                </div>
+                <!-- Removed SOC and KE charts as requested -->
                 <!-- Battery Power Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="bw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwAvg"
+                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwCurrent" class="current-val-label"></span> <span id="bwAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
                     <div class="card-content"><canvas id="bwChart"></canvas></div>
                 </div>
-                <!-- Battery Watt-Hour Chart -->
-                <div class="chart-container collapsible battery-related" data-card-id="bwh-chart">
+                <!-- Removed bwh chart as requested -->
+                <!-- Battery Voltage Chart -->
+                <div class="chart-container collapsible battery-related" data-card-id="bv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Watt Saat <span id="bwhAvg"
+                        <div class="card-header-left"><span class="card-title">Batarya Voltaj <span id="bvCurrent" class="current-val-label"></span> <span id="bvAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
-                    <div class="card-content"><canvas id="bwhChart"></canvas></div>
+                    <div class="card-content"><canvas id="bvChart"></canvas></div>
                 </div>
-                <!-- Battery Voltage & Current -->
-                <div class="chart-container collapsible battery-related" data-card-id="battery-vc-chart">
+                <!-- Battery Current Chart -->
+                <div class="chart-container collapsible battery-related" data-card-id="bc-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Voltaj & Akım</span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Akım <span id="bcCurrent" class="current-val-label"></span> <span id="bcAvg"
+                                    class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
-                    <div class="card-content"><canvas id="batteryVCChart"></canvas></div>
+                    <div class="card-content"><canvas id="bcChart"></canvas></div>
                 </div>
                 <!-- Battery Temperature -->
                 <div class="chart-container collapsible battery-related" data-card-id="battery-temp-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3)</span>
+                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3) <span id="btempCurrent" class="current-val-label"></span></span>
                         </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -287,7 +292,7 @@
                 <!-- Joulemeter Voltage -->
                 <div class="chart-container collapsible joule-related" data-card-id="jv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvAvg"
+                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvCurrent" class="current-val-label"></span> <span id="jvAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -297,7 +302,7 @@
                 <!-- Joulemeter Current -->
                 <div class="chart-container collapsible joule-related" data-card-id="jc-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcAvg"
+                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcCurrent" class="current-val-label"></span> <span id="jcAvg"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -307,23 +312,14 @@
                 <!-- Joulemeter Watt -->
                 <div class="chart-container collapsible joule-related" data-card-id="jw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwAvgLabel"
+                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwCurrent" class="current-val-label"></span> <span id="jwAvgLabel"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
                     <div class="card-content"><canvas id="jwChart"></canvas></div>
                 </div>
-                <!-- Joulemeter Watt-Hour -->
-                <div class="chart-container collapsible joule-related" data-card-id="jwh-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Watt Saat <span id="jwhAvg"
-                                    class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="jwhChart"></canvas></div>
-                </div>
+                <!-- Removed jwh chart as requested -->
             </div>
         </div>
     </div>
@@ -379,7 +375,12 @@
                 <span class="modal-close" onclick="closeTubitakModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <p style="color:#aaa;font-size:12px;margin-bottom:12px;">TÜBİTAK'a sunulmak üzere hazırlanan format: <code style="color:#43e97b;">zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh;</code><br>Her server başlatılmasında yeni bir eşsiz dosya oluşturulur. Kayıtlar arasında en fazla 5 saniye fark vardır.</p>
+                <p style="color:#aaa;font-size:12px;margin-bottom:12px;">TÜBİTAK'a sunulmak üzere hazırlanan format:
+                    <code
+                        style="color:#43e97b;">zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh;</code><br>Her
+                    server başlatılmasında yeni bir eşsiz dosya oluşturulur. Kayıtlar arasında en fazla 5 saniye fark
+                    vardır.
+                </p>
                 <div id="tubitakFilesList" class="days-list">
                     <p>Yükleniyor...</p>
                 </div>
@@ -388,6 +389,24 @@
                 <button class="modal-btn secondary" onclick="closeTubitakModal()">Kapat</button>
             </div>
         </div>
+    </div>
+
+    <!-- Kaçak Alarm Popup -->
+    <div id="leakAlarmPopup" class="leak-alarm-popup">
+        <div class="leak-alarm-popup-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z">
+                </path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </div>
+        <div class="leak-alarm-popup-content">
+            <div class="leak-alarm-popup-title">Hidrojen Kaçağı</div>
+            <div class="leak-alarm-popup-text">PPM Seviyesi: <span id="alarmPpmValue">--</span></div>
+        </div>
+        <button class="leak-alarm-popup-close" onclick="closeLeakAlarm()">×</button>
     </div>
 
     <style>

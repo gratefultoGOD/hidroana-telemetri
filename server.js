@@ -563,7 +563,7 @@ function calculateAverages() {
 console.log(`📊 initDailyAverages: count=${dailyAveragesCount}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
 
 // Yıldız ile ayrılmış veriyi JSON'a dönüştür
-const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt'];
+const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm'];
 
 function parseStarSeparatedData(rawMessage) {
     let dataString = rawMessage;
@@ -577,14 +577,14 @@ function parseStarSeparatedData(rawMessage) {
     });
     return data;
 }
-
+/*
 function parseID(rawMessage) {
     let dataString = rawMessage;
     if (rawMessage.includes('_')) {
         dataString = rawMessage.split('_')[0];
     }
     return dataString;
-}
+}*/
 
 // Veriyi işle ve kaydet
 function processIncomingData(data) {
@@ -652,19 +652,19 @@ function processIncomingData(data) {
     const tubitakGap = tubitakSession.lastDataTime
         ? (now.getTime() - tubitakSession.lastDataTime)
         : 0;
-    /*if (!tubitakSession.startTime || tubitakGap > 60000) {
+    if (!tubitakSession.startTime || tubitakGap > 60000) {
         if (tubitakGap > 60000) {
             console.log(`📋 TÜBİTAK: ${(tubitakGap / 1000).toFixed(0)}s boşluk algılandı → yeni dosya oluşturuluyor`);
         }
         initTubitakSession(now);
-    
-    }*/
 
-    if (parseID(dataString) == "01") {
-        initTubitakSession(now);
     }
-
-
+    /*
+        if (parseID(dataString) == "01") {
+            //initTubitakSession(now);
+        }
+    
+    */
     tubitakSession.lastDataTime = now.getTime();
     const elapsedMs = now.getTime() - tubitakSession.startTime;
     // hiz_kmh
