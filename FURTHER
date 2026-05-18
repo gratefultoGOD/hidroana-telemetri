@@ -323,15 +323,16 @@ Test kaydedilirken eğer bir sorun olursa telemetri üzerinden problem açıklam
 tübitak verileri için yeni dosyaya yazma işi için verilere 1 ondan sonra hep 0 gelecek bende her bir geldiğinde yeni dosyaya yazacağım inşaallah.
 hidroana.com güvenlik ve tasarımı iyileştir.
 
-i butonunda grafiği olmayanları göster.
 eğer ppm 850 belli değeri geçerse fatal uyarı ver ekranı kaplasın
-SOC grafiğini kaldır
-Kalan enerjiyi grafiğini kaldır
-batarya ve joulmetre grafiğini kaldır sadece değer yazsın
+SOC grafiğini kaldır [+]
+Kalan enerjiyi grafiğini kaldır [+]
+batarya ve joulmetre grafiğini kaldır sadece değer yazsın [+]
 
-ip sarksın karanlık aydınlık mod
+ip sarksın karanlık aydınlık mod [+] [onarılacak]
 
                 <button class="export-btn server-csv admin-only" id="downloadTodayXlsxBtn" onclick="downloadTodayXLSX()"
                     title="Bugünün verilerini Excel (XLSX) olarak indir" style="display:none;">
                     📊 Excel
                 </button>
+race sayfasında sadece bir csv olacak csv yüklendiğinde sector planı olarak kayıtlı sunucuda duracak sadece o olacak
+yeni gelen veriler kaydedilmiyor. düzelt

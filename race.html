@@ -1035,7 +1035,30 @@
                 .then(data => {
                     sectors = data.sectors;
                     document.getElementById('sectorPlanName').textContent = planName;
-                    applySectors();
+
+                    // Koordinatlar kaydedildiyse (CSV'den kaydedilen plan) → doğrudan çiz
+                    if (data.sectorCoordsArray && data.sectorCoordsArray.length > 0) {
+                        // trackCoordinates'i geri yükle (araç konum takibi için)
+                        if (data.trackCoordinates && data.trackCoordinates.length > 0) {
+                            trackCoordinates = data.trackCoordinates;
+                        }
+                        // Eski CSV katmanlarını temizle
+                        csvTrackLayers.forEach(l => map.removeLayer(l));
+                        csvTrackLayers = [];
+                        if (kmlTrackLayer) { map.removeLayer(kmlTrackLayer); kmlTrackLayer = null; }
+                        sectorLayers.forEach(l => map.removeLayer(l));
+                        sectorLayers = [];
+                        currentSectorIndex = -1;
+                        // CSV koordinat tabanlı çizim
+                        applySectorsFromCoords(data.sectorCoordsArray);
+                        if (trackCoordinates.length > 0) {
+                            map.fitBounds(L.polyline(trackCoordinates).getBounds(), { padding: [20, 20] });
+                        }
+                    } else {
+                        // Eski format: KML üzerinden mesafe tabanlı çizim
+                        applySectors();
+                    }
+
                     // Optimum hız datasını grafiğe yükle
                     if (data.optimumData && data.optimumData.length > 0) {
                         setOptimumData(data.optimumData);
@@ -1048,6 +1071,41 @@
                             ? `\nOptimum data: ${data.optimumData.length} nokta` : ''));
                 })
                 .catch(err => alert('Yükleme hatası: ' + err.message));
+        }
+
+        // Kaydedilmiş sektorCoords verisiyle doğrudan haritaya çiz
+        function applySectorsFromCoords(sectorCoordsArray) {
+            const sectorSpeeds = sectors.map(s => s.targetSpeed);
+            const sMinSpeed = Math.min(...sectorSpeeds);
+            const sMaxSpeed = Math.max(...sectorSpeeds);
+
+            sectorCoordsArray.forEach(item => {
+                const sectorId = item.sectorId;
+                const coords = item.coords;
+                if (!coords || coords.length < 2) return;
+
+                const sector = sectors.find(s => s.id === sectorId);
+                if (!sector) return;
+
+                const color = getColorForSpeedRelative(sector.targetSpeed, sMinSpeed, sMaxSpeed);
+                const sectorLength = sector.endMeter - sector.startMeter;
+
+                const poly = L.polyline(coords, {
+                    color: color,
+                    weight: 6,
+                    opacity: 0.8
+                }).addTo(map);
+
+                poly.bindPopup(`
+                    <strong>Sector ${sectorId}</strong><br>
+                    ${sector.startMeter.toFixed(0)}m - ${sector.endMeter.toFixed(0)}m<br>
+                    Uzunluk: ${sectorLength.toFixed(0)} m<br>
+                    Hedef Hız: ${sector.targetSpeed} km/h
+                `);
+                csvTrackLayers.push(poly);
+            });
+
+            updateSpeedLegend(sMinSpeed, sMaxSpeed);
         }
 
         // ─────────────────────────────────────────────────────────
@@ -1179,10 +1237,16 @@
             const globalMinSpeed = Math.min(...allSectorMedianSpeeds);
             const globalMaxSpeed = Math.max(...allSectorMedianSpeeds);
 
-            sectorNos.forEach((no, idx) => {
-                // O sektöre ait koordinatları al
+            // Her sektörün gerçek koordinatlarını topla (sunucuya kaydetmek + geri yüklemek için)
+            const sectorCoords = {};
+            sectorNos.forEach((no) => {
                 const sectorRows = rows.filter(r => r.sector === no);
-                const coords = sectorRows.map(r => [r.lat, r.lon]);
+                sectorCoords[no] = sectorRows.map(r => [r.lat, r.lon]);
+            });
+
+            sectorNos.forEach((no) => {
+                // O sektöre ait koordinatları al
+                const coords = sectorCoords[no];
                 if (coords.length < 2) return;
 
                 const medSpd = calcMedian(sectorMap[no].speeds);
@@ -1220,6 +1284,37 @@
             document.getElementById('sectorPlanName').textContent = sName + ' (CSV)';
             setCsvStatus(`✅ ${rows.length} nokta · ${sectorNos.length} sektör · ${optData.length} optimum`, '#00ff88');
             console.log(`CSV yüklendi: ${rows.length} satır, ${sectorNos.length} sektör, ${optData.length} optimum nokta`);
+
+            // ── 8. Sunucuya sector planı olarak kaydet (koordinatlar dahil) ──
+            // sectorCoordsArray: [{sectorId, coords: [[lat,lon],...]}]
+            const sectorCoordsArray = sectorNos.map(no => ({
+                sectorId: no,
+                coords: sectorCoords[no]
+            }));
+
+            fetch('/api/sectors/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: sName,
+                    sectors: sectors,
+                    optimumData: optData,
+                    sectorCoordsArray: sectorCoordsArray,
+                    trackCoordinates: trackCoordinates
+                })
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.success) {
+                    setCsvStatus(`✅ ${rows.length} nokta · ${sectorNos.length} sektör · Sunucuya kaydedildi`, '#00ff88');
+                    console.log(`Sector planı sunucuya kaydedildi: ${result.fileName}`);
+                } else {
+                    console.warn('Sector planı kaydedilemedi:', result.error);
+                }
+            })
+            .catch(err => {
+                console.warn('Sector planı kaydetme hatası:', err.message);
+            });
         }
 
         // Sector'leri haritaya uygula

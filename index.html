@@ -42,10 +42,11 @@
             <div class="pull-cord-container" onclick="pullCordTheme()" title="Tema değiştir (Koyu / Açık)">
                 <div class="cord-string" id="cordString"></div>
                 <div class="cord-handle" id="cordHandle">
-                    <span id="themeIcon" style="font-size: 14px; display: block; text-align: center; line-height: 24px;">🌙</span>
+                    <span id="themeIcon"
+                        style="font-size: 14px; display: block; text-align: center; line-height: 24px;">🌙</span>
                 </div>
             </div>
-            
+
             <input type="checkbox" id="themeCheckbox" style="display:none;" onchange="toggleTheme(this.checked)">
             <span id="themeLabel" style="display:none;">Koyu</span>
             <div class="filter-buttons">
@@ -122,7 +123,7 @@
                 <!-- New Data Boxes -->
                 <div class="stats-row" style="margin-bottom: 8px;">
                     <div class="mini-stat-card" style="padding: 10px;">
-                        <div class="mini-stat-icon">🌡️</div>
+                        <div class="mini-stat-icon">📏</div>
                         <div class="mini-stat-content">
                             <span class="mini-stat-label">Metre</span>
                             <span class="mini-stat-value" id="valMT" style="font-size: 14px;">--</span>
@@ -147,8 +148,9 @@
                 <!-- Fuel Cell Voltage -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Pili Voltaj <span id="fvCurrent" class="current-val-label"></span> <span id="fvAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvCurrent"
+                                    class="current-val-label"></span> <span id="fvAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -157,8 +159,9 @@
                 <!-- Fuel Cell Current -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fa-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faCurrent" class="current-val-label"></span> <span id="faAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faCurrent"
+                                    class="current-val-label"></span> <span id="faAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -167,8 +170,9 @@
                 <!-- Fuel Cell Watt -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwCurrent" class="current-val-label"></span> <span id="fwAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwCurrent"
+                                    class="current-val-label"></span> <span id="fwAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -177,8 +181,9 @@
                 <!-- Fuel Cell Temperature -->
                 <div class="chart-container collapsible fuel-related" data-card-id="ftemp-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span id="ftempCurrent" class="current-val-label"></span> <span
-                                    id="ftempAvg" class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span
+                                    id="ftempCurrent" class="current-val-label"></span> <span id="ftempAvg"
+                                    class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -230,8 +235,9 @@
                 <!-- Battery Power Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="bw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwCurrent" class="current-val-label"></span> <span id="bwAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwCurrent"
+                                    class="current-val-label"></span> <span id="bwAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -241,8 +247,9 @@
                 <!-- Battery Voltage Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="bv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Voltaj <span id="bvCurrent" class="current-val-label"></span> <span id="bvAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Voltaj <span id="bvCurrent"
+                                    class="current-val-label"></span> <span id="bvAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -251,8 +258,9 @@
                 <!-- Battery Current Chart -->
                 <div class="chart-container collapsible battery-related" data-card-id="bc-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Akım <span id="bcCurrent" class="current-val-label"></span> <span id="bcAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Batarya Akım <span id="bcCurrent"
+                                    class="current-val-label"></span> <span id="bcAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -261,7 +269,8 @@
                 <!-- Battery Temperature -->
                 <div class="chart-container collapsible battery-related" data-card-id="battery-temp-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3) <span id="btempCurrent" class="current-val-label"></span></span>
+                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3) <span
+                                    id="btempCurrent" class="current-val-label"></span></span>
                         </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
@@ -292,8 +301,9 @@
                 <!-- Joulemeter Voltage -->
                 <div class="chart-container collapsible joule-related" data-card-id="jv-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvCurrent" class="current-val-label"></span> <span id="jvAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvCurrent"
+                                    class="current-val-label"></span> <span id="jvAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -302,8 +312,9 @@
                 <!-- Joulemeter Current -->
                 <div class="chart-container collapsible joule-related" data-card-id="jc-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcCurrent" class="current-val-label"></span> <span id="jcAvg"
-                                    class="avg-label"></span></span></div>
+                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcCurrent"
+                                    class="current-val-label"></span> <span id="jcAvg" class="avg-label"></span></span>
+                        </div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
@@ -312,7 +323,8 @@
                 <!-- Joulemeter Watt -->
                 <div class="chart-container collapsible joule-related" data-card-id="jw-chart">
                     <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwCurrent" class="current-val-label"></span> <span id="jwAvgLabel"
+                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwCurrent"
+                                    class="current-val-label"></span> <span id="jwAvgLabel"
                                     class="avg-label"></span></span></div>
                         <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
                         </div>

@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 // ============================================
 // VERI KAYNAĞI AYARLARI (MQTT veya HTTP)
 // ============================================
-let DATA_SOURCE = process.env.DATA_SOURCE || 'HTTP'; // 'MQTT' veya 'HTTP'
+let DATA_SOURCE = process.env.DATA_SOURCE || 'MQTT'; // 'MQTT' veya 'HTTP'
 
 // MQTT Configuration
 const MQTT_BROKER_URL = 'mqtt://213.142.148.28:1883';
@@ -276,7 +276,7 @@ function getDailyFileName(date = new Date()) {
 }
 
 // CSV başlıkları
-const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
+const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz'];
 
 // CSV içeriğini XLSX buffer'a dönüştür (semicolon separated)
 function csvToXlsxBuffer(csvContent, sheetName = 'Veri') {
@@ -346,7 +346,7 @@ async function flushDataToFile() {
 }
 
 // Test verilerini dosyaya yaz
-const TEST_CSV_HEADERS = ['test_time', 'date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'];
+const TEST_CSV_HEADERS = ['test_time', 'date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz'];
 
 let isFlushingTestData = false;  // Eşzamanlı yazma kontrolü
 
@@ -563,7 +563,7 @@ function calculateAverages() {
 console.log(`📊 initDailyAverages: count=${dailyAveragesCount}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
 
 // Yıldız ile ayrılmış veriyi JSON'a dönüştür
-const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm'];
+const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz'];
 
 function parseStarSeparatedData(rawMessage) {
     let dataString = rawMessage;
@@ -897,6 +897,9 @@ app.get('/data', (req, res) => {
             jwh: q.jwh || null,
             mt: q.mt || null,
             id: q.id || null,
+            gx: q.gx || null,
+            gy: q.gy || null,
+            gz: q.gz || null,
             //key: q.key || null
         };
 
@@ -908,8 +911,8 @@ app.get('/data', (req, res) => {
 // ============================================
 // EXPRESS MIDDLEWARE
 // ============================================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1649,7 +1652,7 @@ app.get('/sectors', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'sectors.html'));
 });
 
-app.get('/race', requireAuth, (req, res) => {
+app.get('/race', requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.sendFile(path.join(__dirname, 'race.html'));
 });
@@ -1863,8 +1866,8 @@ app.get('/api/races/download/:fileName', requireAuth, (req, res) => {
 // ============================================
 
 // Sector kaydet
-app.post('/api/sectors/save', requireAdmin, (req, res) => {
-    const { name, sectors, optimumData } = req.body;
+app.post('/api/sectors/save', requireAuth, (req, res) => {
+    const { name, sectors, optimumData, sectorCoordsArray, trackCoordinates } = req.body;
 
     if (!name || !sectors) {
         return res.status(400).json({ error: 'İsim ve sector verileri gerekli' });
@@ -1877,6 +1880,8 @@ app.post('/api/sectors/save', requireAdmin, (req, res) => {
         name: name,
         sectors: sectors,
         optimumData: optimumData || [],
+        sectorCoordsArray: sectorCoordsArray || [],
+        trackCoordinates: trackCoordinates || [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
