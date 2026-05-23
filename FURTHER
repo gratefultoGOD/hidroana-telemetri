@@ -336,3 +336,13 @@ ip sarksın karanlık aydınlık mod [+] [onarılacak]
                 </button>
 race sayfasında sadece bir csv olacak csv yüklendiğinde sector planı olarak kayıtlı sunucuda duracak sadece o olacak
 yeni gelen veriler kaydedilmiyor. düzelt
+
+[iptal] polarizasyon eğrisine göre ne kadar flow çekeceğini tahmini sitede göster. [iptal]
+gps digit arttır. gx gy gz ax ay az 
+gps hızı da gelecek stringe ekle sitede göster
+flow da gelecek flowu da sitede göster
+
+
+
+siteyi düzenlenebilir yap admin tarafından. şey gibi sürdürülebilir olması için biz yokken de site düzgün kalsın. sonraki nesiller için veri stringi ve formatı değiştirilebilir olsun. mesela tabloların düzeni jsondan yüklensin. bu jsonu düzenleyebileceğin ayrı bir sayfa yapki site sürdürülebilir olsun. yeni bir veri eklemek isterler veya çıkarmak isterler artık bilemem. -arda
+

@@ -13,13 +13,21 @@ function toggleTheme(checked) {
     applyTheme(checked);
     localStorage.setItem('hidroana-theme', checked ? 'light' : 'dark');
 }
-
+console.log(" █████   █████ █████ ██████████   ███████████      ███████      █████████   ██████   █████   █████████  ")
+console.log("  ███   ░░███ ░░███ ░░███░░░░███ ░░███░░░░░███   ███░░░░░███   ███░░░░░███ ░░██████ ░░███   ███░░░░░███ ")
+console.log(" ░███    ░███  ░███  ░███   ░░███ ░███    ░███  ███     ░░███ ░███    ░███  ░███░███ ░███  ░███    ░███ ")
+console.log(" ░███████████  ░███  ░███    ░███ ░██████████  ░███      ░███ ░███████████  ░███░░███░███  ░███████████ ")
+console.log(" ░███░░░░░███  ░███  ░███    ░███ ░███░░░░░███ ░███      ░███ ░███░░░░░███  ░███░░░░░███   ░███░░░░░███ ")
+console.log(" ░███    ░███  ░███  ░███    ███  ░███    ░███ ░░███    ░███  ░███    ░███  ░███     ░███  ░███    ░███ ")
+console.log(" ░███    ░███  █████ ██████████   █████   █████  ░░███████   ░░███    ░███  ░███     ░███  ░███    ░███ ")
+console.log(" ░░░     ░░░   ░░░░░ ░░░░░░░░░░   ░░░░░   ░░░░░   ░░░░░░░    ░░░░░   ░░░░    ░░░      ░░░   ░░░     ░░░ ")
+console.log("")
 function pullCordTheme() {
     const cb = document.getElementById('themeCheckbox');
     if (cb) {
         cb.checked = !cb.checked;
         toggleTheme(cb.checked);
-        
+
         const cord = document.querySelector('.pull-cord-container');
         if (cord) {
             cord.classList.add('pulled');
@@ -504,6 +512,31 @@ function initCharts() {
 }
 
 // ============================================
+// FLOW-ONLY GÜNCELLEME (flow topic'i bağımsız)
+// ============================================
+
+// Yalnızca flow topic'ten gelen veriyi işle — telemetri olmadan da çalışır
+function handleFlowOnlyUpdate(data) {
+    const realFlowCard = document.getElementById('realFlowCard');
+    if (!data.hasRealFlow) return;
+
+    // Kartı görünür yap
+    if (realFlowCard) realFlowCard.style.display = '';
+
+    // Anlık flow
+    const instVal = data.realInstantFlow !== null && data.realInstantFlow !== undefined
+        ? `Anlık: ${parseFloat(data.realInstantFlow)} L/dk`
+        : 'Anlık: --';
+    setElementText('valRealInstantFlow', instVal);
+
+    // Toplam flow
+    const totVal = data.realTotalFlow !== null && data.realTotalFlow !== undefined
+        ? `Toplam: ${parseFloat(data.realTotalFlow)} L`
+        : 'Toplam: --';
+    setElementText('valRealTotalFlow', totVal);
+}
+
+// ============================================
 // SSE (Server-Sent Events) BAĞLANTISI
 // Event-Driven mimari - Polling yerine
 // ============================================
@@ -526,6 +559,13 @@ function connectToSSE() {
     eventSource.onmessage = function (event) {
         try {
             const data = JSON.parse(event.data);
+
+            // Yalnızca flow topic'ten gelen anlık güncelleme
+            if (data.type === 'flow_update') {
+                handleFlowOnlyUpdate(data);
+                return;
+            }
+
             handleIncomingData(data);
         } catch (error) {
             console.error('SSE mesaj parse hatası:', error);
@@ -795,7 +835,7 @@ function processQueuedData(data, queueTimestamp) {
 
     // Battery charts
     //updateChart(socChart, time, telemetry.soc);
-    updateChart(keChart, time, telemetry.ke);
+    //updateChart(keChart, time, telemetry.ke);
     updateChart(bwChart, time, telemetry.bw);
     updateChart(bvChart, time, telemetry.bv);
     updateChart(bcChart, time, telemetry.bc);
@@ -901,7 +941,7 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
 }
 
 // Update single line chart
-function updateChart(chart, time, value, maxPoints = 9) {
+function updateChart(chart, time, value, maxPoints = 14) {
     if (!chart) return;
     if (chart.data.labels.length > maxPoints) {
         chart.data.labels.shift();
@@ -913,7 +953,7 @@ function updateChart(chart, time, value, maxPoints = 9) {
 }
 
 // Update multi-line chart
-function updateMultiChart(chart, time, values, maxPoints = 9) {
+function updateMultiChart(chart, time, values, maxPoints = 14) {
     if (!chart) return;
     if (chart.data.labels.length > maxPoints) {
         chart.data.labels.shift();
@@ -1041,7 +1081,7 @@ function processRealTimeData(data) {
         ];
         speedometerChart.update('none');
     }
-    setElementText('speedValue', `${telemetry.h.toFixed(2)} km/h`);
+    setElementText('speedValue', `${telemetry.h.toFixed(1)} km/h`);
 
     // Update stat cards
     setElementText('socValue', `${telemetry.soc.toFixed(0)}%`);
@@ -1055,9 +1095,34 @@ function processRealTimeData(data) {
     setElementText('jwhValue', `${telemetry.jwh.toFixed(1)} Wh`);
 
     // Update new data box values
-    setElementText('valMT', data.mt !== undefined ? `${telemetry.mt.toFixed(1)} m` : '-- m');
-    setElementText('valWATT', data.watt !== undefined ? `${telemetry.watt.toFixed(1)} W` : '-- W');
-    setElementText('valPPM', data.ppm !== undefined ? `${telemetry.ppm.toFixed(1)} ppm` : '-- ppm');
+    setElementText('valMT', data.mt !== undefined ? `${telemetry.mt} m` : '-- m');
+    setElementText('valWATT', data.watt !== undefined ? `${telemetry.watt} W` : '-- W');
+    setElementText('valPPM', data.ppm !== undefined ? `${telemetry.ppm} ppm` : '-- ppm');
+
+    // Teorik Flow (data topic'inden gelen flow + totalflow alanları)
+    const flowVal = data.flow !== undefined && data.flow !== null ? data.flow : null;
+    setElementText('valFLOW', flowVal !== null ? `Anlık: ${parseFloat(flowVal)} L/dk` : 'Anlık: --');
+
+    const totalFlowVal = data.totalflow !== undefined && data.totalflow !== null ? data.totalflow : null;
+    setElementText('valTotalFLOW', totalFlowVal !== null ? `Toplam: ${parseFloat(totalFlowVal)} L` : 'Toplam: --');
+
+    // Not: pitch, roll, yaw, driver_pot, direksiyon_angle sadece CSV'ye kaydedilir, ekranda gösterilmez.
+
+    // Gerçek Flow — flow topic'i ile eşleştirilen anlık ve toplam değerler
+    const realFlowCard = document.getElementById('realFlowCard');
+    if (data.hasRealFlow) {
+        if (realFlowCard) realFlowCard.style.display = '';
+        // Anlık flow
+        const instVal = data.realInstantFlow !== null && data.realInstantFlow !== undefined
+            ? `Anlık: ${parseFloat(data.realInstantFlow)} L/dk`
+            : 'Anlık: --';
+        setElementText('valRealInstantFlow', instVal);
+        // Toplam flow
+        const totVal = data.realTotalFlow !== null && data.realTotalFlow !== undefined
+            ? `Toplam: ${parseFloat(data.realTotalFlow)} L`
+            : 'Toplam: --';
+        setElementText('valRealTotalFlow', totVal);
+    }
 
     // Update chart header current values
     setElementText('fvCurrent', `[${telemetry.fv.toFixed(1)} V]`);

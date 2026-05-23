@@ -145,6 +145,32 @@
                     </div>
                 </div>
 
+                <!-- Flow Veri Satırı -->
+                <div class="stats-row" style="margin-bottom: 8px; position: relative;">
+                    <!-- Teorik Flow (data topic'ten gelen flow + totalflow alanları) -->
+                    <div class="mini-stat-card" style="padding: 10px; position: relative;">
+                        <div class="mini-stat-icon">💧</div>
+                        <div class="mini-stat-content" style="gap: 2px;">
+                            <span class="mini-stat-label">Flow (Teorik)</span>
+                            <span class="mini-stat-value" id="valFLOW" style="font-size: 13px;">Anlık: --</span>
+                            <span style="font-size: 11px; color: #aaa; margin-top: 2px;" id="valTotalFLOW">Toplam: --</span>
+                        </div>
+                        <div style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #aaa; opacity: 0.7; letter-spacing: 0.5px;">TEORİK</div>
+                    </div>
+                    <!-- Gerçek Flow kartı — yalnızca flow topic'inden veri geliyorsa gösterilir -->
+                    <div class="mini-stat-card" id="realFlowCard"
+                        style="padding: 10px; display: none; position: relative; border: 1px solid rgba(78, 141, 247, 0.4); background: rgba(78, 141, 247, 0.08);">
+                        <div class="mini-stat-icon">🌊</div>
+                        <div class="mini-stat-content" style="gap: 2px;">
+                            <span class="mini-stat-label" style="color: #4e8df7;">Gerçek Flow</span>
+                            <span class="mini-stat-value" id="valRealInstantFlow"
+                                style="font-size: 13px; color: #4e8df7;">Anlık: --</span>
+                            <span style="font-size: 11px; color: #7eb8ff; margin-top: 2px;" id="valRealTotalFlow">Toplam: --</span>
+                        </div>
+                        <div style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #4e8df7; opacity: 0.7; letter-spacing: 0.5px;">CANLI</div>
+                    </div>
+                </div>
+
                 <!-- Fuel Cell Voltage -->
                 <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
                     <div class="card-header">

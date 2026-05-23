@@ -39,6 +39,65 @@ let key = '066c4e702e'
 let dataCounter = 0; // Her yeni veri geldiğinde artar
 
 // ============================================
+// FLOW VERİSİ BUFFER (flow topic'inden gelen veriler)
+// ============================================
+// Flow sensörü daha hızlı veri gönderir; normal veriyi beklemesi için
+// gelen her flow değeri timestamp ile birlikte buffer'da tutulur.
+let flowBuffer = [];           // { value: <number|string>, timestamp: <ms> }
+const FLOW_MATCH_WINDOW = 5000; // Eşleştirme penceresi: 5 saniye
+const FLOW_BUFFER_MAX = 200;    // Maksimum buffer boyutu
+let hasReceivedFlowData = false; // Hiç flow verisi alındı mı?
+
+// Flow verisini buffer'a ekle — format: "anlık_flow*toplam_flow"
+function addFlowToBuffer(rawValue, timestamp) {
+    hasReceivedFlowData = true;
+    // Formatı parse et: "11.27*0.123450" → { instantFlow: 11.27, totalFlow: 0.12345 }
+    let instantFlow = null;
+    let totalFlow = null;
+    if (typeof rawValue === 'string' && rawValue.includes('*')) {
+        const parts = rawValue.split('*');
+        const a = parseFloat(parts[0]);
+        const b = parseFloat(parts[1]);
+        if (!isNaN(a)) instantFlow = a;
+        if (!isNaN(b)) totalFlow = b;
+    } else {
+        // Eski tek değer formatı için geri uyumluluk
+        const v = parseFloat(rawValue);
+        if (!isNaN(v)) instantFlow = v;
+    }
+    flowBuffer.push({ instantFlow, totalFlow, timestamp });
+    if (flowBuffer.length > FLOW_BUFFER_MAX) {
+        flowBuffer.shift();
+    }
+    // Pencere dışındaki eski verileri temizle
+    const cutoff = timestamp - FLOW_MATCH_WINDOW;
+    flowBuffer = flowBuffer.filter(f => f.timestamp >= cutoff);
+}
+
+// Normal veri timestamp'ına en yakın flow verisini bul
+// Döndürülen değer: { instantFlow, totalFlow } veya null
+function findBestFlowMatch(dataTimestamp) {
+    if (!hasReceivedFlowData || flowBuffer.length === 0) return null;
+
+    let bestIdx = -1;
+    let bestDiff = Infinity;
+
+    for (let i = 0; i < flowBuffer.length; i++) {
+        const diff = Math.abs(flowBuffer[i].timestamp - dataTimestamp);
+        if (diff < bestDiff) {
+            bestDiff = diff;
+            bestIdx = i;
+        }
+    }
+
+    // Pencere içinde değilse eşleşme yok
+    if (bestIdx === -1 || bestDiff > FLOW_MATCH_WINDOW) return null;
+
+    const { instantFlow, totalFlow } = flowBuffer[bestIdx];
+    return { instantFlow, totalFlow };
+}
+
+// ============================================
 // SSE (Server-Sent Events) CLIENT YÖNETİMİ
 // ============================================
 let sseClients = new Set(); // Bağlı SSE client'ları
@@ -276,7 +335,7 @@ function getDailyFileName(date = new Date()) {
 }
 
 // CSV başlıkları
-const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz'];
+const CSV_HEADERS = ['date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz', 'ax', 'ay', 'az', 'flow', 'totalflow', 'gsmspeed', 'pitch', 'roll', 'yaw', 'driver_pot', 'direksiyon_angle', 'realInstantFlow', 'realTotalFlow'];
 
 // CSV içeriğini XLSX buffer'a dönüştür (semicolon separated)
 function csvToXlsxBuffer(csvContent, sheetName = 'Veri') {
@@ -346,7 +405,7 @@ async function flushDataToFile() {
 }
 
 // Test verilerini dosyaya yaz
-const TEST_CSV_HEADERS = ['test_time', 'date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz'];
+const TEST_CSV_HEADERS = ['test_time', 'date', 'time', 'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz', 'ax', 'ay', 'az', 'flow', 'totalflow', 'gsmspeed', 'pitch', 'roll', 'yaw', 'driver_pot', 'direksiyon_angle', 'realInstantFlow', 'realTotalFlow'];
 
 let isFlushingTestData = false;  // Eşzamanlı yazma kontrolü
 
@@ -563,7 +622,7 @@ function calculateAverages() {
 console.log(`📊 initDailyAverages: count=${dailyAveragesCount}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
 
 // Yıldız ile ayrılmış veriyi JSON'a dönüştür
-const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz'];
+const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz', 'ax', 'ay', 'az', 'flow', 'totalflow', 'gsmspeed', 'pitch', 'roll', 'yaw', 'driver_pot', 'direksiyon_angle'];
 
 function parseStarSeparatedData(rawMessage) {
     let dataString = rawMessage;
@@ -622,7 +681,20 @@ function processIncomingData(data) {
     // Son 15 saniye verilerine ekle (ortalama için)
     recentData.push(dataWithTimestamp);
 
-    // Dosyaya yazılacak verilere ekle
+    // Flow verisi varsa en yakın zamanlı flow ile birleştir — kaydı ve SSE'yi aynı objeyle yap
+    const matchedFlow = findBestFlowMatch(now.getTime());
+    if (matchedFlow !== null) {
+        dataWithTimestamp.realInstantFlow = matchedFlow.instantFlow;  // anlık flow
+        dataWithTimestamp.realTotalFlow   = matchedFlow.totalFlow;    // toplam flow
+        dataWithTimestamp.hasRealFlow = true;
+        console.log(`💧 Flow eşleşmesi: anlık=${matchedFlow.instantFlow}, toplam=${matchedFlow.totalFlow}`);
+    } else {
+        dataWithTimestamp.realInstantFlow = null;
+        dataWithTimestamp.realTotalFlow   = null;
+        dataWithTimestamp.hasRealFlow = false;
+    }
+
+    // Dosyaya yazılacak verilere ekle (realFlow dahil)
     pendingData.push(dataWithTimestamp);
 
     // 5 veri birikince dosyaya yaz
@@ -630,7 +702,7 @@ function processIncomingData(data) {
         flushDataToFile();
     }
 
-    // Test modu aktifse test verilerini de kaydet
+    // Test modu aktifse test verilerini de kaydet (realFlow dahil)
     if (testMode.active && testMode.startTime) {
         const elapsedMs = now.getTime() - testMode.startTime;
         const testTime = formatTestTime(elapsedMs);
@@ -707,6 +779,7 @@ function formatTestTime(ms) {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
 }
 
+
 // ============================================
 // MQTT BAĞLANTISI
 // ============================================
@@ -726,14 +799,54 @@ function startMQTT() {
                 console.log(`📡 Topice abone olundu: ${MQTT_TOPIC}`);
             }
         });
+
+        mqttClient.subscribe("flow", { qos: 0 }, (error) => {
+            if (error) {
+                console.error('Topice abone olma hatası:', error);
+            } else {
+                console.log(`📡 Topice abone olundu: flow`);
+            }
+        });
+
+
     });
 
     mqttClient.on('message', (topic, message) => {
         try {
-            const rawMessage = message.toString().trim();
-            console.log(' HAM VERİ:', rawMessage);
-            const data = parseStarSeparatedData(rawMessage);
-            processIncomingData(data);
+            if (topic == MQTT_TOPIC) {
+                const rawMessage = message.toString().trim();
+                console.log(' HAM VERİ:', rawMessage);
+                const data = parseStarSeparatedData(rawMessage);
+                processIncomingData(data);
+            }
+
+            if (topic == "flow") {
+                const rawFlow = message.toString().trim();
+                console.log('FLOW HAM VERİ:', rawFlow);
+                const flowTimestamp = Date.now();
+                // rawFlow string'ini buffer'a ekle ("anlık*toplam" formatı)
+                addFlowToBuffer(rawFlow, flowTimestamp);
+
+                // data topic'ini beklemeden anlık olarak SSE'ye gönder
+                let instantFlow = null, totalFlow = null;
+                if (rawFlow.includes('*')) {
+                    const parts = rawFlow.split('*');
+                    const a = parseFloat(parts[0]);
+                    const b = parseFloat(parts[1]);
+                    if (!isNaN(a)) instantFlow = a;
+                    if (!isNaN(b)) totalFlow = b;
+                } else {
+                    const v = parseFloat(rawFlow);
+                    if (!isNaN(v)) instantFlow = v;
+                }
+                broadcastToClients({
+                    type: 'flow_update',
+                    hasRealFlow: true,
+                    realInstantFlow: instantFlow,
+                    realTotalFlow: totalFlow,
+                    flowTimestamp
+                });
+            }
 
             // 250ms sonra supercapacitor durumunu MQTT_TAKE topic'ine gönder
             setTimeout(() => {
@@ -1037,7 +1150,18 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
         console.log(`🔌 SSE client ayrıldı. Toplam: ${sseClients.size}`);
     });
 });
+/*
+app.get('/api/telemetry/flow', requireAuth, (req, res) => {
+        // SSE Headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Nginx için
+    res.flushHeaders();
 
+
+});
+*/
 // Eski polling endpoint (geriye uyumluluk için)
 app.get('/api/telemetry', requireAuth, (req, res) => {
     if (!latestTelemetryData) {
@@ -1489,6 +1613,7 @@ app.delete('/api/telemetry/delete/:fileName', requireAdmin, (req, res) => {
     console.log(`🗑️ Dosya silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
+
 /*
 // Bugünün verilerini temizle (SADECE ADMIN)
 app.delete('/api/telemetry/clear', requireAdmin, (req, res) => {
@@ -1666,6 +1791,11 @@ app.get('/play', requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.sendFile(path.join(__dirname, 'play.html'));
 });
+
+app.get('/flow', requireAdmin, (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.sendFile(path.join(__dirname, 'flow.html'));
+})
 
 // ============================================
 // LAP/RACE API ENDPOINTS
