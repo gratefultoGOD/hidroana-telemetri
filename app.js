@@ -197,7 +197,7 @@ function initMap() {
         return;
     }
 
-    map = L.map('map').setView([37.401573, -116.867808], 17);
+    map = L.map('map').setView([51.868400, -0.6901813], 17);
 
     // Base layers
     const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -825,6 +825,18 @@ function processQueuedData(data, queueTimestamp) {
                 history[key].shift();
             }
         });
+    }
+
+    if (telemetry.h < 10) {
+        document.getElementById('white-rabbit').textContent = '🐢';
+    } else if (telemetry.h < 20) {
+        document.getElementById('white-rabbit').textContent = '🐰';
+    } else if (telemetry.h < 35) {
+        document.getElementById('white-rabbit').textContent = '🐇';
+    } else if (telemetry.h < 45) {
+        document.getElementById('white-rabbit').textContent = '🐎';
+    } else {
+        document.getElementById('white-rabbit').textContent = '🚀';
     }
 
     // Update charts

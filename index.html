@@ -113,13 +113,14 @@
                 <div class="stat-card speedometer-card collapsible speed-related" data-card-id="speedometer">
                     <div class="card-header">
                         <div class="card-header-left"><span class="card-title">Anlık Hız</span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
+                        <div class="card-header-right"><span id="white-rabbit" class="toggle-icon"
+                                onclick="toggleCard(this)">−</span>
                         </div>
                     </div>
                     <div class="card-content">
                         <canvas id="speedometer"></canvas>
                         <div class="speed-value" id="speedValue">0 km/h</div>
-                        <div class="speed-value" id="gsmSpeedValue">GSM Speed: 0 km/h</div>
+                        <div class="speed-value" id="gsmSpeedValue">GPS Speed: 0 km/h</div>
                     </div>
                 </div>
 

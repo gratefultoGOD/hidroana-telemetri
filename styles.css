@@ -492,6 +492,13 @@ header h1 {
     text-align: center;
 }
 
+#gsmSpeedValue {
+    font-size: 12px;
+    text-align: center;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 /* Card Header */
 .card-header {
     display: flex;
