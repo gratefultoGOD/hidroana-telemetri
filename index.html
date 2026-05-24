@@ -94,6 +94,8 @@
                     Yarış İzle</button>
                 <button class="export-btn" onclick="window.location.href='/laps'">🏁
                     Tur Takip</button>
+                <button class="export-btn" onclick="window.location.href='/3dview'"
+                    title="Aracı 3D Haritada Canlı İzle">🌍 3D Görünüm</button>
                 <button class="export-btn admin-only" id="playPageBtn" style="display:none;"
                     onclick="window.location.href='/play'">🎥 Test Oynat</button>
                 <button class="export-btn admin-only" id="tubitakFilesBtn" onclick="showTubitakModal()"
@@ -117,6 +119,7 @@
                     <div class="card-content">
                         <canvas id="speedometer"></canvas>
                         <div class="speed-value" id="speedValue">0 km/h</div>
+                        <div class="speed-value" id="gsmSpeedValue">GSM Speed: 0 km/h</div>
                     </div>
                 </div>
 
@@ -153,9 +156,12 @@
                         <div class="mini-stat-content" style="gap: 2px;">
                             <span class="mini-stat-label">Flow (Teorik)</span>
                             <span class="mini-stat-value" id="valFLOW" style="font-size: 13px;">Anlık: --</span>
-                            <span style="font-size: 11px; color: #aaa; margin-top: 2px;" id="valTotalFLOW">Toplam: --</span>
+                            <span style="font-size: 11px; color: #aaa; margin-top: 2px;" id="valTotalFLOW">Toplam:
+                                --</span>
                         </div>
-                        <div style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #aaa; opacity: 0.7; letter-spacing: 0.5px;">TEORİK</div>
+                        <div
+                            style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #aaa; opacity: 0.7; letter-spacing: 0.5px;">
+                            TEORİK</div>
                     </div>
                     <!-- Gerçek Flow kartı — yalnızca flow topic'inden veri geliyorsa gösterilir -->
                     <div class="mini-stat-card" id="realFlowCard"
@@ -165,9 +171,12 @@
                             <span class="mini-stat-label" style="color: #4e8df7;">Gerçek Flow</span>
                             <span class="mini-stat-value" id="valRealInstantFlow"
                                 style="font-size: 13px; color: #4e8df7;">Anlık: --</span>
-                            <span style="font-size: 11px; color: #7eb8ff; margin-top: 2px;" id="valRealTotalFlow">Toplam: --</span>
+                            <span style="font-size: 11px; color: #7eb8ff; margin-top: 2px;"
+                                id="valRealTotalFlow">Toplam: --</span>
                         </div>
-                        <div style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #4e8df7; opacity: 0.7; letter-spacing: 0.5px;">CANLI</div>
+                        <div
+                            style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #4e8df7; opacity: 0.7; letter-spacing: 0.5px;">
+                            CANLI</div>
                     </div>
                 </div>
 

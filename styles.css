@@ -1146,16 +1146,19 @@ body.light-mode .theme-switch-thumb {
     align-items: center;
     width: 40px;
 }
+
 .pull-cord-container:active {
     cursor: grabbing;
 }
+
 .cord-string {
     width: 2px;
     height: 40px;
     background: var(--text-secondary);
     transition: height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 1px 0 2px rgba(0,0,0,0.3);
+    box-shadow: 1px 0 2px rgba(0, 0, 0, 0.3);
 }
+
 .cord-handle {
     width: 28px;
     height: 28px;
@@ -1165,21 +1168,25 @@ body.light-mode .theme-switch-thumb {
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s ease;
     color: var(--text-primary);
     position: relative;
     z-index: 2;
-    margin-top: -2px; /* overlap string slightly */
+    margin-top: -2px;
+    /* overlap string slightly */
 }
+
 .pull-cord-container.pulled .cord-string {
     height: 70px;
 }
+
 .pull-cord-container.pulled .cord-handle {
-    transform: translateY(30px);
+    transform: translateY(10px);
 }
+
 .pull-cord-container:hover .cord-handle {
-    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
     background: var(--bg-badge);
 }
 

@@ -685,12 +685,12 @@ function processIncomingData(data) {
     const matchedFlow = findBestFlowMatch(now.getTime());
     if (matchedFlow !== null) {
         dataWithTimestamp.realInstantFlow = matchedFlow.instantFlow;  // anlık flow
-        dataWithTimestamp.realTotalFlow   = matchedFlow.totalFlow;    // toplam flow
+        dataWithTimestamp.realTotalFlow = matchedFlow.totalFlow;    // toplam flow
         dataWithTimestamp.hasRealFlow = true;
         console.log(`💧 Flow eşleşmesi: anlık=${matchedFlow.instantFlow}, toplam=${matchedFlow.totalFlow}`);
     } else {
         dataWithTimestamp.realInstantFlow = null;
-        dataWithTimestamp.realTotalFlow   = null;
+        dataWithTimestamp.realTotalFlow = null;
         dataWithTimestamp.hasRealFlow = false;
     }
 
@@ -1013,6 +1013,7 @@ app.get('/data', (req, res) => {
             gx: q.gx || null,
             gy: q.gy || null,
             gz: q.gz || null,
+            gsmspeed: q.gsmspeed || null,
             //key: q.key || null
         };
 
@@ -1795,6 +1796,11 @@ app.get('/play', requireAdmin, (req, res) => {
 app.get('/flow', requireAdmin, (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.sendFile(path.join(__dirname, 'flow.html'));
+})
+
+app.get('/3dview', requireAuth, (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.sendFile(path.join(__dirname, '3dview.html'));
 })
 
 // ============================================

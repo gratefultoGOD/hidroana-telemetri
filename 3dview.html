@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hidroana 3D Telemetri Görünümü</title>
+    <meta name="description"
+        content="Hidroana araç telemetrisini Google Photorealistic 3D Tiles üzerinde canlı olarak izleyin." />
+    <!-- CesiumJS -->
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Widgets/widgets.css"
+        rel="stylesheet" />
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.116/Build/Cesium/Cesium.js"></script>
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-glass: rgba(10, 14, 30, 0.82);
+            --bg-card: rgba(15, 20, 45, 0.88);
+            --border: rgba(100, 160, 255, 0.18);
+            --accent: #4af;
+            --accent2: #7c5cfc;
+            --text: #e8eeff;
+            --muted: #7a8aa0;
+            --green: #2dfa8e;
+            --red: #ff4d6d;
+            --yellow: #ffd166;
+            --shadow: 0 8px 40px rgba(0, 0, 0, .55);
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+        }
+
+        /* ─── Cesium viewer ─── */
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* hide default Cesium branding UI we don't need */
+        .cesium-widget-credits,
+        .cesium-viewer-animationContainer,
+        .cesium-viewer-timelineContainer,
+        .cesium-viewer-fullscreenContainer,
+        .cesium-viewer-vrContainer,
+        .cesium-viewer-geocoderContainer {
+            display: none !important;
+        }
+
+        /* ─── Header bar ─── */
+        #topBar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 18px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(18px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        #topBar h1 {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            color: var(--accent);
+        }
+
+        #topBar h1 span {
+            color: var(--text);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #connBadge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, .3);
+            transition: all .4s;
+        }
+
+        #connDot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            transition: background .4s;
+        }
+
+        #connBadge.connected #connDot {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+        }
+
+        #connBadge.connected {
+            border-color: rgba(45, 250, 142, .3);
+        }
+
+        #connBadge.error #connDot {
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red);
+        }
+
+        .back-btn {
+            padding: 5px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(100, 160, 255, .1);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all .2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(100, 160, 255, .22);
+        }
+
+        /* ─── Left panel – IMU + orientation ─── */
+        #leftPanel {
+            position: fixed;
+            top: 56px;
+            left: 14px;
+            z-index: 400;
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* ─── Right panel – telemetry cards ─── */
+        #rightPanel {
+            position: fixed;
+            top: 56px;
+            right: 14px;
+            z-index: 400;
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Shared card style */
+        .panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            backdrop-filter: blur(20px);
+            box-shadow: var(--shadow);
+        }
+
+        .card-title {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        /* ─── Attitude indicator (artificial horizon) ─── */
+        #attitudeWrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        #attitudeCanvas {
+            border-radius: 50%;
+        }
+
+        /* ─── Numeric rows ─── */
+        .num-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(100, 160, 255, .07);
+        }
+
+        .num-row:last-child {
+            border-bottom: none;
+        }
+
+        .num-label {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .num-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text);
+            min-width: 56px;
+            text-align: right;
+        }
+
+        .num-val.hi {
+            color: var(--green);
+        }
+
+        .num-val.warn {
+            color: var(--yellow);
+        }
+
+        .num-val.danger {
+            color: var(--red);
+        }
+
+        /* ─── Speed arc ─── */
+        #speedWrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #speedCanvas {
+            display: block;
+        }
+
+        #speedLabel {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: -4px;
+        }
+
+        #speedUnit {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        /* ─── Accel bars ─── */
+        .accel-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 3px 0;
+        }
+
+        .accel-axis {
+            font-size: 10px;
+            font-weight: 600;
+            width: 16px;
+            color: var(--muted);
+        }
+
+        .accel-track {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, .08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .accel-fill {
+            height: 100%;
+            border-radius: 3px;
+            position: absolute;
+            transition: width .25s, left .25s;
+        }
+
+        .accel-fill.pos {
+            background: linear-gradient(90deg, #2dfa8e, #4af);
+            left: 50%;
+        }
+
+        .accel-fill.neg {
+            background: linear-gradient(90deg, #ff4d6d, #ff9f43);
+            right: 50%;
+        }
+
+        .accel-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            width: 40px;
+            text-align: right;
+        }
+
+        /* ─── View controls ─── */
+        #viewControls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 400;
+            display: flex;
+            gap: 8px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: 40px;
+            padding: 6px 14px;
+            backdrop-filter: blur(18px);
+        }
+
+        .view-btn {
+            padding: 5px 14px;
+            border-radius: 20px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .view-btn.active,
+        .view-btn:hover {
+            background: rgba(100, 160, 255, .18);
+            color: var(--accent);
+            border-color: rgba(100, 160, 255, .3);
+        }
+
+        /* ─── Trail toggle ─── */
+        #trailToggle {
+            position: fixed;
+            bottom: 68px;
+            right: 14px;
+            z-index: 400;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--bg-glass);
+            backdrop-filter: blur(18px);
+            color: var(--muted);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        #trailToggle.on {
+            color: var(--accent);
+            border-color: rgba(100, 160, 255, .4);
+        }
+
+        /* ─── Coord strip ─── */
+        #coordStrip {
+            position: fixed;
+            bottom: 20px;
+            right: 14px;
+            z-index: 400;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--muted);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 10px;
+            backdrop-filter: blur(18px);
+        }
+
+        /* ─── Gyro ring display ─── */
+        #gyroWrap {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* ─── No-data overlay ─── */
+        #noDataOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 600;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(5, 8, 20, .92);
+            backdrop-filter: blur(10px);
+            gap: 16px;
+        }
+
+        #noDataOverlay h2 {
+            font-size: 20px;
+            color: var(--accent);
+        }
+
+        #noDataOverlay p {
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+            max-width: 320px;
+            line-height: 1.6;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 3px solid rgba(68, 170, 255, .15);
+            border-top-color: var(--accent);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #noDataOverlay.hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ═══════════════════════ TOP BAR ═══════════════════════ -->
+    <div id="topBar">
+        <h1>🚗 Hidroana <span>3D Telemetri</span></h1>
+        <div class="header-right">
+            <div id="connBadge">
+                <div id="connDot"></div>
+                <span id="connLabel">Bağlanıyor…</span>
+            </div>
+            <a class="back-btn" href="/">← Ana Sayfa</a>
+        </div>
+    </div>
+    <!-- ═══════════════════════ LEFT PANEL ═══════════════════════ -->
+    <div id="leftPanel">
+        <!-- Attitude indicator -->
+        <div class="panel-card">
+            <div class="card-title">Yönelim (Attitude)</div>
+            <div id="attitudeWrap">
+                <canvas id="attitudeCanvas" width="150" height="150"></canvas>
+            </div>
+            <div class="num-row"><span class="num-label">Pitch</span><span class="num-val" id="vPitch">--°</span></div>
+            <div class="num-row"><span class="num-label">Roll</span><span class="num-val" id="vRoll">--°</span></div>
+            <div class="num-row"><span class="num-label">Yaw</span><span class="num-val" id="vYaw">--°</span></div>
+        </div>
+        <!-- Gyro rates -->
+        <div class="panel-card">
+            <div class="card-title">Açısal Hız (Gyro °/s)</div>
+            <div class="num-row"><span class="num-label">Gx</span><span class="num-val" id="vGx">--</span></div>
+            <div class="num-row"><span class="num-label">Gy</span><span class="num-val" id="vGy">--</span></div>
+            <div class="num-row"><span class="num-label">Gz</span><span class="num-val" id="vGz">--</span></div>
+        </div>
+        <!-- Accelerometer bars -->
+        <div class="panel-card">
+            <div class="card-title">İvme (Accel m/s²)</div>
+            <div class="accel-row">
+                <span class="accel-axis" style="color:#ff4d6d">X</span>
+                <div class="accel-track">
+                    <div class="accel-fill" id="barAxPos"></div>
+                    <div class="accel-fill neg" id="barAxNeg"></div>
+                </div>
+                <span class="accel-val" id="vAx">--</span>
+            </div>
+            <div class="accel-row">
+                <span class="accel-axis" style="color:#2dfa8e">Y</span>
+                <div class="accel-track">
+                    <div class="accel-fill" id="barAyPos"></div>
+                    <div class="accel-fill neg" id="barAyNeg"></div>
+                </div>
+                <span class="accel-val" id="vAy">--</span>
+            </div>
+            <div class="accel-row">
+                <span class="accel-axis" style="color:#4af">Z</span>
+                <div class="accel-track">
+                    <div class="accel-fill" id="barAzPos"></div>
+                    <div class="accel-fill neg" id="barAzNeg"></div>
+                </div>
+                <span class="accel-val" id="vAz">--</span>
+            </div>
+        </div>
+    </div>
+    <!-- ═══════════════════════ RIGHT PANEL ═══════════════════════ -->
+    <div id="rightPanel">
+        <!-- Speed -->
+        <div class="panel-card">
+            <div class="card-title">Hız</div>
+            <div id="speedWrap">
+                <canvas id="speedCanvas" width="160" height="90"></canvas>
+                <div id="speedLabel">0</div>
+                <div id="speedUnit">km/h</div>
+            </div>
+        </div>
+        <!-- Location -->
+        <div class="panel-card">
+            <div class="card-title">Konum (GPS)</div>
+            <div class="num-row"><span class="num-label">Lat</span><span class="num-val" id="vLat">--</span></div>
+            <div class="num-row"><span class="num-label">Lon</span><span class="num-val" id="vLon">--</span></div>
+            <div class="num-row"><span class="num-label">Güncelleme</span><span class="num-val" id="vAge">--</span>
+            </div>
+        </div>
+    </div>
+    <!-- ═══════════════════════ CESIUM CONTAINER ═══════════════════════ -->
+    <div id="cesiumContainer"></div>
+    <!-- ═══════════════════════ VIEW CONTROLS ═══════════════════════ -->
+    <div id="viewControls">
+        <button class="view-btn active" id="btnFly" onclick="setViewMode('fly')">🚁 Takip</button>
+        <button class="view-btn" id="btnBird" onclick="setViewMode('bird')">🗺️ Kuş Bakışı</button>
+        <button class="view-btn" id="btnFree" onclick="setViewMode('free')">🔓 Serbest</button>
+        <button class="view-btn" id="btnCockpit" onclick="setViewMode('cockpit')">🏎️ Kokpit</button>
+    </div>
+    <button id="trailToggle" onclick="toggleTrail()" class="on">🛤️ İz Açık</button>
+    <div id="coordStrip" id="coordStrip">GPS: bekleniyor…</div>
+    <!-- ═══════════════════════ NO DATA OVERLAY ═══════════════════════ -->
+    <div id="noDataOverlay">
+        <div class="spinner"></div>
+        <h2>Telemetri Bekleniyor</h2>
+        <p>Araçtan veri geldiğinde 3D görünüm başlayacak.<br>Sunucu SSE akışına bağlanılıyor…</p>
+    </div>
+    <script>
+        /* ═══════════════════════════════════════════
+           AUTH CHECK
+        ═══════════════════════════════════════════ */
+        fetch('/api/auth/check')
+            .then(r => r.json())
+            .then(d => { if (!d.authenticated) window.location.href = '/login'; })
+            .catch(() => window.location.href = '/login');
+        /* ═══════════════════════════════════════════
+           CESIUM SETUP
+        ═══════════════════════════════════════════ */
+        // Use your own Cesium Ion token if you have one; null = anonymous (limited use)
+        // For Google Photorealistic 3D Tiles, no Cesium Ion token is strictly needed
+        // when loading from the public Google Maps Tiles API endpoint.
+        // However Cesium Ion token is required for some resources.
+        // We'll use the free anonymous access level here.
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMmU4YzIzYy0xZjVhLTRkMzMtOGRhMS03ZTMwYzBjMzRjMGUiLCJpZCI6NDM1NzMwLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3Nzk2MTIwNDZ9.Y8v_WuOP9DNpNDHi5E1izPgE8nu9OFtM5YFjgKtpvdI';
+        // CesiumJS 1.107+ API: terrainProvider yerine terrain option kullan
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            terrain: Cesium.Terrain.fromWorldTerrain(),
+            animation: false,
+            baseLayerPicker: false,
+            fullscreenButton: false,
+            geocoder: false,
+            homeButton: false,
+            infoBox: false,
+            sceneModePicker: false,
+            selectionIndicator: false,
+            timeline: false,
+            navigationHelpButton: false,
+            navigationInstructionsInitiallyVisible: false,
+        });
+        // Google Photorealistic 3D Tiles (Cesium 1.107+ API)
+        let tiles3DLoaded = false;
+        async function tryLoad3DTiles() {
+            try {
+                const googleTiles = await Cesium.createGooglePhotorealistic3DTileset();
+                viewer.scene.primitives.add(googleTiles);
+                // 3D Tiles yüklenince globe'u gizle (z-fighting önle)
+                viewer.scene.globe.show = false;
+                tiles3DLoaded = true;
+                console.log('✅ Google Photorealistic 3D Tiles yüklendi');
+            } catch (e) {
+                console.warn('⚠️ Google 3D Tiles yüklenemedi, terrain+imagery kullanılıyor:', e.message);
+                viewer.scene.globe.show = true;
+            }
+        }
+        tryLoad3DTiles();
+        // Scene settings
+        viewer.scene.globe.enableLighting = true;
+        viewer.scene.fog.enabled = true;
+        viewer.scene.skyAtmosphere.show = true;
+        viewer.scene.msaaSamples = 4;
+        // Yüksek grafik kalitesi
+        viewer.resolutionScale = window.devicePixelRatio || 1;
+        viewer.scene.postProcessStages.fxaa.enabled = true;
+        viewer.scene.globe.maximumScreenSpaceError = 1.5;
+        viewer.scene.globe.depthTestAgainstTerrain = true;
+        viewer.scene.skyBox.show = true;
+        /* ═══════════════════════════════════════════
+           VEHICLE ENTITY
+        ═══════════════════════════════════════════ */
+        const vehicleEntity = viewer.entities.add({
+            position: new Cesium.ConstantPositionProperty(Cesium.Cartesian3.fromDegrees(29.0, 41.0, 50)),
+            orientation: new Cesium.ConstantProperty(Cesium.Quaternion.IDENTITY),
+            // Simple cone model – replaced by a 3D box representing the car
+            box: {
+                dimensions: new Cesium.Cartesian3(2.0, 4.5, 1.4),
+                material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#4aaaffcc')),
+                outline: true,
+                outlineColor: Cesium.Color.fromCssColorString('#ffffff44'),
+                outlineWidth: 1,
+                // HeightReference YOK — updateUI zaten gerçek arazi yüksekliğini hesaplıyor
+            },
+            label: {
+                text: '🚗 Hidroana',
+                font: '13px Inter, sans-serif',
+                fillColor: Cesium.Color.WHITE,
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2,
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                pixelOffset: new Cesium.Cartesian2(0, -30),
+                showBackground: true,
+                backgroundColor: new Cesium.Color(0.05, 0.1, 0.2, 0.75),
+                backgroundPadding: new Cesium.Cartesian2(8, 5),
+                distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2000),
+            }
+        });
+        /* ═══════════════════════════════════════════
+           TRAIL (Polyline path)
+        ═══════════════════════════════════════════ */
+        const MAX_TRAIL = 400;
+        let trailPositions = [];
+        let trailOn = true;
+        const trailEntity = viewer.entities.add({
+            polyline: {
+                positions: new Cesium.CallbackProperty(() => {
+                    return trailPositions.length >= 2 ? trailPositions : [];
+                }, false),
+                width: 3,
+                material: new Cesium.PolylineGlowMaterialProperty({
+                    glowPower: 0.18,
+                    color: Cesium.Color.fromCssColorString('#4aaaffbb')
+                }),
+                clampToGround: true,  // arazi yüzeyine yapış
+            }
+        });
+        /* ═══════════════════════════════════════════
+           VIEW MODES
+        ═══════════════════════════════════════════ */
+        let viewMode = 'fly';
+        let isFirstGPS = true;
+        function setViewMode(mode) {
+            viewMode = mode;
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+            if (mode === 'free') viewer.trackedEntity = undefined;
+        }
+        function updateCamera(lon, lat, alt, yawDeg) {
+            // Gerçek arazi yüksekliğini al (globe tile cache'den senkron)
+            const carto = Cesium.Cartographic.fromDegrees(lon, lat);
+            const terrainH = viewer.scene.globe.getHeight(carto);
+            // globe hazır değilse ellipsoid alt kullan, hazırsa arazi + offset
+            const realAlt = (terrainH != null && !isNaN(terrainH)) ? (terrainH + 2) : 260;
+            const pos = Cesium.Cartesian3.fromDegrees(lon, lat, realAlt);
+            const yawRad = Cesium.Math.toRadians(yawDeg || 0);
+            if (viewMode === 'fly') {
+                // Chase cam: araçın arkasından bakış
+                viewer.camera.lookAt(pos, new Cesium.HeadingPitchRange(
+                    Cesium.Math.toRadians(yawDeg + 180),
+                    Cesium.Math.toRadians(-25),
+                    80
+                ));
+            } else if (viewMode === 'bird') {
+                viewer.camera.lookAt(pos, new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-75), 300));
+            } else if (viewMode === 'cockpit') {
+                viewer.camera.lookAt(pos, new Cesium.HeadingPitchRange(
+                    yawRad,
+                    Cesium.Math.toRadians(-5),
+                    2
+                ));
+            }
+            // 'free' – don't move camera
+        }
+        /* ═══════════════════════════════════════════
+           TRAIL TOGGLE
+        ═══════════════════════════════════════════ */
+        function toggleTrail() {
+            trailOn = !trailOn;
+            const btn = document.getElementById('trailToggle');
+            btn.textContent = trailOn ? '🛤️ İz Açık' : '🛤️ İz Kapalı';
+            btn.classList.toggle('on', trailOn);
+            if (!trailOn) trailPositions = [];
+        }
+        /* ═══════════════════════════════════════════
+           ATTITUDE INDICATOR (canvas)
+        ═══════════════════════════════════════════ */
+        const attCtx = document.getElementById('attitudeCanvas').getContext('2d');
+        const ATT_SIZE = 150;
+        const ATT_R = ATT_SIZE / 2;
+        function drawAttitude(pitchDeg, rollDeg) {
+            attCtx.clearRect(0, 0, ATT_SIZE, ATT_SIZE);
+            attCtx.save();
+            attCtx.translate(ATT_R, ATT_R);
+            // Clip circle
+            attCtx.beginPath();
+            attCtx.arc(0, 0, ATT_R - 2, 0, Math.PI * 2);
+            attCtx.clip();
+            // Rotate for roll
+            attCtx.rotate(Cesium.Math.toRadians(-rollDeg));
+            // Pitch offset in pixels (1° = 1.5px)
+            const pitchPx = pitchDeg * 1.5;
+            // Sky
+            attCtx.fillStyle = 'linear-gradient(180deg, #0a2260 0%, #1a4aaa 100%)';
+            const skyGrad = attCtx.createLinearGradient(0, -ATT_R, 0, pitchPx);
+            skyGrad.addColorStop(0, '#0a2260');
+            skyGrad.addColorStop(1, '#1a6aee');
+            attCtx.fillStyle = skyGrad;
+            attCtx.fillRect(-ATT_R, -ATT_R * 2, ATT_R * 2, ATT_R * 2 + pitchPx);
+            // Ground
+            const gndGrad = attCtx.createLinearGradient(0, pitchPx, 0, ATT_R);
+            gndGrad.addColorStop(0, '#6b3a1e');
+            gndGrad.addColorStop(1, '#3d1f0a');
+            attCtx.fillStyle = gndGrad;
+            attCtx.fillRect(-ATT_R, pitchPx, ATT_R * 2, ATT_R * 2);
+            // Horizon line
+            attCtx.strokeStyle = 'rgba(255,255,255,.9)';
+            attCtx.lineWidth = 1.5;
+            attCtx.beginPath();
+            attCtx.moveTo(-ATT_R, pitchPx);
+            attCtx.lineTo(ATT_R, pitchPx);
+            attCtx.stroke();
+            // Pitch ladder lines
+            for (let p = -30; p <= 30; p += 10) {
+                if (p === 0) continue;
+                const y = pitchPx - p * 1.5;
+                const len = p % 20 === 0 ? 30 : 18;
+                attCtx.strokeStyle = 'rgba(255,255,255,.55)';
+                attCtx.lineWidth = 1;
+                attCtx.beginPath();
+                attCtx.moveTo(-len, y);
+                attCtx.lineTo(len, y);
+                attCtx.stroke();
+                attCtx.fillStyle = 'rgba(255,255,255,.7)';
+                attCtx.font = '8px Inter';
+                attCtx.textAlign = 'right';
+                attCtx.fillText(p + '°', -len - 3, y + 3);
+            }
+            attCtx.restore();
+            // Fixed aircraft symbol (unrotated)
+            attCtx.save();
+            attCtx.translate(ATT_R, ATT_R);
+            attCtx.strokeStyle = '#ffd166';
+            attCtx.lineWidth = 2;
+            // Wings
+            attCtx.beginPath();
+            attCtx.moveTo(-28, 0); attCtx.lineTo(-10, 0); attCtx.lineTo(-8, 5);
+            attCtx.moveTo(28, 0); attCtx.lineTo(10, 0); attCtx.lineTo(8, 5);
+            attCtx.stroke();
+            // Center dot
+            attCtx.beginPath();
+            attCtx.arc(0, 0, 3, 0, Math.PI * 2);
+            attCtx.fillStyle = '#ffd166';
+            attCtx.fill();
+            // Outer ring
+            attCtx.beginPath();
+            attCtx.arc(0, 0, ATT_R - 2, 0, Math.PI * 2);
+            attCtx.strokeStyle = 'rgba(255,255,255,.25)';
+            attCtx.lineWidth = 1;
+            attCtx.stroke();
+            attCtx.restore();
+        }
+        drawAttitude(0, 0);
+        /* ═══════════════════════════════════════════
+           SPEED ARC (canvas)
+        ═══════════════════════════════════════════ */
+        const speedCtx = document.getElementById('speedCanvas').getContext('2d');
+        const SW = 160, SH = 90;
+        const SCX = SW / 2, SCY = SH + 10;
+        const SR = 90;
+        const ARC_START = Math.PI, ARC_END = 2 * Math.PI;
+        const MAX_SPEED = 80;
+        function drawSpeed(kmh) {
+            speedCtx.clearRect(0, 0, SW, SH);
+            const t = Math.min(kmh / MAX_SPEED, 1);
+            const angle = ARC_START + t * Math.PI;
+            // Background arc
+            speedCtx.beginPath();
+            speedCtx.arc(SCX, SCY, SR, ARC_START, ARC_END);
+            speedCtx.strokeStyle = 'rgba(255,255,255,.08)';
+            speedCtx.lineWidth = 8;
+            speedCtx.lineCap = 'round';
+            speedCtx.stroke();
+            // Filled arc
+            if (kmh > 0) {
+                const grad = speedCtx.createLinearGradient(0, 0, SW, 0);
+                grad.addColorStop(0, '#2dfa8e');
+                grad.addColorStop(0.5, '#4aafff');
+                grad.addColorStop(1, '#ff4d6d');
+                speedCtx.beginPath();
+                speedCtx.arc(SCX, SCY, SR, ARC_START, angle);
+                speedCtx.strokeStyle = grad;
+                speedCtx.lineWidth = 8;
+                speedCtx.lineCap = 'round';
+                speedCtx.stroke();
+            }
+            // Tick marks
+            for (let i = 0; i <= 8; i++) {
+                const a = ARC_START + (i / 8) * Math.PI;
+                const r1 = SR - 14, r2 = SR - 8;
+                speedCtx.beginPath();
+                speedCtx.moveTo(SCX + r1 * Math.cos(a), SCY + r1 * Math.sin(a));
+                speedCtx.lineTo(SCX + r2 * Math.cos(a), SCY + r2 * Math.sin(a));
+                speedCtx.strokeStyle = 'rgba(255,255,255,.3)';
+                speedCtx.lineWidth = 1;
+                speedCtx.stroke();
+            }
+        }
+        drawSpeed(0);
+        /* ═══════════════════════════════════════════
+           ACCEL BARS
+        ═══════════════════════════════════════════ */
+        const ACCEL_MAX = 20; // m/s² full scale
+        function updateAccelBar(posId, negId, valId, val) {
+            const el = document.getElementById(valId);
+            if (el) el.textContent = isNaN(val) ? '--' : val.toFixed(2);
+            const pct = Math.min(Math.abs(val) / ACCEL_MAX * 50, 50); // max 50% (half)
+            const posEl = document.getElementById(posId);
+            const negEl = document.getElementById(negId);
+            if (!posEl || !negEl) return;
+            if (val >= 0) {
+                posEl.style.width = pct + '%';
+                negEl.style.width = '0%';
+            } else {
+                posEl.style.width = '0%';
+                negEl.style.width = pct + '%';
+            }
+        }
+        /* ═══════════════════════════════════════════
+           UI HELPERS
+        ═══════════════════════════════════════════ */
+        function setText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+        function colorVal(id, val, warnThresh, dangerThresh) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.remove('hi', 'warn', 'danger');
+            if (Math.abs(val) >= dangerThresh) el.classList.add('danger');
+            else if (Math.abs(val) >= warnThresh) el.classList.add('warn');
+            else el.classList.add('hi');
+        }
+        let lastDataTime = null;
+        function updateAge() {
+            if (!lastDataTime) { setText('vAge', '--'); return; }
+            const sec = Math.round((Date.now() - lastDataTime) / 1000);
+            setText('vAge', sec < 2 ? 'Canlı 🟢' : sec + 's önce');
+        }
+        setInterval(updateAge, 1000);
+        /* ═══════════════════════════════════════════
+           DATA UPDATE
+        ═══════════════════════════════════════════ */
+        let hasGPS = false;
+        function updateUI(d) {
+            const lat = parseFloat(d.x);  // x = latitude
+            const lon = parseFloat(d.y);  // y = longitude
+            const speed = parseFloat(d.h) || 0;
+            const pitch = parseFloat(d.pitch) || 0;
+            const roll = parseFloat(d.roll) || 0;
+            const yaw = parseFloat(d.yaw) || 0;
+            const gx = parseFloat(d.gx) || 0;
+            const gy = parseFloat(d.gy) || 0;
+            const gz = parseFloat(d.gz) || 0;
+            const ax = parseFloat(d.ax) || 0;
+            const ay = parseFloat(d.ay) || 0;
+            const az = parseFloat(d.az) || 0;
+            lastDataTime = Date.now();
+            // ── Attitude indicator
+            drawAttitude(pitch, roll);
+            setText('vPitch', isNaN(parseFloat(d.pitch)) ? '--°' : pitch.toFixed(1) + '°');
+            setText('vRoll', isNaN(parseFloat(d.roll)) ? '--°' : roll.toFixed(1) + '°');
+            setText('vYaw', isNaN(parseFloat(d.yaw)) ? '--°' : yaw.toFixed(1) + '°');
+            // ── Gyro
+            setText('vGx', isNaN(parseFloat(d.gx)) ? '--' : gx.toFixed(2));
+            setText('vGy', isNaN(parseFloat(d.gy)) ? '--' : gy.toFixed(2));
+            setText('vGz', isNaN(parseFloat(d.gz)) ? '--' : gz.toFixed(2));
+            colorVal('vGx', gx, 30, 90);
+            colorVal('vGy', gy, 30, 90);
+            colorVal('vGz', gz, 30, 90);
+            // ── Accel
+            updateAccelBar('barAxPos', 'barAxNeg', 'vAx', ax);
+            updateAccelBar('barAyPos', 'barAyNeg', 'vAy', ay);
+            updateAccelBar('barAzPos', 'barAzNeg', 'vAz', az);
+            // ── Speed
+            drawSpeed(speed);
+            setText('speedLabel', Math.round(speed));
+            // ── Orientation quaternion from yaw/pitch/roll (ZYX Euler → quaternion)
+            const hpr = new Cesium.HeadingPitchRoll(
+                Cesium.Math.toRadians(yaw),
+                Cesium.Math.toRadians(pitch),
+                Cesium.Math.toRadians(roll)
+            );
+            // ── GPS / 3D position
+            if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+                // Gerçek arazi yüksekliğini globe tile cache'den al
+                const carto = Cesium.Cartographic.fromDegrees(lon, lat);
+                const terrainH = viewer.scene.globe.getHeight(carto);
+                const realAlt = (terrainH != null && !isNaN(terrainH)) ? (terrainH + 2) : 260;
+
+                const pos = Cesium.Cartesian3.fromDegrees(lon, lat, realAlt);
+                // Update entity position
+                vehicleEntity.position = new Cesium.ConstantPositionProperty(pos);
+                // Orientation
+                const orientation = Cesium.Transforms.headingPitchRollQuaternion(pos, hpr);
+                vehicleEntity.orientation = new Cesium.ConstantProperty(orientation);
+                // Trail (clampToGround ile alt önemli değil ama tutarlı olsun)
+                if (trailOn) {
+                    trailPositions.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+                    if (trailPositions.length > MAX_TRAIL) trailPositions.shift();
+                }
+                // Camera
+                updateCamera(lon, lat, alt, yaw);
+                // Coord display
+                setText('vLat', lat.toFixed(6));
+                setText('vLon', lon.toFixed(6));
+                document.getElementById('coordStrip').textContent =
+                    `📍 ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+                // First GPS → zoom in
+                if (isFirstGPS) {
+                    isFirstGPS = false;
+                    viewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(lon, lat, 500),
+                        orientation: { heading: Cesium.Math.toRadians(yaw), pitch: Cesium.Math.toRadians(-35), roll: 0 },
+                        duration: 2
+                    });
+                    setTimeout(() => { document.getElementById('noDataOverlay').classList.add('hidden'); }, 500);
+                }
+                hasGPS = true;
+            }
+            // Hide overlay once we have any data
+            if (!hasGPS) {
+                document.getElementById('noDataOverlay').classList.add('hidden');
+            }
+        }
+        /* ═══════════════════════════════════════════
+           SSE CONNECTION
+        ═══════════════════════════════════════════ */
+        let evtSource = null;
+        let reconnectTimer = null;
+        function connectSSE() {
+            if (evtSource) { evtSource.close(); evtSource = null; }
+            evtSource = new EventSource('/api/telemetry/stream');
+            evtSource.onopen = () => {
+                const badge = document.getElementById('connBadge');
+                badge.className = 'connected';
+                setText('connLabel', 'Bağlı');
+                if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+            };
+            evtSource.onmessage = (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.type === 'flow_update') return; // ignore flow-only packets
+                    updateUI(d);
+                } catch (err) { /* ignore parse errors */ }
+            };
+            evtSource.onerror = () => {
+                const badge = document.getElementById('connBadge');
+                badge.className = 'error';
+                setText('connLabel', 'Bağlantı kesildi');
+                evtSource.close();
+                evtSource = null;
+                if (!reconnectTimer) {
+                    reconnectTimer = setTimeout(connectSSE, 3000);
+                }
+            };
+        }
+        connectSSE();
+    </script>
+</body>
+
+</html>

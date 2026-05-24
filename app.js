@@ -197,7 +197,7 @@ function initMap() {
         return;
     }
 
-    map = L.map('map').setView([50.528366, 18.0975], 19);
+    map = L.map('map').setView([37.401573, -116.867808], 17);
 
     // Base layers
     const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -783,7 +783,8 @@ function processQueuedData(data, queueTimestamp) {
         jv: parseFloat(data.jv || data.jouleVoltage || 0),
         jc: parseFloat(data.jc || data.jouleCurrent || 0),
         jw: parseFloat(data.jw || data.jouleWatt || 0),
-        jwh: parseFloat(data.jwh || data.jouleWh || 0)
+        jwh: parseFloat(data.jwh || data.jouleWh || 0),
+        gsmspeed: parseFloat(data.gsmspeed || 0)
     };
 
     // Store in history
@@ -871,9 +872,11 @@ function updateConnectionStatus(connected) {
 }
 
 // Update GSM signal indicator
-function updateGSMSignal(value) {
+function updateGSMSignal(value, gsmspeed) {
     const gsmEl = document.getElementById('gsmSignal');
+    setElementText('gsmSpeedValue', `GSM Speed: ${(gsmspeed || 0).toFixed(1)} km/h`);
     const gsmValue = document.getElementById('gsmValue');
+    const gsmSpeedValue = document.getElementById('gsmSpeedValue');
     if (!gsmEl || !gsmValue) return;
 
     const bars = gsmEl.querySelectorAll('.bar');
@@ -1035,7 +1038,8 @@ function processRealTimeData(data) {
         jwh: parseFloat(data.jwh || data.jouleWh || 0),
         mt: parseFloat(data.mt || 0),
         watt: parseFloat(data.watt || 0),
-        ppm: parseFloat(data.ppm || 0)
+        ppm: parseFloat(data.ppm || 0),
+        gsmspeed: parseFloat(data.gsmspeed || 0)
     };
 
     // Update map position
@@ -1069,7 +1073,7 @@ function processRealTimeData(data) {
     }
 
     // Update GSM signal
-    updateGSMSignal(telemetry.gs);
+    updateGSMSignal(telemetry.gs, telemetry.gsmspeed);
 
     // Update speedometer
     const speed = Math.min(telemetry.h, 60);
