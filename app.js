@@ -827,17 +827,6 @@ function processQueuedData(data, queueTimestamp) {
         });
     }
 
-    if (telemetry.h < 10) {
-        document.getElementById('white-rabbit').textContent = '🐢';
-    } else if (telemetry.h < 20) {
-        document.getElementById('white-rabbit').textContent = '🐰';
-    } else if (telemetry.h < 35) {
-        document.getElementById('white-rabbit').textContent = '🐇';
-    } else if (telemetry.h < 45) {
-        document.getElementById('white-rabbit').textContent = '🐎';
-    } else {
-        document.getElementById('white-rabbit').textContent = '🚀';
-    }
 
     // Update charts
     // Fuel cell charts
@@ -1080,7 +1069,17 @@ function processRealTimeData(data) {
         marker.setIcon(customIcon);
         marker.setLatLng(newPosition);
         map.panTo(newPosition);
-
+        if (telemetry.h < 10) {
+            document.getElementById('white-rabbit').textContent = '🐢';
+        } else if (telemetry.h < 20) {
+            document.getElementById('white-rabbit').textContent = '🐰';
+        } else if (telemetry.h < 35) {
+            document.getElementById('white-rabbit').textContent = '🐇';
+        } else if (telemetry.h < 45) {
+            document.getElementById('white-rabbit').textContent = '🐎';
+        } else {
+            document.getElementById('white-rabbit').textContent = '🚀';
+        }
         setElementText('coordinate-label', `${telemetry.y.toFixed(6)}, ${telemetry.x.toFixed(6)} (Lat, Long)`);
     }
 
