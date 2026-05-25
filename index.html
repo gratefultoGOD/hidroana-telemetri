@@ -70,6 +70,7 @@
                 </div>
                 <div class="test-controls admin-only" id="testControls" style="display:none;">
                     <button class="test-btn" id="testStartBtn" onclick="toggleTest()"> Test Başlat</button>
+                    <button class="test-btn test-pause-btn" id="testPauseBtn" onclick="togglePauseTest()" style="display:none;">⏸ Duraklat</button>
                     <span class="test-timer" id="testTimer" style="display:none;">00:00:00</span>
                 </div>
                 <button class="export-btn admin-only" id="testFilesBtn" onclick="showTestFilesModal()"
@@ -654,6 +655,17 @@
             animation: pulse 1.5s infinite;
         }
 
+        .test-pause-btn {
+            background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%) !important;
+            color: #1a1a2e !important;
+            animation: none !important;
+        }
+
+        .test-pause-btn.resumed {
+            background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%) !important;
+            color: #1a1a2e !important;
+        }
+
         @keyframes pulse {
 
             0%,
@@ -853,8 +865,10 @@
 
         // Test modu değişkenleri
         let testActive = false;
+        let testPaused = false;
         let testTimerInterval = null;
         let testStartTime = null;
+        let testPausedElapsed = 0;  // İstemci tarafında duraklatma hesabı için
 
         // Test başlat/durdur
         function toggleTest() {
@@ -871,8 +885,10 @@
                 .then(data => {
                     if (data.success) {
                         testActive = true;
+                        testPaused = false;
+                        testPausedElapsed = 0;
                         testStartTime = Date.now();
-                        updateTestUI(true);
+                        updateTestUI(true, false);
                         startTestTimer();
                     } else {
                         alert('Hata: ' + (data.error || 'Test başlatılamadı'));
@@ -887,8 +903,10 @@
                 .then(data => {
                     if (data.success) {
                         testActive = false;
+                        testPaused = false;
+                        testPausedElapsed = 0;
                         stopTestTimer();
-                        updateTestUI(false);
+                        updateTestUI(false, false);
                         alert(`Test tamamlandı!\n\nDosya: ${data.testName}\nSüre: ${data.duration}\nVeri sayısı: ${data.dataCount}`);
                     } else {
                         alert('Hata: ' + (data.error || 'Test durdurulamadı'));
@@ -897,8 +915,59 @@
                 .catch(err => alert('Bağlantı hatası: ' + err.message));
         }
 
-        function updateTestUI(active) {
+        // Duraklat / Devam Et toggle
+        function togglePauseTest() {
+            if (!testActive) return;
+            if (testPaused) {
+                resumeTest();
+            } else {
+                pauseTest();
+            }
+        }
+
+        function pauseTest() {
+            fetch('/api/test/pause', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        testPaused = true;
+                        // Sayacı durdur
+                        stopTestTimer();
+                        updateTestUI(true, true);
+                    } else {
+                        alert('Hata: ' + (data.error || 'Test duraklatılamadı'));
+                    }
+                })
+                .catch(err => alert('Bağlantı hatası: ' + err.message));
+        }
+
+        function resumeTest() {
+            fetch('/api/test/resume', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        testPaused = false;
+                        // Duraklatılan süreyi güncelleyerek sayacı devam ettir
+                        // Sunucudan gerçek elapsed çek ve güncelle
+                        fetch('/api/test/status')
+                            .then(r => r.json())
+                            .then(st => {
+                                if (st.active && !st.paused) {
+                                    testStartTime = Date.now() - st.elapsed;
+                                    updateTestUI(true, false);
+                                    startTestTimer();
+                                }
+                            });
+                    } else {
+                        alert('Hata: ' + (data.error || 'Test devam ettirilemedi'));
+                    }
+                })
+                .catch(err => alert('Bağlantı hatası: ' + err.message));
+        }
+
+        function updateTestUI(active, paused) {
             const btn = document.getElementById('testStartBtn');
+            const pauseBtn = document.getElementById('testPauseBtn');
             const timer = document.getElementById('testTimer');
 
             if (active) {
@@ -906,12 +975,26 @@
                 btn.classList.add('active');
                 timer.style.display = 'inline-block';
                 timer.classList.add('active');
+                // Duraklat butonu göster
+                pauseBtn.style.display = 'inline-block';
+                if (paused) {
+                    pauseBtn.textContent = '▶️ Devam Et';
+                    pauseBtn.classList.add('resumed');
+                    timer.classList.add('paused-style');
+                } else {
+                    pauseBtn.textContent = '⏸ Duraklat';
+                    pauseBtn.classList.remove('resumed');
+                    timer.classList.remove('paused-style');
+                }
             } else {
-                btn.textContent = 'Test Başlat';
+                btn.textContent = ' Test Başlat';
                 btn.classList.remove('active');
                 timer.style.display = 'none';
                 timer.classList.remove('active');
+                timer.classList.remove('paused-style');
                 timer.textContent = '00:00:00';
+                pauseBtn.style.display = 'none';
+                pauseBtn.classList.remove('resumed');
             }
         }
 
@@ -936,16 +1019,19 @@
             return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        // Sayfa yüklendiğinde test durumunu kontrol et
+        // Sayfa yüklendiginde test durumunu kontrol et
         function checkTestStatus() {
             fetch('/api/test/status')
                 .then(res => res.json())
                 .then(data => {
                     if (data.active) {
                         testActive = true;
+                        testPaused = data.paused || false;
                         testStartTime = Date.now() - data.elapsed;
-                        updateTestUI(true);
-                        startTestTimer();
+                        updateTestUI(true, testPaused);
+                        if (!testPaused) {
+                            startTestTimer();
+                        }
                     }
                 })
                 .catch(() => { });

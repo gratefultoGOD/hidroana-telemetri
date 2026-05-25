@@ -239,7 +239,10 @@ let testMode = {
     active: false,
     startTime: null,
     testName: null,
-    pendingTestData: []
+    pendingTestData: [],
+    paused: false,       // Duraklatılmış mı?
+    pausedAt: null,      // Duraklatma zamanı (ms, epoch)
+    pausedElapsed: 0     // Toplam duraklatılmış süre (ms)
 };
 
 // ============================================
@@ -703,8 +706,11 @@ function processIncomingData(data) {
     }
 
     // Test modu aktifse test verilerini de kaydet (realFlow dahil)
-    if (testMode.active && testMode.startTime) {
-        const elapsedMs = now.getTime() - testMode.startTime;
+    // Duraklatılmışsa veri kaydedilmez
+    if (testMode.active && !testMode.paused && testMode.startTime) {
+        // Gerçek geçen süre = toplam süre - duraklatılmış süre
+        const rawElapsed = now.getTime() - testMode.startTime;
+        const elapsedMs = rawElapsed - testMode.pausedElapsed;
         const testTime = formatTestTime(elapsedMs);
 
         const testDataWithTime = {
@@ -1278,19 +1284,24 @@ app.post('/api/test/stop', requireAdmin, (req, res) => {
         dataCount = Math.max(0, lines.length - 1);
     }
 
-    console.log(`Test durduruldu: ${testName} | Süre: ${formatTestTime(duration)} | Veri: ${dataCount}`);
+    // Gerçek süre = toplam süre - duraklatılmış süre
+    const realDuration = duration - testMode.pausedElapsed;
+    console.log(`Test durduruldu: ${testName} | Süre: ${formatTestTime(realDuration)} | Veri: ${dataCount}`);
 
     testMode.active = false;
     testMode.startTime = null;
     testMode.testName = null;
     testMode.pendingTestData = [];
+    testMode.paused = false;
+    testMode.pausedAt = null;
+    testMode.pausedElapsed = 0;
 
     res.json({
         success: true,
         message: 'Test durduruldu',
         testName: testName,
-        duration: formatTestTime(duration),
-        durationMs: duration,
+        duration: formatTestTime(realDuration),
+        durationMs: realDuration,
         dataCount: dataCount
     });
 });
@@ -1299,20 +1310,67 @@ app.post('/api/test/stop', requireAdmin, (req, res) => {
 app.get('/api/test/status', requireAuth, (req, res) => {
     if (!testMode.active) {
         return res.json({
-            active: false
+            active: false,
+            paused: false
         });
     }
 
-    const elapsed = Date.now() - testMode.startTime;
+    const rawElapsed = Date.now() - testMode.startTime;
+    // Eğer şu an duraklatılmışsa, mevcut duraklatma süresini de ekle
+    const currentPausedMs = testMode.paused && testMode.pausedAt
+        ? (Date.now() - testMode.pausedAt)
+        : 0;
+    const elapsed = rawElapsed - testMode.pausedElapsed - currentPausedMs;
 
     res.json({
         active: true,
+        paused: testMode.paused,
         testName: testMode.testName,
         startTime: new Date(testMode.startTime).toISOString(),
         elapsed: elapsed,
         elapsedFormatted: formatTestTime(elapsed),
         pendingData: testMode.pendingTestData.length
     });
+});
+
+// Test duraklat (SADECE ADMIN)
+app.post('/api/test/pause', requireAdmin, (req, res) => {
+    if (!testMode.active) {
+        return res.status(400).json({ error: 'Aktif test yok' });
+    }
+    if (testMode.paused) {
+        return res.status(400).json({ error: 'Test zaten duraklatılmış' });
+    }
+
+    testMode.paused = true;
+    testMode.pausedAt = Date.now();
+
+    // Bekleyen verileri hemen kaydet
+    if (testMode.pendingTestData.length > 0) {
+        flushTestDataToFile();
+    }
+
+    console.log(`⏸️ Test duraklatıldı: ${testMode.testName}`);
+    res.json({ success: true, message: 'Test duraklatıldı', testName: testMode.testName });
+});
+
+// Test devam ettir (SADECE ADMIN)
+app.post('/api/test/resume', requireAdmin, (req, res) => {
+    if (!testMode.active) {
+        return res.status(400).json({ error: 'Aktif test yok' });
+    }
+    if (!testMode.paused) {
+        return res.status(400).json({ error: 'Test duraklatılmamış' });
+    }
+
+    // Duraklatılmış süreyi birikimli olarak ekle
+    const pauseDuration = Date.now() - testMode.pausedAt;
+    testMode.pausedElapsed += pauseDuration;
+    testMode.paused = false;
+    testMode.pausedAt = null;
+
+    console.log(`▶️ Test devam ediyor: ${testMode.testName} | Duraklatma süresi: ${formatTestTime(pauseDuration)}`);
+    res.json({ success: true, message: 'Test devam ediyor', testName: testMode.testName, pauseDuration });
 });
 
 // Test dosyalarını listele (SADECE ADMIN)

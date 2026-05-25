@@ -350,6 +350,92 @@
             border-color: rgba(100, 160, 255, .3);
         }
 
+        /* ─── FPS hint overlay ─── */
+        #fpsHint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 450;
+            background: var(--bg-card);
+            border: 1px solid rgba(100,160,255,.35);
+            border-radius: 16px;
+            padding: 22px 32px;
+            backdrop-filter: blur(24px);
+            box-shadow: 0 12px 48px rgba(0,0,0,.7);
+            text-align: center;
+            display: none;
+            animation: fadeInScale .25s ease;
+        }
+        #fpsHint.visible { display: block; }
+        @keyframes fadeInScale {
+            from { opacity:0; transform: translate(-50%,-50%) scale(.92); }
+            to   { opacity:1; transform: translate(-50%,-50%) scale(1); }
+        }
+        #fpsHint h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 14px;
+            letter-spacing: .5px;
+        }
+        .fps-keys {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 18px;
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+        .fps-keys kbd {
+            display: inline-block;
+            background: rgba(100,160,255,.12);
+            border: 1px solid rgba(100,160,255,.3);
+            border-radius: 5px;
+            padding: 1px 7px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--accent);
+            margin-right: 4px;
+        }
+        #fpsHint p {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        #fpsStartBtn {
+            margin-top: 14px;
+            padding: 7px 22px;
+            border-radius: 20px;
+            border: 1px solid rgba(100,160,255,.4);
+            background: rgba(100,160,255,.15);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        #fpsStartBtn:hover {
+            background: rgba(100,160,255,.28);
+        }
+        /* crosshair when FPS active */
+        #fpsCrosshair {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            z-index: 449;
+            pointer-events: none;
+            display: none;
+        }
+        #fpsCrosshair.visible { display: block; }
+        #fpsCrosshair::before, #fpsCrosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,.6);
+        }
+        #fpsCrosshair::before { width:14px; height:1.5px; top:-0.75px; left:-7px; }
+        #fpsCrosshair::after  { width:1.5px; height:14px; top:-7px; left:-0.75px; }
+
         /* ─── Trail toggle ─── */
         #trailToggle {
             position: fixed;
@@ -531,6 +617,19 @@
         <button class="view-btn" id="btnFree" onclick="setViewMode('free')">🔓 Serbest</button>
         <button class="view-btn" id="btnCockpit" onclick="setViewMode('cockpit')">🏎️ Kokpit</button>
     </div>
+    <!-- ═══════════════════════ FPS HINT ═══════════════════════ -->
+    <div id="fpsHint">
+        <h3>🎮 FPS Kamera Kontrolü</h3>
+        <div class="fps-keys">
+            <div><kbd>W</kbd><kbd>S</kbd> İleri / Geri</div>
+            <div><kbd>A</kbd><kbd>D</kbd> Sol / Sağ</div>
+            <div><kbd>Q</kbd><kbd>E</kbd> Aşağı / Yukarı</div>
+            <div><kbd>Shift</kbd> Hızlı hareket</div>
+        </div>
+        <p>Mouse ile bakış yönünü kontrol edin.<br>Çıkmak için <kbd>Esc</kbd> tuşuna basın.</p>
+        <button id="fpsStartBtn" onclick="startFPSMode()">▶ Başlat — Tıkla</button>
+    </div>
+    <div id="fpsCrosshair"></div>
     <button id="trailToggle" onclick="toggleTrail()" class="on">🛤️ İz Açık</button>
     <div id="coordStrip" id="coordStrip">GPS: bekleniyor…</div>
     <!-- ═══════════════════════ NO DATA OVERLAY ═══════════════════════ -->
@@ -556,9 +655,9 @@
         // However Cesium Ion token is required for some resources.
         // We'll use the free anonymous access level here.
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIxMmU4YzIzYy0xZjVhLTRkMzMtOGRhMS03ZTMwYzBjMzRjMGUiLCJpZCI6NDM1NzMwLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3Nzk2MTIwNDZ9.Y8v_WuOP9DNpNDHi5E1izPgE8nu9OFtM5YFjgKtpvdI';
-        // CesiumJS 1.107+ API: terrainProvider yerine terrain option kullan
+        // Viewer: hata olmazı için önce düz başlat, terrain'i sonra yükle
         const viewer = new Cesium.Viewer('cesiumContainer', {
-            terrain: Cesium.Terrain.fromWorldTerrain(),
+            terrainProvider: new Cesium.EllipsoidTerrainProvider(), // her zaman çalışır
             animation: false,
             baseLayerPicker: false,
             fullscreenButton: false,
@@ -570,7 +669,20 @@
             timeline: false,
             navigationHelpButton: false,
             navigationInstructionsInitiallyVisible: false,
+            requestRenderMode: true,       // sadece güncelleme olunca render et (performans)
+            maximumRenderTimeChange: 0.5,  // 500ms'de bir zorunlu render
         });
+        // World terrain'i async olarak yüklemeyi dene (token gerekli)
+        async function tryLoadTerrain() {
+            try {
+                const terrain = await Cesium.Terrain.fromWorldTerrain();
+                viewer.scene.setTerrain(terrain);
+                console.log('✅ World Terrain yüklendi');
+            } catch(e) {
+                console.warn('⚠️ World Terrain yüklenemedi, ellipsoid kullanılıyor:', e.message);
+            }
+        }
+        tryLoadTerrain();
         // Google Photorealistic 3D Tiles (Cesium 1.107+ API)
         let tiles3DLoaded = false;
         async function tryLoad3DTiles() {
@@ -587,17 +699,10 @@
             }
         }
         tryLoad3DTiles();
-        // Scene settings
-        viewer.scene.globe.enableLighting = true;
-        viewer.scene.fog.enabled = true;
-        viewer.scene.skyAtmosphere.show = true;
-        viewer.scene.msaaSamples = 4;
-        // Yüksek grafik kalitesi
-        viewer.resolutionScale = window.devicePixelRatio || 1;
-        viewer.scene.postProcessStages.fxaa.enabled = true;
-        viewer.scene.globe.maximumScreenSpaceError = 1.5;
-        viewer.scene.globe.depthTestAgainstTerrain = true;
-        viewer.scene.skyBox.show = true;
+        // Hafif sahne ayarları
+        try { viewer.scene.fog.enabled = true; } catch(_) {}
+        try { viewer.scene.msaaSamples = 2; } catch(_) {}
+        try { viewer.scene.globe.depthTestAgainstTerrain = true; } catch(_) {}
         /* ═══════════════════════════════════════════
            VEHICLE ENTITY
         ═══════════════════════════════════════════ */
@@ -611,7 +716,9 @@
                 outline: true,
                 outlineColor: Cesium.Color.fromCssColorString('#ffffff44'),
                 outlineWidth: 1,
-                // HeightReference YOK — updateUI zaten gerçek arazi yüksekliğini hesaplıyor
+                // RELATIVE_TO_GROUND: Cesium otomatik arazi yüksekliğini hesaplar
+                // Entity alt=0 verilir, Cesium terrain üzerine oturtur
+                heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
             },
             label: {
                 text: '🚗 Hidroana',
@@ -628,10 +735,10 @@
                 distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2000),
             }
         });
-        /* ═══════════════════════════════════════════
+        /* ═════════════════════════════════════════════
            TRAIL (Polyline path)
-        ═══════════════════════════════════════════ */
-        const MAX_TRAIL = 400;
+        ═════════════════════════════════════════════ */
+        const MAX_TRAIL = 300; // 400'den 300'e indirdik (performans)
         let trailPositions = [];
         let trailOn = true;
         const trailEntity = viewer.entities.add({
@@ -652,12 +759,110 @@
         ═══════════════════════════════════════════ */
         let viewMode = 'fly';
         let isFirstGPS = true;
+
+        /* ─── FPS state ─── */
+        const fpsKeys = {};
+        let fpsActive = false;
+        let fpsRAF = null;
+        // Birikiml i heading/pitch — gimbal drift olmaması için kendi takibimiz
+        let fpsHeading = 0;  // radyan, 0 = kuzey
+        let fpsPitch   = Cesium.Math.toRadians(-10); // hafif aşağı bakış
+        const FPS_SENS = 0.0025;
+        const PITCH_MIN = Cesium.Math.toRadians(-89);
+        const PITCH_MAX = Cesium.Math.toRadians(89);
+
+        function startFPSMode() {
+            document.getElementById('fpsHint').classList.remove('visible');
+            document.getElementById('fpsCrosshair').classList.add('visible');
+            // Mevcut kamera açısını başlangıç değeri olarak al
+            fpsHeading = viewer.camera.heading;
+            fpsPitch   = viewer.camera.pitch;
+            viewer.scene.screenSpaceCameraController.enableInputs = false;
+            viewer.scene.canvas.requestPointerLock();
+        }
+
+        function stopFPSMode() {
+            fpsActive = false;
+            if (fpsRAF) { cancelAnimationFrame(fpsRAF); fpsRAF = null; }
+            document.getElementById('fpsCrosshair').classList.remove('visible');
+            viewer.scene.screenSpaceCameraController.enableInputs = true;
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        // Pointer lock change
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === viewer.scene.canvas) {
+                fpsActive = true;
+                fpsTick();
+            } else {
+                fpsActive = false;
+                if (fpsRAF) { cancelAnimationFrame(fpsRAF); fpsRAF = null; }
+                if (viewMode === 'free') {
+                    document.getElementById('fpsHint').classList.add('visible');
+                    document.getElementById('fpsCrosshair').classList.remove('visible');
+                    viewer.scene.screenSpaceCameraController.enableInputs = false;
+                }
+            }
+        });
+
+        // Mouse look — heading/pitch biriktir, setView ile uygula
+        document.addEventListener('mousemove', (e) => {
+            if (!fpsActive || viewMode !== 'free') return;
+            // movementX sağa pozitif → kamera sağa dönmeli → heading artar
+            fpsHeading += e.movementX * FPS_SENS;
+            // movementY aşağıya pozitif (ekran koordinatı) → kamera aşağı baksın → pitch azalir
+            fpsPitch -= e.movementY * FPS_SENS;
+            fpsPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, fpsPitch));
+            viewer.camera.setView({
+                orientation: { heading: fpsHeading, pitch: fpsPitch, roll: 0 }
+            });
+            viewer.scene.requestRender();
+        });
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            if (viewMode !== 'free') return;
+            fpsKeys[e.code] = true;
+            // Prevent browser scroll on space/arrow
+            if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+        });
+        document.addEventListener('keyup', (e) => { fpsKeys[e.code] = false; });
+
+        function fpsTick() {
+            if (!fpsActive || viewMode !== 'free') return;
+            const spd = fpsKeys['ShiftLeft'] || fpsKeys['ShiftRight'] ? 80 : 20; // m per second at 60fps
+            const dt = 1 / 60;
+            const move = spd * dt;
+            if (fpsKeys['KeyW'] || fpsKeys['ArrowUp'])    viewer.camera.moveForward(move);
+            if (fpsKeys['KeyS'] || fpsKeys['ArrowDown'])  viewer.camera.moveBackward(move);
+            if (fpsKeys['KeyA'] || fpsKeys['ArrowLeft'])  viewer.camera.moveLeft(move);
+            if (fpsKeys['KeyD'] || fpsKeys['ArrowRight']) viewer.camera.moveRight(move);
+            if (fpsKeys['KeyQ']) viewer.camera.moveDown(move);
+            if (fpsKeys['KeyE']) viewer.camera.moveUp(move);
+            const anyKey = Object.values(fpsKeys).some(Boolean);
+            if (anyKey) viewer.scene.requestRender();
+            fpsRAF = requestAnimationFrame(fpsTick);
+        }
+
         function setViewMode(mode) {
+            // Clean up FPS if leaving free mode
+            if (viewMode === 'free' && mode !== 'free') {
+                stopFPSMode();
+                document.getElementById('fpsHint').classList.remove('visible');
+            }
             viewMode = mode;
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
-            if (mode === 'free') viewer.trackedEntity = undefined;
+            if (mode === 'free') {
+                viewer.trackedEntity = undefined;
+                // Disable cesium default mouse handlers, show FPS hint
+                viewer.scene.screenSpaceCameraController.enableInputs = false;
+                document.getElementById('fpsHint').classList.add('visible');
+            } else {
+                viewer.scene.screenSpaceCameraController.enableInputs = true;
+            }
         }
+
         function updateCamera(lon, lat, alt, yawDeg) {
             // Gerçek arazi yüksekliğini al (globe tile cache'den senkron)
             const carto = Cesium.Cartographic.fromDegrees(lon, lat);
@@ -905,45 +1110,44 @@
             );
             // ── GPS / 3D position
             if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
-                // Gerçek arazi yüksekliğini globe tile cache'den al
+                // Entity pozisyonu: .setValue() ile güncelle — nesneyi yeniden oluşturma!
+                const entityPos = Cesium.Cartesian3.fromDegrees(lon, lat, 0);
+                vehicleEntity.position.setValue(entityPos);
+                // Orientation: gerçek arazi yüksekliği üzerindeki pos ile hesapla
                 const carto = Cesium.Cartographic.fromDegrees(lon, lat);
                 const terrainH = viewer.scene.globe.getHeight(carto);
-                const realAlt = (terrainH != null && !isNaN(terrainH)) ? (terrainH + 2) : 260;
-
+                const realAlt = (terrainH != null && !isNaN(terrainH)) ? (terrainH + 1) : 230;
                 const pos = Cesium.Cartesian3.fromDegrees(lon, lat, realAlt);
-                // Update entity position
-                vehicleEntity.position = new Cesium.ConstantPositionProperty(pos);
-                // Orientation
                 const orientation = Cesium.Transforms.headingPitchRollQuaternion(pos, hpr);
-                vehicleEntity.orientation = new Cesium.ConstantProperty(orientation);
+                vehicleEntity.orientation.setValue(orientation);
                 // Trail (clampToGround ile alt önemli değil ama tutarlı olsun)
                 if (trailOn) {
                     trailPositions.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
                     if (trailPositions.length > MAX_TRAIL) trailPositions.shift();
                 }
                 // Camera
-                updateCamera(lon, lat, alt, yaw);
+                updateCamera(lon, lat, realAlt, yaw);
                 // Coord display
                 setText('vLat', lat.toFixed(6));
                 setText('vLon', lon.toFixed(6));
                 document.getElementById('coordStrip').textContent =
                     `📍 ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-                // First GPS → zoom in
+                // İlk GPS: kamerayı anında araç konumuna taşı
                 if (isFirstGPS) {
                     isFirstGPS = false;
-                    viewer.camera.flyTo({
+                    viewer.camera.setView({
                         destination: Cesium.Cartesian3.fromDegrees(lon, lat, 500),
-                        orientation: { heading: Cesium.Math.toRadians(yaw), pitch: Cesium.Math.toRadians(-35), roll: 0 },
-                        duration: 2
+                        orientation: {
+                            heading: Cesium.Math.toRadians(yaw),
+                            pitch: Cesium.Math.toRadians(-35),
+                            roll: 0
+                        }
                     });
-                    setTimeout(() => { document.getElementById('noDataOverlay').classList.add('hidden'); }, 500);
                 }
                 hasGPS = true;
             }
-            // Hide overlay once we have any data
-            if (!hasGPS) {
-                document.getElementById('noDataOverlay').classList.add('hidden');
-            }
+            // requestRenderMode aktif — her güncellemede render talep et
+            viewer.scene.requestRender();
         }
         /* ═══════════════════════════════════════════
            SSE CONNECTION
@@ -958,6 +1162,9 @@
                 badge.className = 'connected';
                 setText('connLabel', 'Bağlı');
                 if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+                // SSE bağlantısı kurulunca overlay'i hemen kaldır
+                const overlay = document.getElementById('noDataOverlay');
+                if (overlay) overlay.classList.add('hidden');
             };
             evtSource.onmessage = (e) => {
                 try {
