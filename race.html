@@ -212,21 +212,28 @@
         }
 
         .btn-realtime.active {
-            background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,212,170,0.12)) !important;
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.18), rgba(0, 212, 170, 0.12)) !important;
             color: #00ff88 !important;
             border-color: #00ff88 !important;
-            box-shadow: 0 0 12px rgba(0,255,136,0.25) !important;
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.25) !important;
             animation: realtime-pulse 2s infinite;
         }
 
         @keyframes realtime-pulse {
-            0%, 100% { box-shadow: 0 0 10px rgba(0,255,136,0.2); }
-            50%       { box-shadow: 0 0 18px rgba(0,255,136,0.45); }
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 18px rgba(0, 255, 136, 0.45);
+            }
         }
 
         .realtime-status-box {
-            background: rgba(0,255,136,0.05);
-            border: 1px solid rgba(0,255,136,0.2);
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px solid rgba(0, 255, 136, 0.2);
             border-radius: 6px;
             padding: 8px 10px;
             margin-top: 6px;
@@ -234,7 +241,9 @@
             display: none;
         }
 
-        .realtime-status-box.visible { display: block; }
+        .realtime-status-box.visible {
+            display: block;
+        }
 
         .rt-row {
             display: flex;
@@ -242,8 +251,22 @@
             margin: 3px 0;
         }
 
-        .rt-label { color: #666; }
-        .rt-value { color: #00ff88; font-weight: bold; }
+        .rt-label {
+            color: #666;
+        }
+
+        .rt-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        button:disabled,
+        button[disabled] {
+            opacity: 0.28 !important;
+            cursor: not-allowed !important;
+            filter: grayscale(60%);
+            pointer-events: none;
+        }
 
         .back-btn {
             position: absolute;
@@ -516,7 +539,7 @@
                         <span class="efficiency-value" id="fuelA">- W</span>
                     </div>
 
-
+                    <!-- 
                     <div class="efficiency-row">
                         <span class="efficiency-label">SOC:</span>
                         <span class="efficiency-value" id="soc">-%</span>
@@ -529,6 +552,7 @@
                         <span class="efficiency-label" data-i18n="battPower">Batarya Gücü:</span>
                         <span class="efficiency-value" id="batteryPower">- W</span>
                     </div>
+     -->
                 </div>
 
 
@@ -569,7 +593,8 @@
                 <div id="csvStatusMsg"></div>
 
                 <!-- Realtime Mod -->
-                <button class="btn-realtime" id="realtimeToggleBtn" onclick="toggleRealtimeMode()">🔴 Realtime Mod: KAPALI</button>
+                <button class="btn-realtime" id="realtimeToggleBtn" onclick="toggleRealtimeMode()">🔴 Realtime Mod:
+                    KAPALI</button>
                 <div class="realtime-status-box" id="realtimeStatusBox">
                     <div class="rt-row">
                         <span class="rt-label">Bağlantı:</span>
@@ -785,6 +810,9 @@
             if (btn) { btn.textContent = '🟢 Realtime Mod: AÇIK'; btn.classList.add('active'); }
             if (box) { box.classList.add('visible'); }
 
+            // Diğer yükleme butonlarını devre dışı bırak
+            _setLoadButtonsDisabled(true);
+
             document.getElementById('rtConnStatus').textContent = 'Bağlanıyor...';
             startRealtimeSSE();
         }
@@ -798,7 +826,23 @@
             if (btn) { btn.textContent = '🔴 Realtime Mod: KAPALI'; btn.classList.remove('active'); }
             if (box) { box.classList.remove('visible'); }
 
+            // Diğer yükleme butonlarını tekrar aktif et
+            _setLoadButtonsDisabled(false);
+
             stopRealtimeSSE();
+        }
+
+        // Sector Planı Yükle ve CSV Yükle butonlarını disable/enable et
+        function _setLoadButtonsDisabled(disabled) {
+            // "Sector Planı Yükle" butonu — onclick ile tanımlı, text içeriğine göre bul
+            document.querySelectorAll('button').forEach(b => {
+                if (b.id === 'realtimeToggleBtn') return; // Realtime butonuna dokunma
+                if (b.classList.contains('lang-btn')) return; // Dil butonlarına dokunma
+                b.disabled = disabled;
+            });
+            // CSV file input da pasif olsun
+            const csvInput = document.getElementById('csvFileInput');
+            if (csvInput) csvInput.disabled = disabled;
         }
 
         function startRealtimeSSE() {
@@ -847,7 +891,7 @@
         // (race.html'deki applyCsvData mantığıyla birebir aynı, ama parse adımı atlanır)
         function applyRealtimeCsvPayload(payload) {
             const { sectors: newSectors, optimumData: newOptimum,
-                    sectorCoordsArray: newSectorCoords, trackCoordinates: newTrackCoords } = payload;
+                sectorCoordsArray: newSectorCoords, trackCoordinates: newTrackCoords } = payload;
 
             // ── 1. Eski CSV katmanlarını temizle ──
             csvTrackLayers.forEach(l => map.removeLayer(l));
@@ -864,7 +908,7 @@
                 totalTrackLength = 0;
                 for (let i = 1; i < trackCoordinates.length; i++) {
                     totalTrackLength += calculateDistance(
-                        trackCoordinates[i-1][0], trackCoordinates[i-1][1],
+                        trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
                         trackCoordinates[i][0], trackCoordinates[i][1]
                     );
                 }
@@ -890,7 +934,7 @@
             const nameEl = document.getElementById('sectorPlanName');
             if (nameEl) nameEl.textContent = 'Realtime';
 
-            console.log(`🔄 Realtime sector güncellendi: ${newSectors.length} sektör, ${(newOptimum||[]).length} optimum nokta`);
+            console.log(`🔄 Realtime sector güncellendi: ${newSectors.length} sektör, ${(newOptimum || []).length} optimum nokta`);
         }
 
         function initRaceSpeedChart() {
@@ -1506,18 +1550,18 @@
                     trackCoordinates: trackCoordinates
                 })
             })
-            .then(res => res.json())
-            .then(result => {
-                if (result.success) {
-                    setCsvStatus(`✅ ${rows.length} nokta · ${sectorNos.length} sektör · Sunucuya kaydedildi`, '#00ff88');
-                    console.log(`Sector planı sunucuya kaydedildi: ${result.fileName}`);
-                } else {
-                    console.warn('Sector planı kaydedilemedi:', result.error);
-                }
-            })
-            .catch(err => {
-                console.warn('Sector planı kaydetme hatası:', err.message);
-            });
+                .then(res => res.json())
+                .then(result => {
+                    if (result.success) {
+                        setCsvStatus(`✅ ${rows.length} nokta · ${sectorNos.length} sektör · Sunucuya kaydedildi`, '#00ff88');
+                        console.log(`Sector planı sunucuya kaydedildi: ${result.fileName}`);
+                    } else {
+                        console.warn('Sector planı kaydedilemedi:', result.error);
+                    }
+                })
+                .catch(err => {
+                    console.warn('Sector planı kaydetme hatası:', err.message);
+                });
         }
 
         // Sector'leri haritaya uygula
@@ -1679,9 +1723,9 @@
             }
 
             // Verimlilik verileri
-            document.getElementById('soc').textContent = (parseFloat(data.soc || 0)).toFixed(0) + '%';
-            document.getElementById('remainingEnergy').textContent = (parseFloat(data.ke || 0)).toFixed(2) + ' kWh';
-            document.getElementById('batteryPower').textContent = (parseFloat(data.bw || 0)).toFixed(2) + ' W';
+            //document.getElementById('soc').textContent = (parseFloat(data.soc || 0)).toFixed(0) + '%';
+            //document.getElementById('remainingEnergy').textContent = (parseFloat(data.ke || 0)).toFixed(2) + ' kWh';
+            //document.getElementById('batteryPower').textContent = (parseFloat(data.bw || 0)).toFixed(2) + ' W';
             document.getElementById('fuelPower').textContent = (parseFloat(data.fw || 0)).toFixed(2) + ' W';
             document.getElementById('fuelV').textContent = (parseFloat(data.fv || 0)).toFixed(2) + ' V';
             document.getElementById('fuelA').textContent = (parseFloat(data.fa || 0)).toFixed(2) + ' A';
