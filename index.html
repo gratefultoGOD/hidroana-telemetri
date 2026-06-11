@@ -1252,6 +1252,53 @@
     </script>
 
     <script src="app.js"></script>
+
+    <!-- ========== EASTER EGG – Palyaço 🤡 ========== -->
+    <div id="easterEggClown" class="easter-egg-clown">
+        <img src="Clown_2.webp" alt="🤡" draggable="false">
+    </div>
+
+    <style>
+        /* Palyaço – sağ alt köşe, bounce yok, alt boşluk yok */
+        .easter-egg-clown {
+            position: fixed;
+            bottom: -220px;   /* başlangıçta gizli */
+            right: 0;
+            z-index: 99999;
+            pointer-events: none;
+            user-select: none;
+            width: 160px;
+        }
+
+        .easter-egg-clown img {
+            width: 100%;
+            height: auto;
+            display: block;
+            filter: drop-shadow(0 -6px 18px rgba(255, 80, 200, 0.75))
+                    drop-shadow(0 0 30px rgba(255, 210, 0, 0.45));
+        }
+
+        /* Düz, bounce'suz giriş */
+        @keyframes clown-enter {
+            0%   { bottom: -220px; }
+            100% { bottom: -5px;   }
+        }
+
+        /* Düz çıkış */
+        @keyframes clown-exit {
+            0%   { bottom: -5px;   }
+            100% { bottom: -220px; }
+        }
+
+        .easter-egg-clown.clown-show {
+            animation: clown-enter 0.55s ease-out forwards;
+        }
+
+        .easter-egg-clown.clown-hide {
+            animation: clown-exit 0.4s ease-in forwards;
+        }
+    </style>
+    <!-- ================================================ -->
 </body>
 
 </html>

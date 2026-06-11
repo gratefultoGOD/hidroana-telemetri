@@ -157,6 +157,31 @@ let lapState = {
 
 let lapSSEClients = new Set(); // Lap SSE client'ları
 
+// ============================================
+// REALTIME SECTOR SSE CLIENT YÖNETİMİ
+// ============================================
+let raceSectorClients = new Set(); // /race sayfasına sector güncellemesi SSE client'ları
+
+// Son realtime sector verisini sakla (yeni bağlanan client'a hemen gönder)
+let lastRealtimeSectorPayload = null;
+
+// Realtime sector SSE broadcast
+function broadcastSectorUpdate(payload) {
+    lastRealtimeSectorPayload = payload;
+    const message = `data: ${JSON.stringify(payload)}\n\n`;
+    raceSectorClients.forEach(client => {
+        try {
+            client.write(message);
+        } catch (error) {
+            console.error('Race Sector SSE client yazma hatası:', error);
+            raceSectorClients.delete(client);
+        }
+    });
+    if (raceSectorClients.size > 0) {
+        console.log(`🏁 Realtime sector broadcast: ${raceSectorClients.size} client'a gönderildi`);
+    }
+}
+
 // Lap SSE broadcast
 function broadcastLapState() {
     const data = {
@@ -1033,6 +1058,7 @@ app.get('/data', (req, res) => {
 // ============================================
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.text({ limit: '20mb', type: ['text/plain', 'text/csv', 'application/octet-stream'] }));
 
 app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -2138,6 +2164,181 @@ app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
     fs.unlinkSync(filePath);
     res.json({ success: true });
 });
+
+// ============================================
+// REALTIME SECTOR API
+// ============================================
+
+// Sunucu taraflı CSV medyan hesaplama yardımcısı
+function calcMedianServer(arr) {
+    if (arr.length === 0) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Realtime CSV endpoint — güçlü PC bu adrese CSV gönderir
+// Auth: requireAdmin middleware (admin session cookie'si gerekli)
+app.post('/api/sectors/realtime-csv', requireAdmin, (req, res) => {
+    // Body'yi metin olarak oku (express.text() middleware'i henüz eklenmemiş olabilir)
+    let csvText = '';
+    if (typeof req.body === 'string') {
+        csvText = req.body;
+    } else if (Buffer.isBuffer(req.body)) {
+        csvText = req.body.toString('utf8');
+    } else if (req.body && typeof req.body === 'object' && req.body.csv) {
+        // JSON gövdesiyle gönderim: { "csv": "s,lat,lon..." }
+        csvText = req.body.csv;
+    }
+
+    if (!csvText || csvText.trim() === '') {
+        return res.status(400).json({ error: 'CSV verisi boş' });
+    }
+
+    try {
+        // ── Parse ──
+        const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+        if (lines.length < 2) {
+            return res.status(400).json({ error: 'CSV boş veya başlık yok' });
+        }
+
+        const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^\uFEFF/, ''));
+        const idxS = header.indexOf('s') !== -1 ? header.indexOf('s') : header.indexOf('zaman_ms');
+        const idxLat = header.indexOf('lat');
+        const idxLon = header.indexOf('lon');
+        let idxV = header.indexOf('v_kmh');
+        if (idxV < 0) idxV = header.indexOf('hiz_kmh');
+        let idxSector = header.indexOf('sector');
+        if (idxSector < 0) idxSector = header.indexOf('sectors');
+
+        if (idxLat < 0 || idxLon < 0) {
+            return res.status(400).json({ error: "CSV'de lat/lon sütunu bulunamadı" });
+        }
+        if (idxV < 0) {
+            return res.status(400).json({ error: "CSV'de v_kmh veya hiz_kmh sütunu bulunamadı" });
+        }
+
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',');
+            if (cols.length < header.length) continue;
+            const sVal = idxS >= 0 ? parseFloat(cols[idxS]) : i;
+            const latVal = parseFloat(cols[idxLat]);
+            const lonVal = parseFloat(cols[idxLon]);
+            const vVal = parseFloat(cols[idxV]);
+            if (isNaN(latVal) || isNaN(lonVal) || isNaN(vVal)) continue;
+
+            let sectorVal;
+            if (idxSector >= 0) {
+                const raw = parseFloat(cols[idxSector]);
+                sectorVal = isNaN(raw) ? 1 : Math.floor(raw);
+            } else {
+                sectorVal = -1;
+            }
+            rows.push({ s: sVal, lat: latVal, lon: lonVal, v: vVal, sector: sectorVal });
+        }
+
+        if (rows.length === 0) {
+            return res.status(400).json({ error: 'Geçerli satır bulunamadı' });
+        }
+
+        // Sector sütunu yoksa otomatik 7 eşit sektör
+        if (rows[0].sector === -1) {
+            const sMin = Math.min(...rows.map(r => r.s));
+            const sMax = Math.max(...rows.map(r => r.s));
+            const sectorWidth = (sMax - sMin) / 7;
+            rows.forEach(r => {
+                r.sector = Math.min(7, Math.floor((r.s - sMin) / sectorWidth) + 1);
+            });
+        }
+
+        // Sektör haritası oluştur
+        const sectorMap = {};
+        rows.forEach(r => {
+            if (!sectorMap[r.sector]) sectorMap[r.sector] = { minS: r.s, maxS: r.s, speeds: [] };
+            const sm = sectorMap[r.sector];
+            if (r.s < sm.minS) sm.minS = r.s;
+            if (r.s > sm.maxS) sm.maxS = r.s;
+            sm.speeds.push(r.v);
+        });
+
+        const sectorNos = Object.keys(sectorMap).map(Number).sort((a, b) => a - b);
+
+        // sectors array
+        const sectors = sectorNos.map(no => {
+            const sm = sectorMap[no];
+            return {
+                id: no,
+                startMeter: sm.minS,
+                endMeter: sm.maxS,
+                targetSpeed: Math.round(calcMedianServer(sm.speeds) * 10) / 10
+            };
+        });
+
+        // optimumData
+        const optimumData = rows.map(r => ({ s: Math.round(r.s), v: r.v }));
+
+        // trackCoordinates
+        const trackCoordinates = rows.map(r => [r.lat, r.lon]);
+
+        // sectorCoordsArray
+        const sectorCoords = {};
+        sectorNos.forEach(no => {
+            sectorCoords[no] = rows.filter(r => r.sector === no).map(r => [r.lat, r.lon]);
+        });
+        const sectorCoordsArray = sectorNos.map(no => ({ sectorId: no, coords: sectorCoords[no] }));
+
+        // SSE payload
+        const payload = {
+            type: 'sector_update',
+            sectors,
+            optimumData,
+            sectorCoordsArray,
+            trackCoordinates,
+            timestamp: Date.now(),
+            rowCount: rows.length,
+            sectorCount: sectorNos.length
+        };
+
+        broadcastSectorUpdate(payload);
+
+        console.log(`📡 Realtime CSV: ${rows.length} satır, ${sectorNos.length} sektör → ${raceSectorClients.size} client'a yayınlandı`);
+        res.json({ success: true, rows: rows.length, sectors: sectorNos.length, broadcast: raceSectorClients.size });
+
+    } catch (err) {
+        console.error('Realtime CSV parse hatası:', err);
+        res.status(500).json({ error: 'CSV işleme hatası: ' + err.message });
+    }
+});
+
+// Realtime sector SSE stream — /race sayfası buraya subscribe olur
+app.get('/api/sectors/realtime-stream', requireAdmin, (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    raceSectorClients.add(res);
+    console.log(`🔌 Race Sector SSE client bağlandı. Toplam: ${raceSectorClients.size}`);
+
+    // Yeni bağlanan client'a en son sektör verisini hemen gönder
+    if (lastRealtimeSectorPayload) {
+        res.write(`data: ${JSON.stringify(lastRealtimeSectorPayload)}\n\n`);
+    }
+
+    // Heartbeat — bağlantıyı canlı tut
+    const heartbeat = setInterval(() => {
+        res.write(': heartbeat\n\n');
+    }, 30000);
+
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        raceSectorClients.delete(res);
+        console.log(`🔌 Race Sector SSE client ayrıldı. Toplam: ${raceSectorClients.size}`);
+    });
+});
+
 
 function serveStaticWithAuth(req, res, next) {
     const blockedFiles = ['/users.json', '/package.json', '/package-lock.json', '/server.js', '/create-user.js', '/clientmqtt.js', '/.env', '/node_modules', '/sectors.html', '/race.html', '/laps.html', '/play.html'];

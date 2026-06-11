@@ -141,13 +141,52 @@
 
         /* LEFT PANEL */
         .left-panel {
-            width: 320px;
+            width: var(--left-panel-width, 320px);
             flex-shrink: 0;
             background: var(--bg-dark);
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            min-width: 180px;
+            max-width: 60vw;
+        }
+
+        /* RESIZER */
+        .panel-resizer {
+            width: 6px;
+            flex-shrink: 0;
+            background: transparent;
+            cursor: col-resize;
+            position: relative;
+            z-index: 10;
+            transition: background 0.2s;
+        }
+
+        .panel-resizer::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 40px;
+            background: var(--border);
+            border-radius: 2px;
+            transition: all 0.2s;
+        }
+
+        .panel-resizer:hover,
+        .panel-resizer.resizing {
+            background: rgba(102, 126, 234, 0.08);
+        }
+
+        .panel-resizer:hover::after,
+        .panel-resizer.resizing::after {
+            background: var(--primary);
+            width: 3px;
+            height: 60px;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.5);
         }
 
         #map {
@@ -825,12 +864,15 @@
         </div>
 
         <!-- MAIN -->
-        <div class="main-area">
+        <div class="main-area" id="mainArea">
 
             <!-- LEFT: Map -->
-            <div class="left-panel">
+            <div class="left-panel" id="leftPanel">
                 <div id="map"></div>
             </div>
+
+            <!-- RESIZER -->
+            <div class="panel-resizer" id="panelResizer" title="Sürükle: harita genişliğini ayarla&#10;Çift tık: sıfırla"></div>
 
             <!-- RIGHT: Charts -->
             <div class="right-panel">
@@ -1129,6 +1171,8 @@
         // MAP INIT
         // =============================================
         const map = L.map('map', { zoomControl: true, attributionControl: false });
+        window._playMap = map;
+
 
         // Ana sayfayla aynı katmanlar
         const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -2080,6 +2124,78 @@
             _origInitPlayer();
             initPlayDragDrop();
         };
+
+        // ===================== PANEL RESIZER =====================
+        (function () {
+            const resizer = document.getElementById('panelResizer');
+            const leftPanel = document.getElementById('leftPanel');
+            const mainArea = document.getElementById('mainArea');
+            const DEFAULT_WIDTH = 320;
+            const STORAGE_KEY = 'play_leftPanelWidth';
+
+            // Restore saved width
+            const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+            if (saved && saved > 180) {
+                leftPanel.style.setProperty('--left-panel-width', saved + 'px');
+                leftPanel.style.width = saved + 'px';
+            }
+
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = leftPanel.offsetWidth;
+                resizer.classList.add('resizing');
+
+                // Prevent text selection & map interference during drag
+                document.body.style.userSelect = 'none';
+                document.body.style.cursor = 'col-resize';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const dx = e.clientX - startX;
+                const newWidth = Math.min(
+                    Math.max(startWidth + dx, 180),
+                    mainArea.offsetWidth * 0.65
+                );
+                leftPanel.style.width = newWidth + 'px';
+
+                // Invalidate leaflet map size live
+                if (window._playMap) {
+                    window._playMap.invalidateSize();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!isResizing) return;
+                isResizing = false;
+                resizer.classList.remove('resizing');
+                document.body.style.userSelect = '';
+                document.body.style.cursor = '';
+
+                // Save to localStorage
+                localStorage.setItem(STORAGE_KEY, leftPanel.offsetWidth);
+
+                // Final map resize
+                if (window._playMap) {
+                    window._playMap.invalidateSize();
+                }
+            });
+
+            // Double-click to reset
+            resizer.addEventListener('dblclick', () => {
+                leftPanel.style.width = DEFAULT_WIDTH + 'px';
+                localStorage.setItem(STORAGE_KEY, DEFAULT_WIDTH);
+                if (window._playMap) {
+                    window._playMap.invalidateSize();
+                }
+            });
+        })();
     </script>
 </body>
 

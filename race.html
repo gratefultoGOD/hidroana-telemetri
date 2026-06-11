@@ -198,6 +198,53 @@
             word-break: break-all;
         }
 
+        .btn-realtime {
+            background: linear-gradient(135deg, #2d2d2d, #1a1a1a) !important;
+            color: #888 !important;
+            margin-top: 8px !important;
+            border: 1px solid #444 !important;
+            transition: all 0.25s ease !important;
+        }
+
+        .btn-realtime:hover {
+            border-color: #00ff88 !important;
+            color: #00ff88 !important;
+        }
+
+        .btn-realtime.active {
+            background: linear-gradient(135deg, rgba(0,255,136,0.18), rgba(0,212,170,0.12)) !important;
+            color: #00ff88 !important;
+            border-color: #00ff88 !important;
+            box-shadow: 0 0 12px rgba(0,255,136,0.25) !important;
+            animation: realtime-pulse 2s infinite;
+        }
+
+        @keyframes realtime-pulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(0,255,136,0.2); }
+            50%       { box-shadow: 0 0 18px rgba(0,255,136,0.45); }
+        }
+
+        .realtime-status-box {
+            background: rgba(0,255,136,0.05);
+            border: 1px solid rgba(0,255,136,0.2);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-top: 6px;
+            font-size: 11px;
+            display: none;
+        }
+
+        .realtime-status-box.visible { display: block; }
+
+        .rt-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+        }
+
+        .rt-label { color: #666; }
+        .rt-value { color: #00ff88; font-weight: bold; }
+
         .back-btn {
             position: absolute;
             top: 8px;
@@ -520,6 +567,23 @@
                     Uygula</button>
                 <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCsvFile(event)">
                 <div id="csvStatusMsg"></div>
+
+                <!-- Realtime Mod -->
+                <button class="btn-realtime" id="realtimeToggleBtn" onclick="toggleRealtimeMode()">🔴 Realtime Mod: KAPALI</button>
+                <div class="realtime-status-box" id="realtimeStatusBox">
+                    <div class="rt-row">
+                        <span class="rt-label">Bağlantı:</span>
+                        <span class="rt-value" id="rtConnStatus">—</span>
+                    </div>
+                    <div class="rt-row">
+                        <span class="rt-label">Son güncelleme:</span>
+                        <span class="rt-value" id="rtLastUpdate">—</span>
+                    </div>
+                    <div class="rt-row">
+                        <span class="rt-label">Satır / Sektör:</span>
+                        <span class="rt-value" id="rtStats">—</span>
+                    </div>
+                </div>
             </div>
 
             <div class="map-container">
@@ -689,6 +753,145 @@
         // Optimum hız datası: [{s, v}] — sektör yüklenince dolar
         let optimumSpeedData = [];
         const RACE_MAX_POINTS = 20; // Grafikte gösterilecek max nokta sayısı
+
+        // ─────────────────────────────────────────────────────────
+        // REALTIME MOD — SSE tabanlı anlık sector planı güncelleme
+        // ─────────────────────────────────────────────────────────
+        let realtimeMode = false;
+        let realtimeSSE = null; // EventSource referansı
+
+        // Sayfa açılışında localStorage'dan modu geri yükle
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('raceRealtimeMode') === 'true') {
+                // Harita hazır olana kadar kısa bekle (initMap sonrası)
+                setTimeout(() => startRealtimeMode(), 1500);
+            }
+        });
+
+        function toggleRealtimeMode() {
+            if (realtimeMode) {
+                stopRealtimeMode();
+            } else {
+                startRealtimeMode();
+            }
+        }
+
+        function startRealtimeMode() {
+            realtimeMode = true;
+            localStorage.setItem('raceRealtimeMode', 'true');
+
+            const btn = document.getElementById('realtimeToggleBtn');
+            const box = document.getElementById('realtimeStatusBox');
+            if (btn) { btn.textContent = '🟢 Realtime Mod: AÇIK'; btn.classList.add('active'); }
+            if (box) { box.classList.add('visible'); }
+
+            document.getElementById('rtConnStatus').textContent = 'Bağlanıyor...';
+            startRealtimeSSE();
+        }
+
+        function stopRealtimeMode() {
+            realtimeMode = false;
+            localStorage.setItem('raceRealtimeMode', 'false');
+
+            const btn = document.getElementById('realtimeToggleBtn');
+            const box = document.getElementById('realtimeStatusBox');
+            if (btn) { btn.textContent = '🔴 Realtime Mod: KAPALI'; btn.classList.remove('active'); }
+            if (box) { box.classList.remove('visible'); }
+
+            stopRealtimeSSE();
+        }
+
+        function startRealtimeSSE() {
+            stopRealtimeSSE(); // Varsa önce kapat
+            realtimeSSE = new EventSource('/api/sectors/realtime-stream');
+
+            realtimeSSE.onopen = () => {
+                console.log('🔌 Realtime sector SSE bağlandı');
+                const el = document.getElementById('rtConnStatus');
+                if (el) el.textContent = 'Bağlı ✓';
+            };
+
+            realtimeSSE.onmessage = (event) => {
+                try {
+                    const payload = JSON.parse(event.data);
+                    if (payload.type === 'sector_update') {
+                        applyRealtimeCsvPayload(payload);
+                        // Durum bilgisini güncelle
+                        const now = new Date();
+                        const timeStr = now.toLocaleTimeString('tr-TR');
+                        const statsEl = document.getElementById('rtStats');
+                        const updateEl = document.getElementById('rtLastUpdate');
+                        if (statsEl) statsEl.textContent = `${payload.rowCount} / ${payload.sectorCount}`;
+                        if (updateEl) updateEl.textContent = timeStr;
+                    }
+                } catch (err) {
+                    console.error('Realtime SSE parse hatası:', err);
+                }
+            };
+
+            realtimeSSE.onerror = () => {
+                const el = document.getElementById('rtConnStatus');
+                if (el) el.textContent = 'Bağlantı Yok ✗';
+                console.warn('Realtime sector SSE bağlantı hatası');
+            };
+        }
+
+        function stopRealtimeSSE() {
+            if (realtimeSSE) {
+                realtimeSSE.close();
+                realtimeSSE = null;
+            }
+        }
+
+        // Sunucudan parse edilmiş sector verisini alıp haritaya uygula
+        // (race.html'deki applyCsvData mantığıyla birebir aynı, ama parse adımı atlanır)
+        function applyRealtimeCsvPayload(payload) {
+            const { sectors: newSectors, optimumData: newOptimum,
+                    sectorCoordsArray: newSectorCoords, trackCoordinates: newTrackCoords } = payload;
+
+            // ── 1. Eski CSV katmanlarını temizle ──
+            csvTrackLayers.forEach(l => map.removeLayer(l));
+            csvTrackLayers = [];
+            if (kmlTrackLayer) { map.removeLayer(kmlTrackLayer); kmlTrackLayer = null; }
+            sectorLayers.forEach(l => map.removeLayer(l));
+            sectorLayers = [];
+            currentSectorIndex = -1;
+
+            // ── 2. trackCoordinates güncelle ──
+            if (newTrackCoords && newTrackCoords.length > 0) {
+                trackCoordinates = newTrackCoords;
+                // Toplam mesafeyi güncelle
+                totalTrackLength = 0;
+                for (let i = 1; i < trackCoordinates.length; i++) {
+                    totalTrackLength += calculateDistance(
+                        trackCoordinates[i-1][0], trackCoordinates[i-1][1],
+                        trackCoordinates[i][0], trackCoordinates[i][1]
+                    );
+                }
+            }
+
+            // ── 3. Sectors güncelle ──
+            sectors = newSectors;
+
+            // ── 4. Optimum hız datasını yükle ──
+            setOptimumData(newOptimum || []);
+
+            // ── 5. Haritada sektörlere göre renkli yolları çiz ──
+            if (newSectorCoords && newSectorCoords.length > 0) {
+                applySectorsFromCoords(newSectorCoords);
+            }
+
+            // ── 6. Haritayı fit et (ilk gelişte) ──
+            if (trackCoordinates.length > 0) {
+                map.fitBounds(L.polyline(trackCoordinates).getBounds(), { padding: [20, 20] });
+            }
+
+            // ── 7. UI güncelle ──
+            const nameEl = document.getElementById('sectorPlanName');
+            if (nameEl) nameEl.textContent = 'Realtime';
+
+            console.log(`🔄 Realtime sector güncellendi: ${newSectors.length} sektör, ${(newOptimum||[]).length} optimum nokta`);
+        }
 
         function initRaceSpeedChart() {
             const canvas = document.getElementById('raceSpeedChart');

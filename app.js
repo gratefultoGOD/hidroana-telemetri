@@ -22,6 +22,34 @@ console.log(" ░███    ░███  ░███  ░███    ██
 console.log(" ░███    ░███  █████ ██████████   █████   █████  ░░███████   ░░███    ░███  ░███     ░███  ░███    ░███ ")
 console.log(" ░░░     ░░░   ░░░░░ ░░░░░░░░░░   ░░░░░   ░░░░░   ░░░░░░░    ░░░░░   ░░░░    ░░░      ░░░   ░░░     ░░░ ")
 console.log("")
+// ============================================
+// EASTER EGG – Palyaço 🤡
+// Dark mode tuşuna hızlı ardışık basışlarda tetiklenir
+// ============================================
+let _easterEggClickCount = 0;
+let _easterEggTimer = null;
+let _easterEggActive = false;
+const _EASTER_EGG_THRESHOLD = 5;   // kaç basış gerekli
+const _EASTER_EGG_TIMEOUT  = 700;  // ms – bu süre içinde basılmazsa sıfırla
+
+function _triggerClownEasterEgg() {
+    if (_easterEggActive) return;
+    _easterEggActive = true;
+    const clown = document.getElementById('easterEggClown');
+    if (!clown) return;
+    clown.classList.remove('clown-hide');
+    clown.classList.add('clown-show');
+}
+
+function _hideClownEasterEgg() {
+    if (!_easterEggActive) return;
+    _easterEggActive = false;
+    const clown = document.getElementById('easterEggClown');
+    if (!clown) return;
+    clown.classList.remove('clown-show');
+    clown.classList.add('clown-hide');
+}
+
 function pullCordTheme() {
     const cb = document.getElementById('themeCheckbox');
     if (cb) {
@@ -34,6 +62,21 @@ function pullCordTheme() {
             setTimeout(() => cord.classList.remove('pulled'), 400);
         }
     }
+
+    // Easter egg sayacı
+    _easterEggClickCount++;
+
+    // Yeterli basış → palyaçoyu göster
+    if (_easterEggClickCount >= _EASTER_EGG_THRESHOLD) {
+        _triggerClownEasterEgg();
+    }
+
+    // Önceki timeout'u iptal et, yenisini başlat
+    if (_easterEggTimer) clearTimeout(_easterEggTimer);
+    _easterEggTimer = setTimeout(() => {
+        _easterEggClickCount = 0;
+        _hideClownEasterEgg();
+    }, _EASTER_EGG_TIMEOUT);
 }
 
 function applyTheme(isLight) {
