@@ -629,7 +629,7 @@ function calculateAverages() {
     const averages = {
         allTime: {}, // Running average yöntemiyle hesaplanan günlük ortalama
         last15Seconds: {},
-        allTimeCount: getTodayDataCount() + pendingData.length,
+        allTimeCount: dailyAveragesCount, // Bellekte tutuluyor, dosya okumaya gerek yok
         last15SecondsCount: recentData.length
     };
 
@@ -796,9 +796,8 @@ function processIncomingData(data) {
 
     const speed = latestTelemetryData.h || 'N/A';
     const soc = latestTelemetryData.soc || 'N/A';
-    const todayCount = getTodayDataCount() + pendingData.length;
     const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
-    console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${todayCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+    console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${dailyAveragesCount}${testInfo}`);
 }
 
 // Test zamanını formatla (HH:MM:SS.mmm)
