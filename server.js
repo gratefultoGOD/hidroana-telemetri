@@ -152,7 +152,8 @@ let lapState = {
     startTime: null,
     startJwh: null,
     laps: [],
-    currentJwh: 0
+    currentJwh: 0,
+    savedFileName: null   // Stop sırasında kaydedildi mi?
 };
 
 let lapSSEClients = new Set(); // Lap SSE client'ları
@@ -2002,21 +2003,30 @@ app.post('/api/laps/stop', requireAdmin, (req, res) => {
     }
 
     lapState.active = false;
-    console.log(`🏁 Yarış durduruldu! Toplam ${lapState.laps.length} tur`);
+
+    // Tur varsa dosyaya kaydet (henüz kaydedilmediyse)
+    let savedFile = null;
+    if (lapState.laps.length > 0 && !lapState.savedFileName) {
+        savedFile = saveRaceToFile();
+        lapState.savedFileName = savedFile;
+    }
+
+    console.log(`🏁 Yarış durduruldu! Toplam ${lapState.laps.length} tur${savedFile ? ` | Kaydedildi: ${savedFile}` : ''}`);
     broadcastLapState();
 
     res.json({
         success: true,
         message: 'Yarış durduruldu',
-        lapCount: lapState.laps.length
+        lapCount: lapState.laps.length,
+        savedFile: savedFile
     });
 });
 
 // Yarışı sıfırla (SADECE ADMIN) - mevcut verileri kaydet ve sıfırla
 app.post('/api/laps/reset', requireAdmin, (req, res) => {
-    // Mevcut tur varsa dosyaya kaydet
-    let savedFile = null;
-    if (lapState.laps.length > 0) {
+    // Stop sırasında kaydedilmediyse şimdi kaydet
+    let savedFile = lapState.savedFileName || null;
+    if (lapState.laps.length > 0 && !lapState.savedFileName) {
         savedFile = saveRaceToFile();
     }
 
@@ -2025,7 +2035,8 @@ app.post('/api/laps/reset', requireAdmin, (req, res) => {
         startTime: null,
         startJwh: null,
         laps: [],
-        currentJwh: 0
+        currentJwh: 0,
+        savedFileName: null
     };
 
     console.log(`🏁 Yarış sıfırlandı!${savedFile ? ` Kaydedilen dosya: ${savedFile}` : ''}`);

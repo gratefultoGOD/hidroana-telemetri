@@ -1141,6 +1141,10 @@
         // STATE APPLICATION
         // ══════════════════════════════════════════
         function applyLapState(data) {
+            // Durum tespiti
+            const wasActive  = raceState.active;
+            const wasStarted = raceState.startTime !== null;
+
             raceState = {
                 ...raceState,
                 active: data.active,
@@ -1158,6 +1162,13 @@
             updateTimerState();
             updateButtons();
             updateCurrentLapInfo();
+
+            // Yarış durduruldu (active: true→false, tur var) VEYA sıfırlandı (startTime→null) → listeyi yenile
+            const justStopped = wasActive && !data.active && (data.laps || []).length > 0;
+            const justReset   = wasStarted && data.startTime === null;
+            if (justStopped || justReset) {
+                loadPastRaces();
+            }
         }
 
         // ══════════════════════════════════════════
