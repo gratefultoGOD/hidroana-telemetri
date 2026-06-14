@@ -1167,9 +1167,15 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
     sseClients.add(res);
     console.log(`🔌 SSE client bağlandı. Toplam: ${sseClients.size}`);
 
-    // İlk bağlantıda mevcut veriyi gönder (varsa)
-    if (latestTelemetryData) {
-        res.write(`data: ${JSON.stringify(latestTelemetryData)}\n\n`);
+    // İlk bağlantıda mevcut veriyi gönder — sadece son 10 saniye içinde gelmişse
+    const STALE_THRESHOLD_MS = 10000; // 10 saniye
+    if (latestTelemetryData && latestTelemetryData.receivedAt) {
+        const dataAge = Date.now() - latestTelemetryData.receivedAt;
+        if (dataAge <= STALE_THRESHOLD_MS) {
+            res.write(`data: ${JSON.stringify(latestTelemetryData)}\n\n`);
+        } else {
+            console.log(`⏳ SSE: Son veri ${(dataAge / 1000).toFixed(1)}s eski, yeni client'a gönderilmedi.`);
+        }
     }
 
     // Heartbeat - bağlantıyı canlı tut (her 30 saniyede)

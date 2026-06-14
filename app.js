@@ -737,6 +737,17 @@ async function fetchAndQueueDataPolling() {
 
 // SSE'den gelen veriyi işle
 function handleIncomingData(data) {
+    // Eski veri filtresi: receivedAt 10 saniyeden eskiyse işleme
+    const STALE_THRESHOLD_MS = 10000;
+    if (data.receivedAt) {
+        const dataAge = Date.now() - data.receivedAt;
+        if (dataAge > STALE_THRESHOLD_MS) {
+            console.warn(`⏳ Eski veri alındı (${(dataAge / 1000).toFixed(1)}s), işlenmiyor.`);
+            updateConnectionStatus(false);
+            return;
+        }
+    }
+
     // Sayfa görünür değilse kuyruğa ekle
     if (!isPageVisible) {
         queueData(data);
