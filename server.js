@@ -1167,8 +1167,8 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
     sseClients.add(res);
     console.log(`🔌 SSE client bağlandı. Toplam: ${sseClients.size}`);
 
-    // İlk bağlantıda mevcut veriyi gönder — sadece son 10 saniye içinde gelmişse
-    const STALE_THRESHOLD_MS = 10000; // 10 saniye
+    // İlk bağlantıda mevcut veriyi gönder — sadece son 25 saniye içinde gelmişse
+    const STALE_THRESHOLD_MS = 25000; // 25 saniye
     if (latestTelemetryData && latestTelemetryData.receivedAt) {
         const dataAge = Date.now() - latestTelemetryData.receivedAt;
         if (dataAge <= STALE_THRESHOLD_MS) {
@@ -2123,13 +2123,13 @@ app.post('/api/races/rename', requireAdmin, (req, res) => {
         return res.status(400).json({ error: 'Geçersiz yeni isim' });
     }
 
-    const oldBase    = oldFileName.slice(0, -4); // '.csv' çıkar
+    const oldBase = oldFileName.slice(0, -4); // '.csv' çıkar
     const newFileName = `${safeNewName}.csv`;
-    const newBase    = safeNewName;
+    const newBase = safeNewName;
 
-    const oldCsvPath  = path.join(RACES_DIR, `${oldBase}.csv`);
+    const oldCsvPath = path.join(RACES_DIR, `${oldBase}.csv`);
     const oldJsonPath = path.join(RACES_DIR, `${oldBase}.json`);
-    const newCsvPath  = path.join(RACES_DIR, `${newBase}.csv`);
+    const newCsvPath = path.join(RACES_DIR, `${newBase}.csv`);
     const newJsonPath = path.join(RACES_DIR, `${newBase}.json`);
 
     if (!fs.existsSync(oldCsvPath)) {
@@ -2164,8 +2164,8 @@ app.delete('/api/races/delete/:fileName(*)', requireAdmin, (req, res) => {
         return res.status(400).json({ error: 'Geçersiz dosya adı' });
     }
 
-    const base     = fileName.slice(0, -4);
-    const csvPath  = path.join(RACES_DIR, `${base}.csv`);
+    const base = fileName.slice(0, -4);
+    const csvPath = path.join(RACES_DIR, `${base}.csv`);
     const jsonPath = path.join(RACES_DIR, `${base}.json`);
 
     if (!fs.existsSync(csvPath)) {
