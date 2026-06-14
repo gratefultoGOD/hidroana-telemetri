@@ -1500,8 +1500,8 @@
                     const date = new Date(race.savedAt);
                     const dateStr = date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
                     const timeStr = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    // JSON.stringify: boşluk ve Türkçe karakterler dahil tüm isimler güvenli şekilde JS'e gömülür
-                    const fNameJs = JSON.stringify(race.fileName);
+                    // JSON.stringify + &quot; escape: çift tırnak onclick attribute'unu kırmasın
+                    const fNameJs = JSON.stringify(race.fileName).replace(/"/g, '&quot;');
                     const displayName = race.fileName.replace(/\.csv$/, '');
                     const adminActions = isAdmin ? `
                         <button class="race-rename-btn" onclick="renameRace(${fNameJs})" title="Yeniden Adlandır">✏️ Yeniden Adlandır</button>
