@@ -629,7 +629,7 @@ function calculateAverages() {
     const averages = {
         allTime: {}, // Running average yöntemiyle hesaplanan günlük ortalama
         last15Seconds: {},
-        allTimeCount: getTodayDataCount() + pendingData.length,
+        allTimeCount: dailyAveragesCount, // Bellekte tutulan sayaç — dosya okumaz
         last15SecondsCount: recentData.length
     };
 
@@ -796,9 +796,8 @@ function processIncomingData(data) {
 
     const speed = latestTelemetryData.h || 'N/A';
     const soc = latestTelemetryData.soc || 'N/A';
-    const todayCount = getTodayDataCount() + pendingData.length;
     const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
-    console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${todayCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+    console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${dailyAveragesCount} | Bekleyen: ${pendingData.length}${testInfo}`);
 }
 
 // Test zamanını formatla (HH:MM:SS.mmm)
@@ -1171,11 +1170,11 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
     const STALE_THRESHOLD_MS = 25000; // 25 saniye
     if (latestTelemetryData && latestTelemetryData.receivedAt) {
         const dataAge = Date.now() - latestTelemetryData.receivedAt;
-        //if (dataAge <= STALE_THRESHOLD_MS) {
-        res.write(`data: ${JSON.stringify(latestTelemetryData)}\n\n`);
-        /*} else {
+        if (dataAge <= STALE_THRESHOLD_MS) {
+            res.write(`data: ${JSON.stringify(latestTelemetryData)}\n\n`);
+        } else {
             console.log(`⏳ SSE: Son veri ${(dataAge / 1000).toFixed(1)}s eski, yeni client'a gönderilmedi.`);
-        }*/
+        }
     }
 
     // Heartbeat - bağlantıyı canlı tut (her 30 saniyede)
@@ -1227,11 +1226,10 @@ app.get('/api/telemetry', requireAuth, (req, res) => {
 });
 
 app.get('/api/telemetry/count', requireAuth, (req, res) => {
-    const todayCount = getTodayDataCount() + pendingData.length;
     const days = getAvailableDays();
 
     res.json({
-        count: todayCount,
+        count: dailyAveragesCount, // Bellekte tutulan sayaç — dosya okumaz
         pendingCount: pendingData.length,
         todayFile: getDailyFileName(),
         availableDays: days.length
