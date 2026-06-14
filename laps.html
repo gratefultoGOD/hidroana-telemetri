@@ -1560,7 +1560,6 @@
         }
 
         function downloadPastRace(fileName) {
-            if (!confirm(`"${fileName.replace(/\.csv$/, '')}" yarışını CSV olarak indirmek istiyor musunuz?`)) return;
             window.location.href = `/api/races/download/${encodeURIComponent(fileName)}`;
         }
 
