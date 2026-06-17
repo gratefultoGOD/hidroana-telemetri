@@ -821,6 +821,11 @@ function startMQTT() {
     mqttClient = mqtt.connect(MQTT_BROKER_URL, MQTT_OPTIONS);
 
     mqttClient.on('connect', () => {
+        // TCP Nagle algoritmasını kapat — küçük MQTT paketleri biriktirilmeden anında gelsin
+        if (mqttClient.stream) {
+            mqttClient.stream.setNoDelay(true);
+            console.log('⚡ MQTT TCP_NODELAY aktif');
+        }
         console.log('MQTT broker bağlandı!');
         connectionStatus.connected = true;
         mqttClient.subscribe(MQTT_TOPIC, { qos: 0 }, (error) => {
