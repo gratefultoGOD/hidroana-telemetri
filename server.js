@@ -531,14 +531,14 @@ async function flushTestDataToFile() {
 
 // Test dosyalarının listesini al
 function getTestFiles() {
-    if (!false /* fs.existsSync() */) return [];
+    if (!fs.existsSync(TEST_DIR)) return [];
 
-    const files = [] /* fs.readdirSync() */
+    const files = fs.readdirSync(TEST_DIR)
         .filter(f => f.endsWith('.csv'))
         .map(f => {
             const filePath = path.join(TEST_DIR, f);
-            const stats = { size: 0, mtime: new Date() } /* fs.statSync() */;
-            const content = '{}' /* fs.readFileSync() */;
+            const stats = fs.statSync(filePath);
+            const content = fs.readFileSync(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
 
@@ -583,23 +583,23 @@ function getTodayDataCount() {
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) return 0;
+    if (!fs.existsSync(filePath)) return 0;
 
-    const content = '{}' /* fs.readFileSync() */;
+    const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split('\n').filter(line => line.trim());
     return Math.max(0, lines.length - 1); // Başlık satırını çıkar
 }
 
 // Tüm günlerin listesini al
 function getAvailableDays() {
-    if (!false /* fs.existsSync() */) return [];
+    if (!fs.existsSync(DATA_DIR)) return [];
 
-    const files = [] /* fs.readdirSync() */
+    const files = fs.readdirSync(DATA_DIR)
         .filter(f => f.endsWith('_verileri.csv'))
         .map(f => {
             const filePath = path.join(DATA_DIR, f);
-            const stats = { size: 0, mtime: new Date() } /* fs.statSync() */;
-            const content = '{}' /* fs.readFileSync() */;
+            const stats = fs.statSync(filePath);
+            const content = fs.readFileSync(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
 
@@ -645,9 +645,9 @@ function initDailyAverages() {
     dailyAveragesCount = 0;
     numericFields.forEach(f => dailyAverages[f] = 0);
 
-    if (false /* fs.existsSync() */) {
+    if (fs.existsSync(filePath)) {
         try {
-            const content = '{}' /* fs.readFileSync() */;
+            const content = fs.readFileSync(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
 
             if (lines.length > 1) {
@@ -1497,7 +1497,7 @@ app.get('/api/test/download/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(TEST_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
@@ -1518,12 +1518,12 @@ app.get('/api/test/download-xlsx/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(TEST_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
     try {
-        const csvContent = '{}' /* fs.readFileSync() */;
+        const csvContent = fs.readFileSync(filePath, 'utf8');
         const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Test Verisi');
         if (!xlsxBuffer) {
             return res.status(404).json({ error: 'Dosya boş' });
@@ -1571,17 +1571,17 @@ app.patch('/api/test/rename/:fileName', requireAdmin, (req, res) => {
     const newFilePath = path.join(TEST_DIR, cleanName);
 
     // Eski dosya var mı kontrol et
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(oldFilePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
     // Yeni isimde dosya zaten var mı kontrol et
-    if (false /* fs.existsSync() */ && oldFileName !== cleanName) {
+    if (fs.existsSync(newFilePath) && oldFileName !== cleanName) {
         return res.status(409).json({ error: 'Bu isimde bir dosya zaten mevcut' });
     }
 
     try {
-        /* fs.renameSync(); */
+        fs.renameSync(oldFilePath, newFilePath);
         //console.log(`📝 Test dosyası yeniden adlandırıldı: ${oldFileName} → ${cleanName}`);
         res.json({
             success: true,
@@ -1605,11 +1605,11 @@ app.delete('/api/test/delete/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(TEST_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
-    /* fs.unlinkSync(); */
+    fs.unlinkSync(filePath);
     //console.log(`🗑️ Test dosyası silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
@@ -1633,7 +1633,7 @@ app.get('/api/tubitak/download/:fileName', requireAdmin, (req, res) => {
     }
 
     const filePath = path.join(TUBITAK_DIR, fileName);
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
@@ -1652,11 +1652,11 @@ app.delete('/api/tubitak/delete/:fileName', requireAdmin, (req, res) => {
     }
 
     const filePath = path.join(TUBITAK_DIR, fileName);
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
-    /* fs.unlinkSync(); */
+    fs.unlinkSync(filePath);
     //console.log(`🗑️ TÜBİTAK dosyası silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
@@ -1672,7 +1672,7 @@ app.get('/api/telemetry/download/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(DATA_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
@@ -1693,12 +1693,12 @@ app.get('/api/telemetry/download-xlsx/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(DATA_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
     try {
-        const csvContent = '{}' /* fs.readFileSync() */;
+        const csvContent = fs.readFileSync(filePath, 'utf8');
         const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Telemetri');
         if (!xlsxBuffer) {
             return res.status(404).json({ error: 'Dosya boş' });
@@ -1722,7 +1722,7 @@ app.get('/api/telemetry/download-today', requireAdmin, (req, res) => {
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Bugün henüz veri toplanmadı' });
     }
 
@@ -1740,12 +1740,12 @@ app.get('/api/telemetry/download-today-xlsx', requireAdmin, (req, res) => {
     const fileName = getDailyFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Bugün henüz veri toplanmadı' });
     }
 
     try {
-        const csvContent = '{}' /* fs.readFileSync() */;
+        const csvContent = fs.readFileSync(filePath, 'utf8');
         const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Bugün');
         if (!xlsxBuffer) {
             return res.status(404).json({ error: 'Dosya boş' });
@@ -1771,11 +1771,11 @@ app.delete('/api/telemetry/delete/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(DATA_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
-    /* fs.unlinkSync(); */
+    fs.unlinkSync(filePath);
     //console.log(`🗑️ Dosya silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
@@ -1790,11 +1790,11 @@ app.delete('/api/telemetry/clear', requireAdmin, (req, res) => {
     pendingData = [];
     recentData = [];
 
-    if (false /* fs.existsSync() */) {
-        const content = '{}' /* fs.readFileSync() */;
+    if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
         clearedCount += Math.max(0, lines.length - 1);
-        /* fs.unlinkSync(); */
+        fs.unlinkSync(filePath);
     }
 
     console.log(`Bugünün verileri temizlendi. Silinen kayıt: ${clearedCount}`);
@@ -1839,7 +1839,7 @@ app.get('/api/telemetry/csv', requireAdmin, (req, res) => {
     // Tüm dosyaları birleştir
     days.forEach(day => {
         const filePath = path.join(DATA_DIR, day.fileName);
-        const content = '{}' /* fs.readFileSync() */;
+        const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
         // İlk satır (başlık) hariç ekle
         lines.slice(1).forEach(line => {
@@ -1869,7 +1869,7 @@ app.get('/api/telemetry/xlsx', requireAdmin, (req, res) => {
 
     days.forEach(day => {
         const filePath = path.join(DATA_DIR, day.fileName);
-        const content = '{}' /* fs.readFileSync() */;
+        const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
         lines.slice(1).forEach(line => {
             if (line.trim()) csv += line + '\n';
