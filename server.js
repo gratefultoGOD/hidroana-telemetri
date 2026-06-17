@@ -115,7 +115,8 @@ function broadcastToClients(data) {
         }
     });
 
-    if (sseClients.size > 0) {
+    // SSE broadcast logu throttle — her 10 veride 1
+    if (sseClients.size > 0 && dataCounter % 10 === 0) {
         console.log(`📡 SSE broadcast: ${sseClients.size} client'a veri gönderildi`);
     }
 }
@@ -127,7 +128,13 @@ const SECTORS_DIR = path.join(__dirname, 'sectors_data');
 const RACES_DIR = path.join(__dirname, 'races_data');
 const TUBITAK_DIR = path.join(__dirname, 'tubitak_data');
 let pendingData = []; // Dosyaya yazılmayı bekleyen veriler
-const FLUSH_THRESHOLD = 1; // Her veri geldiğinde hemen dosyaya yaz
+const FLUSH_THRESHOLD = 5; // 5 veri birikince dosyaya yaz (event loop koruması)
+const TUBITAK_FLUSH_THRESHOLD = 5; // TÜBİTAK verileri için de aynı
+
+// Dosya varlık cache'leri — senkron fs.existsSync çağrısını önler
+let _dailyCsvExists = false;
+let _dailyCsvFileName = null;
+let _testFileExists = {};
 
 // Sectors dizinini oluştur
 if (!fs.existsSync(SECTORS_DIR)) {
@@ -303,8 +310,9 @@ function initTubitakSession(now) {
 
 // TÜBİTAK verisini dosyaya yaz (asenkron)
 let isFlushingTubitak = false;
-async function flushTubitakData() {
+async function flushTubitakData(force = false) {
     if (tubitakSession.pending.length === 0) return;
+    if (!force && tubitakSession.pending.length < TUBITAK_FLUSH_THRESHOLD) return; // Debounce
     if (isFlushingTubitak) return;
     isFlushingTubitak = true;
 
@@ -315,7 +323,9 @@ async function flushTubitakData() {
     try {
         const content = rows.join('\n') + '\n';
         await fsPromises.appendFile(filePath, content, 'utf8');
-        console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
+        if (dataCounter % 10 === 0) {
+            console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
+        }
     } catch (err) {
         console.error('TÜBİTAK dosya yazma hatası:', err);
         tubitakSession.pending = [...rows, ...tubitakSession.pending];
@@ -407,8 +417,16 @@ async function flushDataToFile() {
     const filePath = path.join(DATA_DIR, fileName);
 
     try {
-        // Dosya yoksa başlık ekle
-        const fileExists = fs.existsSync(filePath);
+        // Dosya varlık cache'i — senkron existsSync yerine bellekten kontrol
+        let fileExists = (_dailyCsvFileName === fileName && _dailyCsvExists);
+        if (!fileExists) {
+            try {
+                await fsPromises.access(filePath);
+                fileExists = true;
+            } catch {
+                fileExists = false;
+            }
+        }
 
         let csvContent = '';
         if (!fileExists) {
@@ -423,7 +441,11 @@ async function flushDataToFile() {
 
         // Dosyaya ASENKRON ekle - event loop'u bloklamaz
         await fsPromises.appendFile(filePath, csvContent, 'utf8');
-        console.log(`💾 ${dataToWrite.length} veri dosyaya yazıldı: ${fileName}`);
+        _dailyCsvExists = true;
+        _dailyCsvFileName = fileName;
+        if (dataCounter % 10 === 0) {
+            console.log(`💾 ${dataToWrite.length} veri dosyaya yazıldı: ${fileName}`);
+        }
     } catch (error) {
         console.error('❌ Dosya yazma hatası:', error);
         // Hata durumunda verileri geri ekle
@@ -450,7 +472,16 @@ async function flushTestDataToFile() {
     const filePath = path.join(TEST_DIR, testMode.testName);
 
     try {
-        const fileExists = fs.existsSync(filePath);
+        // Dosya varlık cache'i — senkron existsSync yerine
+        let fileExists = _testFileExists[testMode.testName];
+        if (!fileExists) {
+            try {
+                await fsPromises.access(filePath);
+                fileExists = true;
+            } catch {
+                fileExists = false;
+            }
+        }
 
         let csvContent = '';
         if (!fileExists) {
@@ -464,7 +495,10 @@ async function flushTestDataToFile() {
 
         // ASENKRON dosya yazma
         await fsPromises.appendFile(filePath, csvContent, 'utf8');
-        console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
+        _testFileExists[testMode.testName] = true;
+        if (dataCounter % 10 === 0) {
+            console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
+        }
     } catch (error) {
         console.error('Test dosyası yazma hatası:', error);
         testMode.pendingTestData = [...dataToWrite, ...testMode.pendingTestData];
@@ -703,7 +737,10 @@ function processIncomingData(data) {
             dailyAverages[field] += (val - dailyAverages[field]) / dailyAveragesCount;
         }
     });
-    console.log(`📊 Running avg update: count=${dailyAveragesCount}, fv_val=${dataWithTimestamp.fv}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
+    // Log throttle: her 10 veride 1 kez logla (event loop koruması)
+    if (dataCounter % 10 === 0) {
+        console.log(`📊 Running avg update: count=${dailyAveragesCount}, fv_val=${dataWithTimestamp.fv}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
+    }
 
     latestTelemetryData = dataWithTimestamp; // Sonra güncelle
 
@@ -716,7 +753,9 @@ function processIncomingData(data) {
         dataWithTimestamp.realInstantFlow = matchedFlow.instantFlow;  // anlık flow
         dataWithTimestamp.realTotalFlow = matchedFlow.totalFlow;    // toplam flow
         dataWithTimestamp.hasRealFlow = true;
-        console.log(`💧 Flow eşleşmesi: anlık=${matchedFlow.instantFlow}, toplam=${matchedFlow.totalFlow}`);
+        if (dataCounter % 10 === 0) {
+            console.log(`💧 Flow eşleşmesi: anlık=${matchedFlow.instantFlow}, toplam=${matchedFlow.totalFlow}`);
+        }
     } else {
         dataWithTimestamp.realInstantFlow = null;
         dataWithTimestamp.realTotalFlow = null;
@@ -794,10 +833,12 @@ function processIncomingData(data) {
     // SSE ile tüm bağlı client'lara veri gönder
     broadcastToClients(dataWithTimestamp);
 
-    const speed = latestTelemetryData.h || 'N/A';
-    const soc = latestTelemetryData.soc || 'N/A';
-    const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
-    console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${dailyAveragesCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+    if (dataCounter % 10 === 0) {
+        const speed = latestTelemetryData.h || 'N/A';
+        const soc = latestTelemetryData.soc || 'N/A';
+        const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
+        console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${dailyAveragesCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+    }
 }
 
 // Test zamanını formatla (HH:MM:SS.mmm)
@@ -851,14 +892,14 @@ function startMQTT() {
         try {
             if (topic == MQTT_TOPIC) {
                 const rawMessage = message.toString().trim();
-                console.log(' HAM VERİ:', rawMessage);
+                // HAM VERİ logu kaldırıldı — her mesajda stdout yazımı event loop'u bloklar
                 const data = parseStarSeparatedData(rawMessage);
                 processIncomingData(data);
             }
 
             if (topic == "flow") {
                 const rawFlow = message.toString().trim();
-                console.log('FLOW HAM VERİ:', rawFlow);
+                // FLOW HAM VERİ logu kaldırıldı — performans optimizasyonu
                 const flowTimestamp = Date.now();
                 // rawFlow string'ini buffer'a ekle ("anlık*toplam" formatı)
                 addFlowToBuffer(rawFlow, flowTimestamp);
@@ -2502,12 +2543,13 @@ app.listen(PORT, () => {
 // Sunucu kapanırken bekleyen verileri kaydet (ASENKRON)
 process.on('SIGINT', async () => {
     console.log('\n⏹️ Sunucu kapatılıyor...');
-    if (pendingData.length > 0 || testMode.pendingTestData.length > 0) {
+    if (pendingData.length > 0 || testMode.pendingTestData.length > 0 || tubitakSession.pending.length > 0) {
         console.log(`📝 ${pendingData.length} bekleyen veri kaydediliyor...`);
         await flushDataToFile();
         if (testMode.active) {
             await flushTestDataToFile();
         }
+        await flushTubitakData(true); // force flush
     }
     console.log('✅ Veriler kaydedildi. Çıkış yapılıyor...');
     process.exit(0);
@@ -2520,5 +2562,6 @@ process.on('SIGTERM', async () => {
     if (testMode.active && testMode.pendingTestData.length > 0) {
         await flushTestDataToFile();
     }
+    await flushTubitakData(true); // force flush
     process.exit(0);
 });
