@@ -1155,11 +1155,18 @@ app.get('/api/auth/check', (req, res) => {
 // Telemetri endpoints
 // SSE Stream Endpoint - Event-Driven veri akışı
 app.get('/api/telemetry/stream', requireAuth, (req, res) => {
-    // SSE Headers
+    // TCP Nagle algoritmasını devre dışı bırak — küçük paketler birikmeden anında gönderilsin
+    if (req.socket) {
+        req.socket.setNoDelay(true);
+        req.socket.setTimeout(0);
+    }
+
+    // SSE Headers — tüm proxy katmanlarına buffering'i kapat
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Nginx için
+    res.setHeader('X-Accel-Buffering', 'no');   // Nginx için
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.flushHeaders();
 
     // Client'ı listeye ekle
@@ -1178,6 +1185,7 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
     }
 
     // Heartbeat - bağlantıyı canlı tut (her 30 saniyede)
+
     const heartbeat = setInterval(() => {
         res.write(': heartbeat\n\n');
     }, 30000);
