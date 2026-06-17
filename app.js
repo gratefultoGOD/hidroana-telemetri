@@ -232,6 +232,38 @@ const MAX_SSE_RECONNECT_ATTEMPTS = 10;
 let dataQueue = [];
 const MAX_QUEUE_SIZE = 100; // Maksimum kuyruk boyutu
 
+// ============================================
+// CHART RENDER DÖNGÜSÜ (requestAnimationFrame)
+// SSE mesajları ile grafik renderını ayır.
+// Kaç mesaj gelirse gelsin, tarayıcı yenileme
+// hızında (60fps) sadece son veriyi çizer.
+// ============================================
+let pendingChartData = null; // Grafik için bekleyen en son veri
+let chartRafId = null;       // requestAnimationFrame ID
+
+function startChartRenderLoop() {
+    function renderLoop() {
+        if (pendingChartData) {
+            const data = pendingChartData;
+            pendingChartData = null;
+            renderChartsFromData(data);
+        }
+        chartRafId = requestAnimationFrame(renderLoop);
+    }
+    chartRafId = requestAnimationFrame(renderLoop);
+}
+
+// updateAverages throttle — 5 saniyede bir çalışır
+let _avgLastRun = 0;
+const AVG_THROTTLE_MS = 5000;
+function throttledUpdateAverages() {
+    const now = Date.now();
+    if (now - _avgLastRun >= AVG_THROTTLE_MS) {
+        _avgLastRun = now;
+        updateAverages();
+    }
+}
+
 // Initialize map
 function initMap() {
     const mapEl = document.getElementById('map');
@@ -751,8 +783,9 @@ function handleIncomingData(data) {
         lastDataCounter = data.dataCounter;
     }
 
-    // Veriyi hemen işle
+    // Veriyi işle — UI güncellemesi hemen, grafik RAF döngüsüne bırakılır
     processRealTimeData(data);
+    pendingChartData = data; // RAF döngüsü bunu alıp grafikleri günceller
 }
 
 // Veriyi kuyruğa ekle (sayfa arka plandayken)
@@ -1247,10 +1280,37 @@ function processRealTimeData(data) {
         });
     }
 
-    // Calculate and display averages
-    updateAverages();
+    // Calculate and display averages — throttled, her veri gelişinde değil
+    throttledUpdateAverages();
 
-    // Update charts
+    // Son veri zamanını güncelle
+    updateLastDataTime(data.receivedAt || Date.now(), data.date, data.time);
+}
+
+// ============================================
+// GRAFIK RENDER — RAF döngüsünden çağrılır
+// processRealTimeData'dan ayrıldı: burst geldiğinde
+// sadece son veri çizilir, her biri için repaint olmaz
+// ============================================
+function renderChartsFromData(data) {
+    const time = new Date().toLocaleTimeString();
+    const telemetry = {
+        fv: parseFloat(data.fv || 0),
+        fa: parseFloat(data.fa || 0),
+        fw: parseFloat(data.fw || 0),
+        fet: parseFloat(data.fet || 0),
+        fit: parseFloat(data.fit || 0),
+        bw: parseFloat(data.bw || 0),
+        bv: parseFloat(data.bv || 0),
+        bc: parseFloat(data.bc || 0),
+        t1: parseFloat(data.t1 || 0),
+        t2: parseFloat(data.t2 || 0),
+        t3: parseFloat(data.t3 || 0),
+        jv: parseFloat(data.jv || 0),
+        jc: parseFloat(data.jc || 0),
+        jw: parseFloat(data.jw || 0),
+    };
+
     // Fuel cell charts
     updateChart(fvChart, time, telemetry.fv);
     updateChart(faChart, time, telemetry.fa);
@@ -1267,9 +1327,6 @@ function processRealTimeData(data) {
     updateChart(jvChart, time, telemetry.jv);
     updateChart(jcChart, time, telemetry.jc);
     updateChart(jwChart, time, telemetry.jw);
-
-    // Son veri zamanını güncelle
-    updateLastDataTime(data.receivedAt || Date.now(), data.date, data.time);
 }
 
 // Geriye uyumluluk için updateVehicleData fonksiyonunu koru
@@ -1859,6 +1916,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // initCharts sonrasında chart temalarını senkronize etmek için tekrar çağır)
     const savedTheme = localStorage.getItem('hidroana-theme');
     updateChartTheme(savedTheme === 'light');
+
+    // Grafik render döngüsünü başlat (RAF — burst gelse bile her frame sadece 1 render)
+    startChartRenderLoop();
 
     // SSE bağlantısını başlat (Event-Driven)
     connectToSSE();
