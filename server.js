@@ -159,18 +159,18 @@ let _dailyCsvFileName = null;
 let _testFileExists = {};
 
 // Sectors dizinini oluştur
-if (!false /* fs.existsSync() */) {
-    /* fs.mkdirSync(); */
+if (!fs.existsSync(SECTORS_DIR)) {
+    fs.mkdirSync(SECTORS_DIR, { recursive: true });
 }
 
 // Races dizinini oluştur
-if (!false /* fs.existsSync() */) {
-    /* fs.mkdirSync(); */
+if (!fs.existsSync(RACES_DIR)) {
+    fs.mkdirSync(RACES_DIR, { recursive: true });
 }
 
 // TÜBİTAK dizinini oluştur
-if (!false /* fs.existsSync() */) {
-    /* fs.mkdirSync(); */
+if (!fs.existsSync(TUBITAK_DIR)) {
+    fs.mkdirSync(TUBITAK_DIR, { recursive: true });
 }
 
 // ============================================
@@ -326,7 +326,7 @@ function initTubitakSession(now) {
 
     // Başlık satırını yaz
     const filePath = path.join(TUBITAK_DIR, fileName);
-    /* fs.writeFileSync(); */
+    fs.writeFileSync(filePath, '\uFEFF' + TUBITAK_HEADERS + '\n', 'utf8');
     //console.log(`📋 TÜBİTAK kayıt dosyası oluşturuldu: ${fileName}`);
 }
 
@@ -344,7 +344,7 @@ async function flushTubitakData(force = false) {
     const filePath = path.join(TUBITAK_DIR, tubitakSession.fileName);
     try {
         const content = rows.join('\n') + '\n';
-        /* await fsPromises.appendFile(); */
+        await fsPromises.appendFile(filePath, content, 'utf8');
         if (dataCounter % 10 === 0) {
             //console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
         }
@@ -380,11 +380,11 @@ function getTubitakFiles() {
 }
 
 // Data klasörlerini oluştur
-if (!false /* fs.existsSync() */) {
-    /* fs.mkdirSync(); */
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
 }
-if (!false /* fs.existsSync() */) {
-    /* fs.mkdirSync(); */
+if (!fs.existsSync(TEST_DIR)) {
+    fs.mkdirSync(TEST_DIR, { recursive: true });
 }
 
 // Günlük dosya adı oluştur (DD-MM-YYYY_verileri.csv)
@@ -443,7 +443,7 @@ async function flushDataToFile() {
         let fileExists = (_dailyCsvFileName === fileName && _dailyCsvExists);
         if (!fileExists) {
             try {
-                /* await fsPromises.access(); */
+                await fsPromises.access(filePath);
                 fileExists = true;
             } catch {
                 fileExists = false;
@@ -462,7 +462,7 @@ async function flushDataToFile() {
         });
 
         // Dosyaya ASENKRON ekle - event loop'u bloklamaz
-        /* await fsPromises.appendFile(); */
+        await fsPromises.appendFile(filePath, csvContent, 'utf8');
         _dailyCsvExists = true;
         _dailyCsvFileName = fileName;
         if (dataCounter % 10 === 0) {
@@ -498,7 +498,7 @@ async function flushTestDataToFile() {
         let fileExists = _testFileExists[testMode.testName];
         if (!fileExists) {
             try {
-                /* await fsPromises.access(); */
+                await fsPromises.access(filePath);
                 fileExists = true;
             } catch {
                 fileExists = false;
@@ -516,7 +516,7 @@ async function flushTestDataToFile() {
         });
 
         // ASENKRON dosya yazma
-        /* await fsPromises.appendFile(); */
+        await fsPromises.appendFile(filePath, csvContent, 'utf8');
         _testFileExists[testMode.testName] = true;
         if (dataCounter % 10 === 0) {
             //console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
