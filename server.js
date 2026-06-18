@@ -529,51 +529,59 @@ async function flushTestDataToFile() {
     }
 }
 
-// Test dosyalarının listesini al
-function getTestFiles() {
-    if (!fs.existsSync(TEST_DIR)) return [];
+// Test dosyalarının listesini al (ASENKRON — event loop bloklamaz)
+async function getTestFiles() {
+    try {
+        await fsPromises.access(TEST_DIR);
+    } catch {
+        return [];
+    }
 
-    const files = fs.readdirSync(TEST_DIR)
-        .filter(f => f.endsWith('.csv'))
-        .map(f => {
+    const allFiles = await fsPromises.readdir(TEST_DIR);
+    const csvFiles = allFiles.filter(f => f.endsWith('.csv'));
+
+    const files = [];
+    for (const f of csvFiles) {
+        try {
             const filePath = path.join(TEST_DIR, f);
-            const stats = fs.statSync(filePath);
-            const content = fs.readFileSync(filePath, 'utf8');
+            const stats = await fsPromises.stat(filePath);
+            const content = await fsPromises.readFile(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
 
             // Dosya içeriğindeki ilk veri satırından tarih ve saat bilgisini çıkar
-            // Başlık: test_time;date;time;...  →  İlk veri satırı: 00:00:00.075;2026-03-17;17:50:04.908;...
             let dateStr = '', timeStr = '';
             if (lines.length > 1) {
                 const firstDataRow = lines[1].split(';');
-                // Eski format kontrolü: başlıkta 'date' var mı?
                 const headers = lines[0].replace('\uFEFF', '').split(';');
                 const dateIdx = headers.indexOf('date');
                 const timeIdx = headers.indexOf('time');
                 if (dateIdx !== -1 && timeIdx !== -1 && firstDataRow[dateIdx] && firstDataRow[timeIdx]) {
-                    dateStr = firstDataRow[dateIdx].trim();  // YYYY-MM-DD
-                    timeStr = firstDataRow[timeIdx].trim();  // HH:MM:SS.mmm
+                    dateStr = firstDataRow[dateIdx].trim();
+                    timeStr = firstDataRow[timeIdx].trim();
                 }
             }
 
-            return {
+            files.push({
                 fileName: f,
                 date: dateStr,
                 time: timeStr,
                 dataCount: dataCount,
                 fileSize: stats.size,
                 lastModified: stats.mtime
-            };
-        })
-        .sort((a, b) => {
-            // Dosya içerisindeki tarih ve saate göre sırala (en yeni en üstte)
-            const parseDateTime = (d, t) => {
-                if (!d || !t) return 0;
-                return new Date(`${d}T${t}`).getTime();
-            };
-            return parseDateTime(b.date, b.time) - parseDateTime(a.date, a.time);
-        });
+            });
+        } catch {
+            // Hatalı dosyaları atla
+        }
+    }
+
+    files.sort((a, b) => {
+        const parseDateTime = (d, t) => {
+            if (!d || !t) return 0;
+            return new Date(`${d}T${t}`).getTime();
+        };
+        return parseDateTime(b.date, b.time) - parseDateTime(a.date, a.time);
+    });
 
     return files;
 }
@@ -590,32 +598,40 @@ function getTodayDataCount() {
     return Math.max(0, lines.length - 1); // Başlık satırını çıkar
 }
 
-// Tüm günlerin listesini al
-function getAvailableDays() {
-    if (!fs.existsSync(DATA_DIR)) return [];
+// Tüm günlerin listesini al (ASENKRON — event loop bloklamaz)
+async function getAvailableDays() {
+    try {
+        await fsPromises.access(DATA_DIR);
+    } catch {
+        return [];
+    }
 
-    const files = fs.readdirSync(DATA_DIR)
-        .filter(f => f.endsWith('_verileri.csv'))
-        .map(f => {
+    const allFiles = await fsPromises.readdir(DATA_DIR);
+    const csvFiles = allFiles.filter(f => f.endsWith('_verileri.csv'));
+
+    const files = [];
+    for (const f of csvFiles) {
+        try {
             const filePath = path.join(DATA_DIR, f);
-            const stats = fs.statSync(filePath);
-            const content = fs.readFileSync(filePath, 'utf8');
+            const stats = await fsPromises.stat(filePath);
+            const content = await fsPromises.readFile(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
-
-            // Dosya adından tarihi çıkar (DD-MM-YYYY_verileri.csv)
             const datePart = f.replace('_verileri.csv', '');
 
-            return {
+            files.push({
                 fileName: f,
                 date: datePart,
                 dataCount: dataCount,
                 fileSize: stats.size,
                 lastModified: stats.mtime
-            };
-        })
-        .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+            });
+        } catch {
+            // Hatalı dosyaları atla
+        }
+    }
 
+    files.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
     return files;
 }
 
@@ -639,6 +655,22 @@ let dailyAverages = {};
 let dailyAveragesCount = 0;
 let currentDailyFile = getDailyFileName();
 numericFields.forEach(f => dailyAverages[f] = 0);
+
+// Available days count cache — asenkron güncellenir, event loop bloklamaz
+let _availableDaysCount = 0;
+
+async function updateAvailableDaysCount() {
+    try {
+        const files = await fsPromises.readdir(DATA_DIR);
+        _availableDaysCount = files.filter(f => f.endsWith('_verileri.csv')).length;
+    } catch {
+        _availableDaysCount = 0;
+    }
+}
+
+// Başlangıçta ve her 60 saniyede güncelle
+updateAvailableDaysCount();
+setInterval(updateAvailableDaysCount, 60000);
 
 function initDailyAverages() {
     const filePath = path.join(DATA_DIR, currentDailyFile);
@@ -1302,13 +1334,12 @@ app.get('/api/telemetry', requireAuth, (req, res) => {
 });
 
 app.get('/api/telemetry/count', requireAuth, (req, res) => {
-    const days = getAvailableDays();
-
+    // Cache'den oku — dosya I/O yok, event loop bloklanmaz
     res.json({
-        count: dailyAveragesCount, // Bellekte tutulan sayaç — dosya okumaz
+        count: dailyAveragesCount,
         pendingCount: pendingData.length,
         todayFile: getDailyFileName(),
-        availableDays: days.length
+        availableDays: _availableDaysCount
     });
 });
 
@@ -1329,8 +1360,8 @@ app.get('/api/telemetry/last-received', requireAuth, (req, res) => {
 });
 
 // Mevcut günlerin listesi (SADECE ADMIN)
-app.get('/api/telemetry/days', requireAdmin, (req, res) => {
-    const days = getAvailableDays();
+app.get('/api/telemetry/days', requireAdmin, async (req, res) => {
+    const days = await getAvailableDays();
     res.json({ days });
 });
 
@@ -1481,8 +1512,8 @@ app.post('/api/test/resume', requireAdmin, (req, res) => {
 });
 
 // Test dosyalarını listele (SADECE ADMIN)
-app.get('/api/test/files', requireAdmin, (req, res) => {
-    const files = getTestFiles();
+app.get('/api/test/files', requireAdmin, async (req, res) => {
+    const files = await getTestFiles();
     res.json({ files });
 });
 
@@ -1824,11 +1855,11 @@ app.get('/capacitor', requireAdmin, (req, res) => {
 
 
 // CSV export - Tüm günlerin verilerini birleştir (SADECE ADMIN)
-app.get('/api/telemetry/csv', requireAdmin, (req, res) => {
+app.get('/api/telemetry/csv', requireAdmin, async (req, res) => {
     // Önce bekleyen verileri dosyaya yaz
-    flushDataToFile();
+    await flushDataToFile();
 
-    const days = getAvailableDays();
+    const days = await getAvailableDays();
 
     if (days.length === 0) {
         return res.status(404).json({ error: 'Henüz veri toplanmadı' });
@@ -1836,30 +1867,28 @@ app.get('/api/telemetry/csv', requireAdmin, (req, res) => {
 
     let csv = '\uFEFF' + CSV_HEADERS.join(';') + '\n';
 
-    // Tüm dosyaları birleştir
-    days.forEach(day => {
+    // Tüm dosyaları birleştir (asenkron)
+    for (const day of days) {
         const filePath = path.join(DATA_DIR, day.fileName);
-        const content = fs.readFileSync(filePath, 'utf8');
+        const content = await fsPromises.readFile(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
-        // İlk satır (başlık) hariç ekle
         lines.slice(1).forEach(line => {
             if (line.trim()) csv += line + '\n';
         });
-    });
+    }
 
     const filename = `telemetry_tum_veriler_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    // RFC 5987 encoding for Turkish characters and spaces in filename
     const encodedFilename = encodeURIComponent(filename);
     res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`);
     res.send(csv);
 });
 
 // XLSX export - Tüm günlerin verilerini birleştir (SADECE ADMIN)
-app.get('/api/telemetry/xlsx', requireAdmin, (req, res) => {
-    flushDataToFile();
+app.get('/api/telemetry/xlsx', requireAdmin, async (req, res) => {
+    await flushDataToFile();
 
-    const days = getAvailableDays();
+    const days = await getAvailableDays();
 
     if (days.length === 0) {
         return res.status(404).json({ error: 'Henüz veri toplanmadı' });
@@ -1867,14 +1896,14 @@ app.get('/api/telemetry/xlsx', requireAdmin, (req, res) => {
 
     let csv = CSV_HEADERS.join(';') + '\n';
 
-    days.forEach(day => {
+    for (const day of days) {
         const filePath = path.join(DATA_DIR, day.fileName);
-        const content = fs.readFileSync(filePath, 'utf8');
+        const content = await fsPromises.readFile(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
         lines.slice(1).forEach(line => {
             if (line.trim()) csv += line + '\n';
         });
-    });
+    }
 
     try {
         const xlsxBuffer = csvToXlsxBuffer(csv, 'Tüm Veriler');
