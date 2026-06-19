@@ -283,8 +283,8 @@ function saveRaceToFile() {
         startJwh: lapState.startJwh
     };
 
-    /* fs.writeFileSync(); */
-    /* fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8'); */
+    fs.writeFileSync(filePath, csv, 'utf8');
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
     //console.log(`📁 Yarış kaydedildi: ${fileName} (${lapState.laps.length} tur)`);
     return fileName;
 }
@@ -358,13 +358,13 @@ async function flushTubitakData(force = false) {
 
 // TÜBİTAK dosyalarını listele
 function getTubitakFiles() {
-    if (!false /* fs.existsSync() */) return [];
-    return [] /* fs.readdirSync() */
+    if (!fs.existsSync(TUBITAK_DIR)) return [];
+    return fs.readdirSync(TUBITAK_DIR)
         .filter(f => f.startsWith('tubitak_') && f.endsWith('.csv'))
         .map(f => {
             const filePath = path.join(TUBITAK_DIR, f);
-            const stats = { size: 0, mtime: new Date() } /* fs.statSync() */;
-            const content = '{}' /* fs.readFileSync() */;
+            const stats = fs.statSync(filePath);
+            const content = fs.readFileSync(filePath, 'utf8');
             const lines = content.split('\n').filter(l => l.trim());
             const dataCount = Math.max(0, lines.length - 1);
             // Dosya adından tarih/saat çıkar: tubitak_DD-MM-YYYY_HH-MM-SS.csv
@@ -1416,8 +1416,8 @@ app.post('/api/test/stop', requireAdmin, (req, res) => {
     // Test dosyasındaki veri sayısını al
     const filePath = path.join(TEST_DIR, testName);
     let dataCount = 0;
-    if (false /* fs.existsSync() */) {
-        const content = '{}' /* fs.readFileSync() */;
+    if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n').filter(line => line.trim());
         dataCount = Math.max(0, lines.length - 1);
     }
@@ -2159,16 +2159,16 @@ app.post('/api/laps/reset', requireAdmin, (req, res) => {
 
 // Eski yarış kayıtlarını listele
 app.get('/api/races/list', requireAuth, (req, res) => {
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(RACES_DIR)) {
         return res.json({ races: [] });
     }
 
-    const races = [] /* fs.readdirSync() */
+    const races = fs.readdirSync(RACES_DIR)
         .filter(f => f.endsWith('.json'))
         .map(f => {
             try {
                 const filePath = path.join(RACES_DIR, f);
-                const data = JSON.parse('{}' /* fs.readFileSync() */);
+                const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
                 return data;
             } catch (e) {
                 return null;
@@ -2190,7 +2190,7 @@ app.get('/api/races/download/:fileName', requireAuth, (req, res) => {
 
     const filePath = path.join(RACES_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
@@ -2234,20 +2234,20 @@ app.post('/api/races/rename', requireAdmin, (req, res) => {
     const newCsvPath = path.join(RACES_DIR, `${newBase}.csv`);
     const newJsonPath = path.join(RACES_DIR, `${newBase}.json`);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(oldCsvPath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
-    if (false /* fs.existsSync() */) {
+    if (fs.existsSync(newCsvPath)) {
         return res.status(409).json({ error: 'Bu isimde zaten bir dosya var' });
     }
 
     try {
-        /* fs.renameSync(); */
-        if (false /* fs.existsSync() */) {
-            const meta = JSON.parse('{}' /* fs.readFileSync() */);
+        fs.renameSync(oldCsvPath, newCsvPath);
+        if (fs.existsSync(oldJsonPath)) {
+            const meta = JSON.parse(fs.readFileSync(oldJsonPath, 'utf8'));
             meta.fileName = newFileName;
-            /* fs.writeFileSync(newJsonPath, JSON.stringify(meta, null, 2), 'utf8'); */
-            /* fs.unlinkSync(); */
+            fs.writeFileSync(newJsonPath, JSON.stringify(meta, null, 2), 'utf8');
+            fs.unlinkSync(oldJsonPath);
         }
         //console.log(`📁 Yarış yeniden adlandırıldı: ${oldFileName} → ${newFileName}`);
         res.json({ success: true, newFileName });
@@ -2270,13 +2270,13 @@ app.delete('/api/races/delete/:fileName(*)', requireAdmin, (req, res) => {
     const csvPath = path.join(RACES_DIR, `${base}.csv`);
     const jsonPath = path.join(RACES_DIR, `${base}.json`);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync(csvPath)) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
 
     try {
-        /* fs.unlinkSync(); */
-        if (false /* fs.existsSync() */) /* fs.unlinkSync(); */
+        fs.unlinkSync(csvPath);
+        if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
             //console.log(`🗑️ Yarış silindi: ${fileName}`);
             res.json({ success: true });
     } catch (e) {
@@ -2316,7 +2316,7 @@ app.post('/api/sectors/save', requireAuth, (req, res) => {
 
 // Sector listesi
 app.get('/api/sectors/list', requireAdmin, (req, res) => {
-    const files = fs.readdirSync()
+    const files = fs.readdirSync(SECTORS_DIR)
         .filter(f => f.endsWith('.json'))
         .map(f => {
             const filePath = path.join(SECTORS_DIR, f);
@@ -2343,7 +2343,7 @@ app.get('/api/sectors/load/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(SECTORS_DIR, fileName);
 
-    if (!fs.existsSync()) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
 
@@ -2361,7 +2361,7 @@ app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(SECTORS_DIR, fileName);
 
-    if (!fs.existsSync()) {
+    if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
 
