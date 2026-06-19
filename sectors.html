@@ -930,11 +930,14 @@
             sub.endMeter = newMeter;
             nextSub.startMeter = newMeter;
 
-            // Hızları güncelle (optimumData'dan interpolasyon)
+            // KULLANICI İSTEĞİ: Hızlar optimumData'dan YENİDEN HESAPLANMAYACAK
+            // Bitiş metresi ileri/geri alındığında, mevcut giriş ve çıkış hızları aynen korunacak.
+            /* 
             if (optimumData.length > 0) {
                 sub.exitSpeed = Math.round(getOptimumSpeedAt(newMeter) * 10) / 10;
                 nextSub.entrySpeed = Math.round(getOptimumSpeedAt(newMeter) * 10) / 10;
             }
+            */
 
             // Koordinatları güncelle
             sub.coords = getCoordsForRange(sub.startMeter, sub.endMeter);
