@@ -2320,7 +2320,7 @@ app.get('/api/sectors/list', requireAdmin, (req, res) => {
         .filter(f => f.endsWith('.json'))
         .map(f => {
             const filePath = path.join(SECTORS_DIR, f);
-            const data = JSON.parse(fs.readFileSync());
+            const data = JSON.parse(fs.readFileSync(filePath));
             return {
                 fileName: f,
                 name: data.name,
@@ -2347,7 +2347,7 @@ app.get('/api/sectors/load/:fileName', requireAdmin, (req, res) => {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
 
-    const data = JSON.parse(fs.readFileSync());
+    const data = JSON.parse(fs.readFileSync(filePath));
     res.json(data);
 });
 
