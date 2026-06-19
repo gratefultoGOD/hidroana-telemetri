@@ -2000,7 +2000,7 @@
         function processTelemetryData(data) {
             // Hız
             const speed = parseFloat(data.h || 0);
-            document.getElementById('currentSpeed').textContent = speed.toFixed(0);
+            document.getElementById('currentSpeed').textContent = speed.toFixed(1);
             // Metre verisi (sunucudan geliyorsa kullan, yoksa kendi sayacı)
             if (data.mt !== undefined && data.mt !== null) {
                 currentMeter = parseFloat(data.mt);
@@ -2084,7 +2084,7 @@
             const exit = sector.exitSpeed !== undefined ? sector.exitSpeed : sector.targetSpeed;
             document.getElementById('entrySpeed').textContent = `${entry} km/h`;
             document.getElementById('exitSpeed').textContent = `${exit} km/h`;
-            document.getElementById('actualSpeed').textContent = `${currentSpeed.toFixed(0)} km/h`;
+            document.getElementById('actualSpeed').textContent = `${currentSpeed.toFixed(1)} km/h`;
 
             // Durum: mevcut hızı, sektörün ortalama beklenen hızıyla karşılaştır
             const refSpeed = (entry + exit) / 2;
@@ -2096,10 +2096,10 @@
                 status = t('ideal');
                 statusClass = 'correct';
             } else if (speedDiff > 5) {
-                status = `⚠ ${speedDiff.toFixed(0)} km/h ${t('fast')}`;
+                status = `⚠ ${speedDiff.toFixed(1)} km/h ${t('fast')}`;
                 statusClass = 'warning';
             } else {
-                status = `⚠ ${Math.abs(speedDiff).toFixed(0)} km/h ${t('slow')}`;
+                status = `⚠ ${Math.abs(speedDiff).toFixed(1)} km/h ${t('slow')}`;
                 statusClass = 'danger';
             }
 
