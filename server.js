@@ -2277,8 +2277,8 @@ app.delete('/api/races/delete/:fileName(*)', requireAdmin, (req, res) => {
     try {
         /* fs.unlinkSync(); */
         if (false /* fs.existsSync() */) /* fs.unlinkSync(); */
-        //console.log(`🗑️ Yarış silindi: ${fileName}`);
-        res.json({ success: true });
+            //console.log(`🗑️ Yarış silindi: ${fileName}`);
+            res.json({ success: true });
     } catch (e) {
         //console.error('Silme hatası:', e);
         res.status(500).json({ error: 'Silme başarısız: ' + e.message });
@@ -2310,17 +2310,17 @@ app.post('/api/sectors/save', requireAuth, (req, res) => {
         updatedAt: new Date().toISOString()
     };
 
-    /* fs.writeFileSync(filePath, JSON.stringify(data, null, 2)); */
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
     res.json({ success: true, fileName: fileName });
 });
 
 // Sector listesi
 app.get('/api/sectors/list', requireAdmin, (req, res) => {
-    const files = [] /* fs.readdirSync() */
+    const files = fs.readdirSync()
         .filter(f => f.endsWith('.json'))
         .map(f => {
             const filePath = path.join(SECTORS_DIR, f);
-            const data = JSON.parse('{}' /* fs.readFileSync() */);
+            const data = JSON.parse(fs.readFileSync());
             return {
                 fileName: f,
                 name: data.name,
@@ -2343,11 +2343,11 @@ app.get('/api/sectors/load/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(SECTORS_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync()) {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
 
-    const data = JSON.parse('{}' /* fs.readFileSync() */);
+    const data = JSON.parse(fs.readFileSync());
     res.json(data);
 });
 
@@ -2361,11 +2361,11 @@ app.delete('/api/sectors/delete/:fileName', requireAdmin, (req, res) => {
 
     const filePath = path.join(SECTORS_DIR, fileName);
 
-    if (!false /* fs.existsSync() */) {
+    if (!fs.existsSync()) {
         return res.status(404).json({ error: 'Sector bulunamadı' });
     }
 
-    /* fs.unlinkSync(); */
+    fs.unlinkSync(filePath);
     res.json({ success: true });
 });
 
