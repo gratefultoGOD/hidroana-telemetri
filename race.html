@@ -1574,8 +1574,8 @@
                     sec.subSectors.forEach(sub => {
                         if (!sub.coords || sub.coords.length < 2) return;
 
-                        const avgSpeed = (sub.entrySpeed + sub.exitSpeed) / 2;
-                        const color = getColorForSpeedRelative(avgSpeed, sMinSpeed, sMaxSpeed);
+                        const speedForColor = sub.entrySpeed;
+                        const color = getColorForSpeedRelative(speedForColor, sMinSpeed, sMaxSpeed);
 
                         const poly = L.polyline(sub.coords, {
                             color: color,
@@ -1804,9 +1804,9 @@
                 sec.subSectors.forEach(sub => {
                     if (!sub.coords || sub.coords.length < 2) return;
 
-                    // Alt-sektörün ortalama hızı renk için
-                    const avgSpeed = (sub.entrySpeed + sub.exitSpeed) / 2;
-                    const color = getColorForSpeedRelative(avgSpeed, globalMinSpeed, globalMaxSpeed);
+                    // Alt-sektörün giriş hızı renk için
+                    const speedForColor = sub.entrySpeed;
+                    const color = getColorForSpeedRelative(speedForColor, globalMinSpeed, globalMaxSpeed);
 
                     const poly = L.polyline(sub.coords, {
                         color: color,

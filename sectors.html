@@ -831,8 +831,8 @@
                         const typeClass = sub.type === 'accel' ? 'accel' :
                                          sub.type === 'decel' ? 'decel' : 'flat';
 
-                        const avgSpd = ((sub.entrySpeed || 0) + (sub.exitSpeed || 0)) / 2;
-                        const subColor = getColorForSpeed(avgSpd);
+                        const speedForColor = sub.entrySpeed || 0;
+                        const subColor = getColorForSpeed(speedForColor);
 
                         html += `<div class="sub-sector-item" style="border-left-color: ${subColor};">
                             <div class="sub-sector-header">
@@ -1010,8 +1010,8 @@
                     sec.subSectors.forEach(sub => {
                         if (!sub.coords || sub.coords.length < 2) return;
 
-                        const avgSpeed = ((sub.entrySpeed || 0) + (sub.exitSpeed || 0)) / 2;
-                        const color = getColorForSpeedRelative(avgSpeed, sMinSpeed, sMaxSpeed);
+                        const speedForColor = sub.entrySpeed || 0;
+                        const color = getColorForSpeedRelative(speedForColor, sMinSpeed, sMaxSpeed);
 
                         const poly = L.polyline(sub.coords, {
                             color: color,
