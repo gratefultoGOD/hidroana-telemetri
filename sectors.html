@@ -997,7 +997,7 @@
                 sectors.forEach(sec => {
                     if (sec.subSectors) {
                         sec.subSectors.forEach(sub => {
-                            allSubSpeeds.push(sub.entrySpeed || 0, sub.exitSpeed || 0);
+                            allSubSpeeds.push(sub.entrySpeed || 0);
                         });
                     }
                 });

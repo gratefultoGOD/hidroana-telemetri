@@ -1564,7 +1564,7 @@
                 const allSubSpeeds = [];
                 sectors.forEach(sec => {
                     sec.subSectors.forEach(sub => {
-                        allSubSpeeds.push(sub.entrySpeed, sub.exitSpeed);
+                        allSubSpeeds.push(sub.entrySpeed);
                     });
                 });
                 const sMinSpeed = Math.min(...allSubSpeeds);
@@ -1783,7 +1783,7 @@
             const allSubSpeeds = [];
             sectors.forEach(sec => {
                 sec.subSectors.forEach(sub => {
-                    allSubSpeeds.push(sub.entrySpeed, sub.exitSpeed);
+                    allSubSpeeds.push(sub.entrySpeed);
                 });
             });
             const globalMinSpeed = Math.min(...allSubSpeeds);
