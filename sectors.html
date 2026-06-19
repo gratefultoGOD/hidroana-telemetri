@@ -27,7 +27,7 @@
         }
 
         .sidebar {
-            width: 350px;
+            width: 380px;
             background: #16213e;
             padding: 20px;
             overflow-y: auto;
@@ -220,6 +220,146 @@
             font-size: 11px;
         }
 
+        /* ── Alt-sektör stilleri ── */
+        .sub-sectors-container {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sub-sectors-title {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 6px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sub-sector-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            border-left: 3px solid;
+        }
+
+        .sub-sector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        .sub-sector-id {
+            font-weight: bold;
+            color: #ddd;
+        }
+
+        .sub-sector-type {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        .sub-sector-type.accel {
+            background: rgba(0, 255, 100, 0.15);
+            color: #00ff64;
+        }
+
+        .sub-sector-type.decel {
+            background: rgba(255, 100, 100, 0.15);
+            color: #ff6464;
+        }
+
+        .sub-sector-type.flat {
+            background: rgba(150, 150, 150, 0.15);
+            color: #aaa;
+        }
+
+        .sub-sector-speeds {
+            font-size: 11px;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .sub-sector-slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .sub-sector-slider-row label {
+            font-size: 10px;
+            color: #777;
+            white-space: nowrap;
+            min-width: 38px;
+            margin-bottom: 0;
+        }
+
+        .sub-sector-slider-row input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: #0f3460;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .sub-sector-slider-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00ff88;
+            cursor: pointer;
+            border: 2px solid #16213e;
+        }
+
+        .sub-sector-slider-row input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00ff88;
+            cursor: pointer;
+            border: 2px solid #16213e;
+        }
+
+        .sub-sector-slider-value {
+            font-size: 10px;
+            color: #00ff88;
+            font-weight: bold;
+            min-width: 38px;
+            text-align: right;
+        }
+
+        .modified-badge {
+            display: inline-block;
+            background: rgba(255, 159, 67, 0.2);
+            color: #ff9f43;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+            border: 1px solid rgba(255, 159, 67, 0.4);
+        }
+
+        .sector-boundary-label {
+            background: rgba(0, 0, 0, 0.75) !important;
+            border: 1px solid rgba(255, 255, 255, 0.5) !important;
+            color: #fff !important;
+            font-size: 10px !important;
+            font-weight: bold !important;
+            padding: 2px 5px !important;
+            border-radius: 3px !important;
+        }
+
         .legend {
             position: absolute;
             bottom: 20px;
@@ -287,7 +427,7 @@
 <body>
     <div class="container">
         <div class="sidebar">
-            <h1>Sektör Oluşturucu</h1>
+            <h1>Sektör Oluşturucu <span id="modifiedBadge" class="modified-badge" style="display:none;">Düzenlendi</span></h1>
             <div class="track-info">
                 <div><strong>Pist:</strong> Silesia Ring, Poland</div>
                 <div><strong>Toplam Uzunluk:</strong> <span id="totalLength">Hesaplanıyor...</span></div>
@@ -309,8 +449,8 @@
 
             <!-- Optimum CSV Import -->
             <div class="optimum-box" id="optimumBox">
-                <div class="optimum-title">📈 Optimum Hız Datası (CSV)</div>
-                <div class="optimum-desc">CSV kolonları: <code>s,v_kmh</code> (metre, km/h)</div>
+                <div class="optimum-title">📈 Sector Plan / Optimum CSV</div>
+                <div class="optimum-desc">Tam CSV: <code>s,lat,lon,v_kmh,sector</code> veya sadece: <code>s,v_kmh</code></div>
                 <label class="csv-file-label" for="csvFileInput">📂 CSV Dosyası Seç</label>
                 <input type="file" id="csvFileInput" accept=".csv" style="display:none"
                     onchange="handleCSVImport(event)">
@@ -322,27 +462,29 @@
         <div class="map-container">
             <div id="map"></div>
             <a href="/" class="back-btn">← Ana Sayfa</a>
-            <div class="legend">
+            <div class="legend" id="speedLegend">
                 <div class="legend-title">Hız Renk Kodları</div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #00ffff;"></div>
-                    <span>0-15 km/h (Cyan)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #00ff00;"></div>
-                    <span>15-30 km/h (Yeşil)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #ffff00;"></div>
-                    <span>30-45 km/h (Sarı)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #ff8800;"></div>
-                    <span>45-60 km/h (Turuncu)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #ff0000;"></div>
-                    <span>60+ km/h (Kırmızı)</span>
+                <div id="speedLegendItems">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00ffff;"></div>
+                        <span>Düşük Hız</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00ff00;"></div>
+                        <span>Orta Hız</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffff00;"></div>
+                        <span>Orta-Yüksek</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff8800;"></div>
+                        <span>Yüksek Hız</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff0000;"></div>
+                        <span>Çok Yüksek</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -360,6 +502,14 @@
         // Optimum hız datası: [{s, v}]
         let optimumData = [];
 
+        // Alt-sektör düzenleme durumu
+        let sectorBoundaryMarkers = [];
+        let csvTrackLayers = [];
+        let loadedSectorCoordsArray = [];
+        let loadedTrackCoordinates = [];
+        let isModified = false;
+        let loadedPlanName = '';
+
         // Haversine formülü ile iki nokta arası mesafe (metre)
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371000; // Dünya yarıçapı (metre)
@@ -372,13 +522,166 @@
             return R * c;
         }
 
-        // Hıza göre renk (0-60 km/h arası)
+        // Hıza göre renk (0-60 km/h arası) — eski sabit skala
         function getColorForSpeed(speed) {
-            if (speed < 15) return '#00ffff';      // Cyan (Mavi-Yeşil)
-            if (speed < 30) return '#00ff00';      // Yeşil
-            if (speed < 45) return '#ffff00';      // Sarı
-            if (speed < 60) return '#ff8800';      // Turuncu
-            return '#ff0000';                       // Kırmızı (60+)
+            if (speed < 15) return '#00ffff';
+            if (speed < 30) return '#00ff00';
+            if (speed < 45) return '#ffff00';
+            if (speed < 60) return '#ff8800';
+            return '#ff0000';
+        }
+
+        // ── Dinamik renk skalası (race.html ile aynı 9-stop geniş spektrum) ──
+        function getColorForSpeedRelative(speed, minSpeed, maxSpeed) {
+            if (maxSpeed <= minSpeed) return 'rgb(0,255,136)';
+            const t = Math.max(0, Math.min(1, (speed - minSpeed) / (maxSpeed - minSpeed)));
+            const stops = [
+                { p: 0.000, r: 80,  g: 0,   b: 255 }, // mor
+                { p: 0.125, r: 0,   g: 100, b: 255 }, // koyu mavi
+                { p: 0.250, r: 0,   g: 210, b: 255 }, // cyan
+                { p: 0.375, r: 0,   g: 255, b: 140 }, // yeşil-cyan
+                { p: 0.500, r: 0,   g: 255, b: 0   }, // yeşil
+                { p: 0.625, r: 180, g: 255, b: 0   }, // sarı-yeşil
+                { p: 0.750, r: 255, g: 220, b: 0   }, // sarı
+                { p: 0.875, r: 255, g: 120, b: 0   }, // turuncu
+                { p: 1.000, r: 255, g: 20,  b: 20  }  // kırmızı
+            ];
+            let s0 = stops[0], s1 = stops[stops.length - 1];
+            for (let i = 0; i < stops.length - 1; i++) {
+                if (t >= stops[i].p && t <= stops[i + 1].p) {
+                    s0 = stops[i]; s1 = stops[i + 1]; break;
+                }
+            }
+            const localT = (t - s0.p) / (s1.p - s0.p);
+            const r = Math.round(s0.r + (s1.r - s0.r) * localT);
+            const g = Math.round(s0.g + (s1.g - s0.g) * localT);
+            const b = Math.round(s0.b + (s1.b - s0.b) * localT);
+            return `rgb(${r},${g},${b})`;
+        }
+
+        // ── Alt-sektör tespit fonksiyonu (race.html ile aynı) ──
+        const SUB_SECTOR_NOISE_THRESHOLD = 1.5;
+
+        function detectSubSectors(rows, sectorId) {
+            if (rows.length < 2) {
+                return [{
+                    id: sectorId + '.1',
+                    startMeter: rows[0].s,
+                    endMeter: rows[rows.length - 1].s,
+                    entrySpeed: rows[0].v,
+                    exitSpeed: rows[rows.length - 1].v,
+                    type: 'flat',
+                    coords: rows.map(r => [r.lat, r.lon])
+                }];
+            }
+
+            const subSectors = [];
+            let segStart = 0;
+            let currentTrend = null;
+
+            const smoothed = rows.map((r, i) => {
+                if (i === 0 || i === rows.length - 1) return r.v;
+                return (rows[i - 1].v + r.v + rows[i + 1].v) / 3;
+            });
+
+            for (let i = 1; i < smoothed.length; i++) {
+                const diff = smoothed[i] - smoothed[segStart];
+                if (Math.abs(diff) >= SUB_SECTOR_NOISE_THRESHOLD) {
+                    currentTrend = diff > 0 ? 'accel' : 'decel';
+                    break;
+                }
+            }
+            if (!currentTrend) {
+                return [{
+                    id: sectorId + '.1',
+                    startMeter: rows[0].s,
+                    endMeter: rows[rows.length - 1].s,
+                    entrySpeed: rows[0].v,
+                    exitSpeed: rows[rows.length - 1].v,
+                    type: 'flat',
+                    coords: rows.map(r => [r.lat, r.lon])
+                }];
+            }
+
+            let subCount = 0;
+            let lastPeak = smoothed[segStart];
+
+            for (let i = 1; i < smoothed.length; i++) {
+                const diff = smoothed[i] - lastPeak;
+                let trendChanged = false;
+                if (currentTrend === 'accel' && diff < -SUB_SECTOR_NOISE_THRESHOLD) trendChanged = true;
+                else if (currentTrend === 'decel' && diff > SUB_SECTOR_NOISE_THRESHOLD) trendChanged = true;
+
+                if (currentTrend === 'accel' && smoothed[i] > lastPeak) lastPeak = smoothed[i];
+                else if (currentTrend === 'decel' && smoothed[i] < lastPeak) lastPeak = smoothed[i];
+
+                if (trendChanged || i === smoothed.length - 1) {
+                    const endIdx = (trendChanged && i > 0) ? i - 1 : i;
+                    subCount++;
+                    const segRows = rows.slice(segStart, endIdx + 1);
+                    if (segRows.length >= 1) {
+                        subSectors.push({
+                            id: sectorId + '.' + subCount,
+                            startMeter: segRows[0].s,
+                            endMeter: segRows[segRows.length - 1].s,
+                            entrySpeed: Math.round(segRows[0].v * 10) / 10,
+                            exitSpeed: Math.round(segRows[segRows.length - 1].v * 10) / 10,
+                            type: currentTrend,
+                            coords: segRows.map(r => [r.lat, r.lon])
+                        });
+                    }
+                    if (trendChanged && i < smoothed.length - 1) {
+                        segStart = endIdx;
+                        currentTrend = currentTrend === 'accel' ? 'decel' : 'accel';
+                        lastPeak = smoothed[segStart];
+                    }
+                }
+            }
+
+            if (subSectors.length === 0) {
+                subSectors.push({
+                    id: sectorId + '.1',
+                    startMeter: rows[0].s,
+                    endMeter: rows[rows.length - 1].s,
+                    entrySpeed: rows[0].v,
+                    exitSpeed: rows[rows.length - 1].v,
+                    type: 'flat',
+                    coords: rows.map(r => [r.lat, r.lon])
+                });
+            }
+            return subSectors;
+        }
+
+        // Optimum data'dan belirli metredeki hız değerini al (interpolasyon)
+        function getOptimumSpeedAt(meter) {
+            if (optimumData.length === 0) return 0;
+            if (meter <= optimumData[0].s) return optimumData[0].v;
+            if (meter >= optimumData[optimumData.length - 1].s) return optimumData[optimumData.length - 1].v;
+
+            for (let i = 0; i < optimumData.length - 1; i++) {
+                if (meter >= optimumData[i].s && meter <= optimumData[i + 1].s) {
+                    const t = (meter - optimumData[i].s) / (optimumData[i + 1].s - optimumData[i].s);
+                    return optimumData[i].v + (optimumData[i + 1].v - optimumData[i].v) * t;
+                }
+            }
+            return optimumData[optimumData.length - 1].v;
+        }
+
+        // Belirli metre aralığındaki koordinatları optimumData / loadedTrackCoordinates'ten al
+        function getCoordsForRange(startMeter, endMeter) {
+            if (optimumData.length === 0 || loadedTrackCoordinates.length === 0) return [];
+
+            // optimumData'dan metrelere karşılık gelen indeksleri bul
+            const coords = [];
+            // loadedTrackCoordinates ve optimumData aynı sırada varsayalım
+            for (let i = 0; i < optimumData.length; i++) {
+                if (optimumData[i].s >= startMeter && optimumData[i].s <= endMeter) {
+                    if (i < loadedTrackCoordinates.length) {
+                        coords.push(loadedTrackCoordinates[i]);
+                    }
+                }
+            }
+            return coords;
         }
 
         // Haritayı başlat
@@ -452,47 +755,205 @@
                 });
             }
 
+            isModified = false;
+            updateModifiedBadge();
             renderSectorsList();
         }
 
-        // Sector listesini render et
+        // ── Sector listesini render et ──
         function renderSectorsList() {
             const list = document.getElementById('sectorsList');
             list.innerHTML = '<h2 style="font-size:16px; margin-bottom:10px;">Sector Ayarları</h2>';
 
             sectors.forEach((sector, index) => {
-                const color = getColorForSpeed(sector.targetSpeed);
+                const hasSubSectors = sector.subSectors && sector.subSectors.length > 0;
+                const speed = sector.targetSpeed || ((sector.entrySpeed + sector.exitSpeed) / 2) || 30;
+                const color = getColorForSpeed(speed);
+
                 const div = document.createElement('div');
                 div.className = 'sector-item';
                 div.style.borderLeftColor = color;
-                div.innerHTML = `
+
+                // Ana sektör header
+                let html = `
                     <div class="sector-header">
-                        <span class="sector-title">Sector ${sector.id} (${sector.startMeter}m - ${sector.endMeter}m)</span>
+                        <span class="sector-title">Sector ${sector.id} (${Math.round(sector.startMeter)}m - ${Math.round(sector.endMeter)}m)</span>
                         <button class="delete-btn" onclick="deleteSector(${index})">Sil</button>
                     </div>
                     <div class="sector-inputs">
                         <div>
                             <label>Başlangıç (m)</label>
-                            <input type="number" value="${sector.startMeter}" 
+                            <input type="number" value="${Math.round(sector.startMeter)}" 
                                 onchange="updateSectorMeter(${index}, 'startMeter', this.value)">
                         </div>
                         <div>
                             <label>Bitiş (m)</label>
-                            <input type="number" value="${sector.endMeter}" 
+                            <input type="number" value="${Math.round(sector.endMeter)}" 
                                 onchange="updateSectorMeter(${index}, 'endMeter', this.value)">
                         </div>
+                `;
+
+                if (hasSubSectors) {
+                    // Giriş/Çıkış hızları (sub-sector varsa)
+                    const entry = sector.entrySpeed !== undefined ? sector.entrySpeed : speed;
+                    const exit = sector.exitSpeed !== undefined ? sector.exitSpeed : speed;
+                    html += `
                         <div>
-                            <label>Uzunluk: ${sector.length}m</label>
+                            <label>Giriş: ${entry} km/h</label>
+                        </div>
+                        <div>
+                            <label>Çıkış: ${exit} km/h</label>
+                        </div>
+                    `;
+                } else {
+                    // Eski format
+                    html += `
+                        <div>
+                            <label>Uzunluk: ${Math.round(sector.endMeter - sector.startMeter)}m</label>
                         </div>
                         <div>
                             <label>Hedef Hız (km/h)</label>
-                            <input type="number" value="${sector.targetSpeed}" 
+                            <input type="number" value="${sector.targetSpeed || 30}" 
                                 onchange="updateSector(${index}, 'targetSpeed', this.value)">
                         </div>
-                    </div>
-                `;
+                    `;
+                }
+                html += '</div>';
+
+                // Alt-sektör slider'ları
+                if (hasSubSectors && sector.subSectors.length > 0) {
+                    html += '<div class="sub-sectors-container">';
+                    html += '<div class="sub-sectors-title">Alt-Sektörler</div>';
+
+                    sector.subSectors.forEach((sub, subIdx) => {
+                        const typeLabel = sub.type === 'accel' ? '↑ Hızlanma' :
+                                         sub.type === 'decel' ? '↓ Yavaşlama' : '→ Sabit';
+                        const typeClass = sub.type === 'accel' ? 'accel' :
+                                         sub.type === 'decel' ? 'decel' : 'flat';
+
+                        const avgSpd = ((sub.entrySpeed || 0) + (sub.exitSpeed || 0)) / 2;
+                        const subColor = getColorForSpeed(avgSpd);
+
+                        html += `<div class="sub-sector-item" style="border-left-color: ${subColor};">
+                            <div class="sub-sector-header">
+                                <span class="sub-sector-id">${sub.id}</span>
+                                <span class="sub-sector-type ${typeClass}">${typeLabel}</span>
+                            </div>
+                            <div class="sub-sector-speeds">
+                                ${Math.round(sub.startMeter)}m → ${Math.round(sub.endMeter)}m
+                            </div>
+                            <div class="sub-sector-speed-inputs" style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+                                <div>
+                                    <label style="font-size:10px; color:#777; margin-bottom:2px;">Giriş (km/h)</label>
+                                    <input type="number" value="${sub.entrySpeed}" step="0.1" style="padding:4px; font-size:11px; width:100%;"
+                                        onchange="updateSubSectorSpeed(${index}, ${subIdx}, 'entrySpeed', parseFloat(this.value))">
+                                </div>
+                                <div>
+                                    <label style="font-size:10px; color:#777; margin-bottom:2px;">Çıkış (km/h)</label>
+                                    <input type="number" value="${sub.exitSpeed}" step="0.1" style="padding:4px; font-size:11px; width:100%;"
+                                        onchange="updateSubSectorSpeed(${index}, ${subIdx}, 'exitSpeed', parseFloat(this.value))">
+                                </div>
+                            </div>`;
+
+                        // Son alt-sektör hariç, sınır slider'ı göster
+                        if (subIdx < sector.subSectors.length - 1) {
+                            const minVal = Math.round(sector.startMeter) + 1;
+                            const maxVal = Math.round(sector.endMeter) - 1;
+                            const curVal = Math.round(sub.endMeter);
+
+                            html += `<div class="sub-sector-slider-row">
+                                <label>Bitiş:</label>
+                                <input type="range" 
+                                    min="${minVal}" max="${maxVal}" value="${curVal}" step="1"
+                                    oninput="onSubSectorSliderInput(${index}, ${subIdx}, this.value, this)"
+                                    onchange="adjustSubSectorBoundary(${index}, ${subIdx}, parseFloat(this.value))">
+                                <span class="sub-sector-slider-value" id="sliderVal_${index}_${subIdx}">${curVal}m</span>
+                            </div>`;
+                        }
+
+                        html += '</div>';
+                    });
+
+                    html += '</div>';
+                }
+
+                div.innerHTML = html;
                 list.appendChild(div);
             });
+        }
+
+        // Slider anlık değer gösterimi (input event)
+        function onSubSectorSliderInput(sectorIdx, subIdx, value, sliderEl) {
+            const label = document.getElementById(`sliderVal_${sectorIdx}_${subIdx}`);
+            if (label) label.textContent = Math.round(value) + 'm';
+        }
+
+        // ── Alt-sektör hız değerini düzenle ──
+        function updateSubSectorSpeed(sectorIdx, subIdx, field, value) {
+            const sector = sectors[sectorIdx];
+            if (!sector || !sector.subSectors || !sector.subSectors[subIdx]) return;
+
+            sector.subSectors[subIdx][field] = Math.round(value * 10) / 10;
+
+            // Ana sektörün giriş/çıkış hızlarını da güncelle
+            const firstSub = sector.subSectors[0];
+            const lastSub = sector.subSectors[sector.subSectors.length - 1];
+            sector.entrySpeed = firstSub.entrySpeed;
+            sector.exitSpeed = lastSub.exitSpeed;
+
+            isModified = true;
+            updateModifiedBadge();
+
+            // Haritayı ve listeyi yeniden çiz
+            applySectors();
+            renderSectorsList();
+        }
+
+        // ── Alt-sektör sınırını düzenle ──
+        function adjustSubSectorBoundary(sectorIdx, subIdx, newMeter) {
+            const sector = sectors[sectorIdx];
+            if (!sector || !sector.subSectors) return;
+
+            const sub = sector.subSectors[subIdx];
+            const nextSub = sector.subSectors[subIdx + 1];
+            if (!sub || !nextSub) return;
+
+            // Sınır güvenliği: ana sektör sınırları içinde kal
+            newMeter = Math.max(sector.startMeter + 1, Math.min(sector.endMeter - 1, newMeter));
+
+            // Minimum alt-sektör uzunluğu (1 metre)
+            const minLen = 1;
+            if (newMeter - sub.startMeter < minLen) newMeter = sub.startMeter + minLen;
+            if (nextSub.endMeter - newMeter < minLen) newMeter = nextSub.endMeter - minLen;
+
+            // Sınırı güncelle
+            sub.endMeter = newMeter;
+            nextSub.startMeter = newMeter;
+
+            // Hızları güncelle (optimumData'dan interpolasyon)
+            if (optimumData.length > 0) {
+                sub.exitSpeed = Math.round(getOptimumSpeedAt(newMeter) * 10) / 10;
+                nextSub.entrySpeed = Math.round(getOptimumSpeedAt(newMeter) * 10) / 10;
+            }
+
+            // Koordinatları güncelle
+            sub.coords = getCoordsForRange(sub.startMeter, sub.endMeter);
+            nextSub.coords = getCoordsForRange(nextSub.startMeter, nextSub.endMeter);
+
+            // Düzenleme flag
+            isModified = true;
+            updateModifiedBadge();
+
+            // Haritayı yeniden çiz
+            applySectors();
+            // Listeyi yeniden render et
+            renderSectorsList();
+        }
+
+        // Düzenleme badge
+        function updateModifiedBadge() {
+            const badge = document.getElementById('modifiedBadge');
+            if (badge) badge.style.display = isModified ? 'inline-block' : 'none';
         }
 
         // Sector metre güncelle
@@ -515,100 +976,204 @@
             renderSectorsList();
         }
 
-        // Sector'leri haritaya uygula
+        // ── Sector'leri haritaya uygula ──
         function applySectors() {
-            // Eski sector layer'larını temizle
+            // Eski layer'ları temizle
             sectorLayers.forEach(layer => map.removeLayer(layer));
             sectorLayers = [];
+            csvTrackLayers.forEach(layer => map.removeLayer(layer));
+            csvTrackLayers = [];
+            sectorBoundaryMarkers.forEach(m => map.removeLayer(m));
+            sectorBoundaryMarkers = [];
 
-            let currentDistance = 0;
-            let sectorIndex = 0;
-            let lastProcessedIndex = 0;
+            if (sectors.length === 0) return;
 
-            // Her sector için
-            for (let s = 0; s < sectors.length; s++) {
-                const sector = sectors[s];
-                let sectorStartIndex = -1;
-                let sectorEndIndex = -1;
-                let tempDistance = 0;
+            // Alt-sektör destekli mi kontrol et
+            const hasSubSectors = sectors.some(s => s.subSectors && s.subSectors.length > 0);
 
-                // Sector'un başlangıç ve bitiş noktalarını bul
-                for (let i = 1; i < trackCoordinates.length; i++) {
-                    const dist = calculateDistance(
-                        trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
-                        trackCoordinates[i][0], trackCoordinates[i][1]
-                    );
-                    tempDistance += dist;
+            if (hasSubSectors) {
+                // ── Alt-sektör bazlı çizim ──
+                const allSubSpeeds = [];
+                sectors.forEach(sec => {
+                    if (sec.subSectors) {
+                        sec.subSectors.forEach(sub => {
+                            allSubSpeeds.push(sub.entrySpeed || 0, sub.exitSpeed || 0);
+                        });
+                    }
+                });
+                const sMinSpeed = allSubSpeeds.length > 0 ? Math.min(...allSubSpeeds) : 0;
+                const sMaxSpeed = allSubSpeeds.length > 0 ? Math.max(...allSubSpeeds) : 60;
 
-                    // Sector başlangıcı
-                    if (sectorStartIndex === -1 && tempDistance >= sector.startMeter) {
-                        sectorStartIndex = i - 1;
+                sectors.forEach(sec => {
+                    if (!sec.subSectors) return;
+
+                    sec.subSectors.forEach(sub => {
+                        if (!sub.coords || sub.coords.length < 2) return;
+
+                        const avgSpeed = ((sub.entrySpeed || 0) + (sub.exitSpeed || 0)) / 2;
+                        const color = getColorForSpeedRelative(avgSpeed, sMinSpeed, sMaxSpeed);
+
+                        const poly = L.polyline(sub.coords, {
+                            color: color,
+                            weight: 6,
+                            opacity: 0.85
+                        }).addTo(map);
+
+                        const typeLabel = sub.type === 'accel' ? '↑ Hızlanma' :
+                                         sub.type === 'decel' ? '↓ Yavaşlama' : '→ Sabit';
+
+                        poly.bindTooltip(`
+                            <strong>Sector ${sec.id} — ${sub.id}</strong><br>
+                            ${Math.round(sub.startMeter)}m - ${Math.round(sub.endMeter)}m<br>
+                            Giriş: ${sub.entrySpeed} km/h → Çıkış: ${sub.exitSpeed} km/h<br>
+                            ${typeLabel}
+                        `, { sticky: true, direction: 'top', opacity: 0.92 });
+                        csvTrackLayers.push(poly);
+                    });
+
+                    // Ana sektör sınır belirteci
+                    const coordItem = loadedSectorCoordsArray.find(c => c.sectorId === sec.id);
+                    const firstCoord = coordItem?.coords?.[0];
+                    if (firstCoord) {
+                        const marker = L.circleMarker(firstCoord, {
+                            radius: 6,
+                            color: '#ffffff',
+                            fillColor: '#ffffff',
+                            fillOpacity: 0.9,
+                            weight: 2,
+                            opacity: 1
+                        }).addTo(map);
+                        marker.bindTooltip(`S${sec.id}`, {
+                            permanent: true,
+                            direction: 'top',
+                            className: 'sector-boundary-label',
+                            offset: [0, -8]
+                        });
+                        sectorBoundaryMarkers.push(marker);
+                        csvTrackLayers.push(marker);
+                    }
+                });
+
+                updateSpeedLegend(sMinSpeed, sMaxSpeed);
+            } else {
+                // ── Eski format: KML track üzerinden mesafe bazlı çizim ──
+                let lastProcessedIndex = 0;
+
+                for (let s = 0; s < sectors.length; s++) {
+                    const sector = sectors[s];
+                    let sectorStartIndex = -1;
+                    let sectorEndIndex = -1;
+                    let tempDistance = 0;
+
+                    for (let i = 1; i < trackCoordinates.length; i++) {
+                        const dist = calculateDistance(
+                            trackCoordinates[i - 1][0], trackCoordinates[i - 1][1],
+                            trackCoordinates[i][0], trackCoordinates[i][1]
+                        );
+                        tempDistance += dist;
+
+                        if (sectorStartIndex === -1 && tempDistance >= sector.startMeter) {
+                            sectorStartIndex = i - 1;
+                        }
+                        if (sectorStartIndex !== -1 && tempDistance >= sector.endMeter) {
+                            sectorEndIndex = i;
+                            break;
+                        }
                     }
 
-                    // Sector bitişi
-                    if (sectorStartIndex !== -1 && tempDistance >= sector.endMeter) {
-                        sectorEndIndex = i;
-                        break;
+                    if (sectorStartIndex !== -1 && sectorEndIndex !== -1) {
+                        const sectorCoords = trackCoordinates.slice(sectorStartIndex, sectorEndIndex + 1);
+                        const color = getColorForSpeed(sector.targetSpeed || 30);
+
+                        const polyline = L.polyline(sectorCoords, {
+                            color: color,
+                            weight: 6,
+                            opacity: 0.8
+                        }).addTo(map);
+
+                        polyline.bindPopup(`
+                            <strong>Sector ${sector.id}</strong><br>
+                            ${sector.startMeter}m - ${sector.endMeter}m<br>
+                            Uzunluk: ${sector.length || (sector.endMeter - sector.startMeter)} m<br>
+                            Hedef Hız: ${sector.targetSpeed || 30} km/h
+                        `);
+
+                        sectorLayers.push(polyline);
+                        lastProcessedIndex = sectorEndIndex;
                     }
                 }
 
-                // Sector'u çiz
-                if (sectorStartIndex !== -1 && sectorEndIndex !== -1) {
-                    const sectorCoords = trackCoordinates.slice(sectorStartIndex, sectorEndIndex + 1);
-                    const color = getColorForSpeed(sector.targetSpeed);
-
-                    const polyline = L.polyline(sectorCoords, {
-                        color: color,
+                // Kalan kısmı gri ile boya
+                if (lastProcessedIndex < trackCoordinates.length - 1) {
+                    const remainingCoords = trackCoordinates.slice(lastProcessedIndex);
+                    const grayPolyline = L.polyline(remainingCoords, {
+                        color: '#666666',
                         weight: 6,
-                        opacity: 0.8
+                        opacity: 0.5
                     }).addTo(map);
 
-                    polyline.bindPopup(`
-                        <strong>Sector ${sector.id}</strong><br>
-                        ${sector.startMeter}m - ${sector.endMeter}m<br>
-                        Uzunluk: ${sector.length} m<br>
-                        Hedef Hız: ${sector.targetSpeed} km/h
+                    const remainingDistance = totalTrackLength - sectors[sectors.length - 1].endMeter;
+                    grayPolyline.bindPopup(`
+                        <strong>Tanımsız Bölge</strong><br>
+                        Kalan Mesafe: ${remainingDistance.toFixed(0)} m
                     `);
 
-                    sectorLayers.push(polyline);
-                    lastProcessedIndex = sectorEndIndex;
+                    sectorLayers.push(grayPolyline);
                 }
-            }
-
-            // Kalan kısmı gri ile boya
-            if (lastProcessedIndex < trackCoordinates.length - 1) {
-                const remainingCoords = trackCoordinates.slice(lastProcessedIndex);
-                const grayPolyline = L.polyline(remainingCoords, {
-                    color: '#666666',
-                    weight: 6,
-                    opacity: 0.5
-                }).addTo(map);
-
-                const remainingDistance = totalTrackLength - sectors[sectors.length - 1].endMeter;
-                grayPolyline.bindPopup(`
-                    <strong>Tanımsız Bölge</strong><br>
-                    Kalan Mesafe: ${remainingDistance.toFixed(0)} m
-                `);
-
-                sectorLayers.push(grayPolyline);
             }
         }
 
-        // Sector'leri kaydet
+        // Hız legend'ını güncelle
+        function updateSpeedLegend(minSpeed, maxSpeed) {
+            const container = document.getElementById('speedLegendItems');
+            if (!container) return;
+
+            const steps = 5;
+            container.innerHTML = '';
+            for (let i = 0; i < steps; i++) {
+                const speed = minSpeed + (maxSpeed - minSpeed) * (i / (steps - 1));
+                const color = getColorForSpeedRelative(speed, minSpeed, maxSpeed);
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="legend-color" style="background: ${color};"></div>
+                    <span>${speed.toFixed(0)} km/h</span>
+                `;
+                container.appendChild(item);
+            }
+        }
+
+        // ── Sector'leri kaydet ──
         function showSaveDialog() {
-            const name = prompt('Sector planı için bir isim girin:');
+            let defaultName = loadedPlanName || '';
+            if (isModified && defaultName) {
+                defaultName = defaultName + '_edited';
+            }
+
+            const name = prompt('Sector planı için bir isim girin:', defaultName);
             if (!name) return;
 
             fetch('/api/sectors/save', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, sectors: sectors, optimumData: optimumData })
+                body: JSON.stringify({
+                    name: name,
+                    sectors: sectors,
+                    optimumData: optimumData,
+                    sectorCoordsArray: loadedSectorCoordsArray,
+                    trackCoordinates: loadedTrackCoordinates
+                })
             })
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
+                        const totalSubs = sectors.reduce((sum, s) => sum + (s.subSectors ? s.subSectors.length : 0), 0);
                         alert('Sector planı kaydedildi: ' + name +
+                            (totalSubs > 0 ? `\n${sectors.length} sektör · ${totalSubs} alt-sektör` : '') +
                             (optimumData.length > 0 ? `\nOptimum data: ${optimumData.length} nokta` : ''));
+                        loadedPlanName = name;
+                        isModified = false;
+                        updateModifiedBadge();
                     } else {
                         alert('Hata: ' + (data.error || 'Bilinmeyen hata'));
                     }
@@ -616,7 +1181,7 @@
                 .catch(err => alert('Kaydetme hatası: ' + err.message));
         }
 
-        // Sector'leri yükle
+        // ── Sector'leri yükle ──
         function showLoadDialog() {
             fetch('/api/sectors/list')
                 .then(res => res.json())
@@ -650,32 +1215,179 @@
                 .then(data => {
                     sectors = data.sectors;
                     document.getElementById('sectorCount').value = sectors.length;
+
                     // Optimum datayı geri yükle
                     if (data.optimumData && data.optimumData.length > 0) {
                         optimumData = data.optimumData;
                         updateOptimumStatus();
                     }
+
+                    // Koordinat verilerini sakla
+                    if (data.sectorCoordsArray && data.sectorCoordsArray.length > 0) {
+                        loadedSectorCoordsArray = data.sectorCoordsArray;
+                    }
+                    if (data.trackCoordinates && data.trackCoordinates.length > 0) {
+                        loadedTrackCoordinates = data.trackCoordinates;
+                    }
+
+                    loadedPlanName = data.name || '';
+                    isModified = false;
+                    updateModifiedBadge();
+
                     renderSectorsList();
                     applySectors();
+
+                    // Haritayı yüklenen koordinatlara fit et
+                    if (loadedTrackCoordinates.length > 0) {
+                        map.fitBounds(L.polyline(loadedTrackCoordinates).getBounds(), { padding: [20, 20] });
+                    }
+
+                    const totalSubs = sectors.reduce((sum, s) => sum + (s.subSectors ? s.subSectors.length : 0), 0);
                     alert('Sector planı yüklendi: ' + data.name +
+                        (totalSubs > 0 ? `\n${sectors.length} sektör · ${totalSubs} alt-sektör` : '') +
                         (data.optimumData && data.optimumData.length > 0
                             ? `\nOptimum data: ${data.optimumData.length} nokta` : ''));
                 })
                 .catch(err => alert('Yükleme hatası: ' + err.message));
         }
 
-        // CSV Import
+        // ── CSV Import (Tam CSV veya basit optimum CSV) ──
         function handleCSVImport(event) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function (e) {
                 const text = e.target.result;
-                parseOptimumCSV(text);
+                parseCSV(text, file.name);
                 // input'u sıfırla (aynı dosya tekrar seçilebilsin)
                 event.target.value = '';
             };
             reader.readAsText(file);
+        }
+
+        function parseCSV(text, fileName) {
+            const lines = text.trim().split(/\r?\n/);
+            if (lines.length < 2) {
+                alert('CSV boş veya geçersiz!');
+                return;
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^\uFEFF/, ''));
+
+            // Sütun indekslerini bul
+            const idxS = headers.indexOf('s');
+            const idxLat = headers.indexOf('lat');
+            const idxLon = headers.indexOf('lon');
+            let idxV = headers.indexOf('v_kmh');
+            if (idxV < 0) idxV = headers.indexOf('hiz_kmh');
+            let idxSector = headers.indexOf('sector');
+            if (idxSector < 0) idxSector = headers.indexOf('sectors');
+
+            // Tam CSV: lat, lon, v_kmh var → sector plan olarak yükle
+            if (idxLat >= 0 && idxLon >= 0 && idxV >= 0) {
+                parseFullSectorCSV(lines, headers, idxS, idxLat, idxLon, idxV, idxSector, fileName);
+                return;
+            }
+
+            // Basit optimum CSV: sadece s ve v_kmh
+            if (idxS >= 0 && idxV >= 0) {
+                parseOptimumCSV(text);
+                return;
+            }
+
+            alert('CSV\'de geçerli sütunlar bulunamadı!\nBeklenen: "s,lat,lon,v_kmh,sector" veya "s,v_kmh"\nBulunan: ' + headers.join(', '));
+        }
+
+        function parseFullSectorCSV(lines, headers, idxS, idxLat, idxLon, idxV, idxSector, fileName) {
+            const rows = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(',');
+                if (cols.length < headers.length) continue;
+                const sVal = idxS >= 0 ? parseFloat(cols[idxS]) : i;
+                const latVal = parseFloat(cols[idxLat]);
+                const lonVal = parseFloat(cols[idxLon]);
+                const vVal = parseFloat(cols[idxV]);
+                if (isNaN(latVal) || isNaN(lonVal) || isNaN(vVal)) continue;
+
+                let sectorVal;
+                if (idxSector >= 0) {
+                    const raw = parseFloat(cols[idxSector]);
+                    sectorVal = isNaN(raw) ? 1 : Math.floor(raw);
+                } else {
+                    sectorVal = -1;
+                }
+                rows.push({ s: sVal, lat: latVal, lon: lonVal, v: vVal, sector: sectorVal });
+            }
+
+            if (rows.length === 0) {
+                alert('CSV\'den geçerli veri okunamadı!');
+                return;
+            }
+
+            // Sector sütunu yoksa otomatik 7 eşit sektör
+            if (rows[0].sector === -1) {
+                const sMin = Math.min(...rows.map(r => r.s));
+                const sMax = Math.max(...rows.map(r => r.s));
+                const sectorWidth = (sMax - sMin) / 7;
+                rows.forEach(r => {
+                    r.sector = Math.min(7, Math.floor((r.s - sMin) / sectorWidth) + 1);
+                });
+            }
+
+            // Track koordinatlarını sakla
+            loadedTrackCoordinates = rows.map(r => [r.lat, r.lon]);
+
+            // Optimum data
+            optimumData = rows.map(r => ({ s: Math.round(r.s), v: r.v }));
+            updateOptimumStatus();
+
+            // Sektör haritası oluştur (alt-sektör destekli)
+            const sectorRowsMap = {};
+            rows.forEach(r => {
+                if (!sectorRowsMap[r.sector]) sectorRowsMap[r.sector] = [];
+                sectorRowsMap[r.sector].push(r);
+            });
+
+            const sectorNos = Object.keys(sectorRowsMap).map(Number).sort((a, b) => a - b);
+
+            // Sektör listesini alt-sektörlerle güncelle
+            sectors = sectorNos.map(no => {
+                const sRows = sectorRowsMap[no].sort((a, b) => a.s - b.s);
+                const subSectors = detectSubSectors(sRows, no);
+                return {
+                    id: no,
+                    startMeter: sRows[0].s,
+                    endMeter: sRows[sRows.length - 1].s,
+                    entrySpeed: Math.round(sRows[0].v * 10) / 10,
+                    exitSpeed: Math.round(sRows[sRows.length - 1].v * 10) / 10,
+                    subSectors: subSectors
+                };
+            });
+
+            // Sektör koordinatlarını sakla
+            loadedSectorCoordsArray = sectorNos.map(no => ({
+                sectorId: no,
+                coords: sectorRowsMap[no].map(r => [r.lat, r.lon])
+            }));
+
+            document.getElementById('sectorCount').value = sectorNos.length;
+            loadedPlanName = fileName.replace('.csv', '');
+            isModified = false;
+            updateModifiedBadge();
+
+            // UI güncelle
+            renderSectorsList();
+            applySectors();
+
+            // Haritayı fit et
+            if (loadedTrackCoordinates.length > 0) {
+                map.fitBounds(L.polyline(loadedTrackCoordinates).getBounds(), { padding: [20, 20] });
+            }
+
+            const totalSubs = sectors.reduce((sum, s) => sum + s.subSectors.length, 0);
+            const statusEl = document.getElementById('optimumStatus');
+            statusEl.textContent = `✅ ${rows.length} nokta · ${sectorNos.length} sektör · ${totalSubs} alt-sektör`;
+            statusEl.className = 'optimum-status loaded';
         }
 
         function parseOptimumCSV(text) {
@@ -684,7 +1396,6 @@
                 alert('CSV boş veya geçersiz!');
                 return;
             }
-            // Başlık satırını parse et (sütun indekslerini bul)
             const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
             const sIdx = headers.indexOf('s');
             const vIdx = headers.indexOf('v_kmh');
