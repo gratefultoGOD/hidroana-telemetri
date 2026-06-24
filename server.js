@@ -120,7 +120,7 @@ function broadcastToClients(data) {
                 if (!client._sseSlowWarned) {
                     client._sseSlowWarned = true;
                     const drainTimeout = setTimeout(() => {
-                        //console.log('⚠️ SSE yavaş client bağlantısı kesiliyor (drain timeout)');
+                        console.log('⚠️ SSE yavaş client bağlantısı kesiliyor (drain timeout)');
                         try { client.end(); } catch (e) { /* ignore */ }
                         sseClients.delete(client);
                     }, 5000);
@@ -139,7 +139,7 @@ function broadcastToClients(data) {
 
     // SSE broadcast logu throttle — her 10 veride 1
     if (dataCounter % 10 === 0) {
-        //console.log(`📡 SSE broadcast: ${sseClients.size} client'a veri gönderildi`);
+        console.log(`📡 SSE broadcast: ${sseClients.size} client'a veri gönderildi`);
     }
 }
 
@@ -208,7 +208,7 @@ function broadcastSectorUpdate(payload) {
         }
     });
     if (raceSectorClients.size > 0) {
-        //console.log(`🏁 Realtime sector broadcast: ${raceSectorClients.size} client'a gönderildi`);
+        console.log(`🏁 Realtime sector broadcast: ${raceSectorClients.size} client'a gönderildi`);
     }
 }
 
@@ -235,7 +235,7 @@ function broadcastLapState() {
     });
 
     if (lapSSEClients.size > 0) {
-        //console.log(`🏁 Lap SSE broadcast: ${lapSSEClients.size} client'a gönderildi`);
+        console.log(`🏁 Lap SSE broadcast: ${lapSSEClients.size} client'a gönderildi`);
     }
 }
 
@@ -285,7 +285,7 @@ function saveRaceToFile() {
 
     fs.writeFileSync(filePath, csv, 'utf8');
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
-    //console.log(`📁 Yarış kaydedildi: ${fileName} (${lapState.laps.length} tur)`);
+    console.log(`📁 Yarış kaydedildi: ${fileName} (${lapState.laps.length} tur)`);
     return fileName;
 }
 
@@ -327,7 +327,7 @@ function initTubitakSession(now) {
     // Başlık satırını yaz
     const filePath = path.join(TUBITAK_DIR, fileName);
     fs.writeFileSync(filePath, '\uFEFF' + TUBITAK_HEADERS + '\n', 'utf8');
-    //console.log(`📋 TÜBİTAK kayıt dosyası oluşturuldu: ${fileName}`);
+    console.log(`📋 TÜBİTAK kayıt dosyası oluşturuldu: ${fileName}`);
 }
 
 // TÜBİTAK verisini dosyaya yaz (asenkron)
@@ -346,7 +346,7 @@ async function flushTubitakData(force = false) {
         const content = rows.join('\n') + '\n';
         await fsPromises.appendFile(filePath, content, 'utf8');
         if (dataCounter % 10 === 0) {
-            //console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
+            console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
         }
     } catch (err) {
         //console.error('TÜBİTAK dosya yazma hatası:', err);
@@ -466,7 +466,7 @@ async function flushDataToFile() {
         _dailyCsvExists = true;
         _dailyCsvFileName = fileName;
         if (dataCounter % 10 === 0) {
-            //console.log(`💾 ${dataToWrite.length} veri dosyaya yazıldı: ${fileName}`);
+            console.log(`💾 ${dataToWrite.length} veri dosyaya yazıldı: ${fileName}`);
         }
     } catch (error) {
         //console.error('❌ Dosya yazma hatası:', error);
@@ -519,7 +519,7 @@ async function flushTestDataToFile() {
         await fsPromises.appendFile(filePath, csvContent, 'utf8');
         _testFileExists[testMode.testName] = true;
         if (dataCounter % 10 === 0) {
-            //console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
+            console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
         }
     } catch (error) {
         //console.error('Test dosyası yazma hatası:', error);
@@ -736,7 +736,7 @@ function calculateAverages() {
 }
 
 // Debug: initDailyAverages sonuçlarını logla
-//console.log(`📊 initDailyAverages: count=${dailyAveragesCount}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
+console.log(`📊 initDailyAverages: count=${dailyAveragesCount}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
 
 // Yıldız ile ayrılmış veriyi JSON'a dönüştür
 const dataFields = ['h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit', 'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke', 'jv', 'jc', 'jw', 'jwh', 'mt', 'watt', 'ppm', 'gx', 'gy', 'gz', 'ax', 'ay', 'az', 'flow', 'totalflow', 'gsmspeed', 'pitch', 'roll', 'yaw', 'driver_pot', 'direksiyon_angle'];
@@ -793,7 +793,7 @@ function processIncomingData(data) {
     });
     // Log throttle: her 10 veride 1 kez logla (event loop koruması)
     if (dataCounter % 10 === 0) {
-        //console.log(`📊 Running avg update: count=${dailyAveragesCount}, fv_val=${dataWithTimestamp.fv}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
+        console.log(`📊 Running avg update: count=${dailyAveragesCount}, fv_val=${dataWithTimestamp.fv}, fv_avg=${dailyAverages.fv?.toFixed(4)}`);
     }
 
     latestTelemetryData = dataWithTimestamp; // Sonra güncelle
@@ -808,7 +808,7 @@ function processIncomingData(data) {
         dataWithTimestamp.realTotalFlow = matchedFlow.totalFlow;    // toplam flow
         dataWithTimestamp.hasRealFlow = true;
         if (dataCounter % 10 === 0) {
-            //console.log(`💧 Flow eşleşmesi: anlık=${matchedFlow.instantFlow}, toplam=${matchedFlow.totalFlow}`);
+            console.log(`💧 Flow eşleşmesi: anlık=${matchedFlow.instantFlow}, toplam=${matchedFlow.totalFlow}`);
         }
     } else {
         dataWithTimestamp.realInstantFlow = null;
@@ -851,7 +851,7 @@ function processIncomingData(data) {
         : 0;
     if (!tubitakSession.startTime || tubitakGap > 60000) {
         if (tubitakGap > 60000) {
-            //console.log(`📋 TÜBİTAK: ${(tubitakGap / 1000).toFixed(0)}s boşluk algılandı → yeni dosya oluşturuluyor`);
+            console.log(`📋 TÜBİTAK: ${(tubitakGap / 1000).toFixed(0)}s boşluk algılandı → yeni dosya oluşturuluyor`);
         }
         initTubitakSession(now);
 
@@ -891,7 +891,7 @@ function processIncomingData(data) {
         const speed = latestTelemetryData.h || 'N/A';
         const soc = latestTelemetryData.soc || 'N/A';
         const testInfo = testMode.active ? ' | 🧪 TEST AKTİF' : '';
-        //console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${dailyAveragesCount} | Bekleyen: ${pendingData.length}${testInfo}`);
+        console.log(`📥 [${DATA_SOURCE}] Veri alındı (#${dataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bugün: ${dailyAveragesCount} | Bekleyen: ${pendingData.length}${testInfo}`);
     }
 }
 
@@ -912,22 +912,22 @@ function formatTestTime(ms) {
 let mqttClient = null;
 
 function startMQTT() {
-    //console.log('MQTT broker bağlanılıyor...');
+    console.log('MQTT broker bağlanılıyor...');
     mqttClient = mqtt.connect(MQTT_BROKER_URL, MQTT_OPTIONS);
 
     mqttClient.on('connect', () => {
         // TCP Nagle algoritmasını kapat — küçük MQTT paketleri biriktirilmeden anında gelsin
         if (mqttClient.stream) {
             mqttClient.stream.setNoDelay(true);
-            //console.log('⚡ MQTT TCP_NODELAY aktif');
+            console.log('⚡ MQTT TCP_NODELAY aktif');
         }
-        //console.log('MQTT broker bağlandı!');
+        console.log('MQTT broker bağlandı!');
         connectionStatus.connected = true;
         mqttClient.subscribe(MQTT_TOPIC, { qos: 0 }, (error) => {
             if (error) {
                 //console.error('Topice abone olma hatası:', error);
             } else {
-                //console.log(`📡 Topice abone olundu: ${MQTT_TOPIC}`);
+                console.log(`📡 Topice abone olundu: ${MQTT_TOPIC}`);
             }
         });
 
@@ -935,7 +935,7 @@ function startMQTT() {
             if (error) {
                 //console.error('Topice abone olma hatası:', error);
             } else {
-                //console.log(`📡 Topice abone olundu: flow`);
+                console.log(`📡 Topice abone olundu: flow`);
             }
         });
 
@@ -983,7 +983,7 @@ function startMQTT() {
             setTimeout(() => {
                 if (mqttClient && mqttClient.connected) {
                     mqttClient.publish(MQTT_TAKE, supercapacitor ? '1' : '0', { qos: 1 });
-                    //console.log(`📤 MQTT_TAKE gönderildi: ${supercapacitor ? '1' : '0'}`);
+                    console.log(`📤 MQTT_TAKE gönderildi: ${supercapacitor ? '1' : '0'}`);
                 }
             }, 250);
         } catch (error) {
@@ -999,12 +999,12 @@ function startMQTT() {
     });
 
     mqttClient.on('offline', () => {
-        //console.log(' MQTT bağlantısı kesildi');
+        console.log(' MQTT bağlantısı kesildi');
         connectionStatus.connected = false;
     });
 
     mqttClient.on('reconnect', () => {
-        //console.log('MQTT yeniden bağlanıyor...');
+        console.log('MQTT yeniden bağlanıyor...');
     });
 }
 
@@ -1012,7 +1012,7 @@ function stopMQTT() {
     if (mqttClient) {
         mqttClient.end();
         mqttClient = null;
-        //console.log(' MQTT bağlantısı kapatıldı');
+        console.log(' MQTT bağlantısı kapatıldı');
     }
 }
 
@@ -1024,13 +1024,13 @@ let supercapacitor = false;
 
 function startHTTP() {
     httpModeActive = true;
-    //console.log('HTTP modu aktif - Araçtan veri bekleniyor...');
-    //console.log('Endpoint: GET /api/telemetry?h=...&x=...&y=...');
+    console.log('HTTP modu aktif - Araçtan veri bekleniyor...');
+    console.log('Endpoint: GET /api/telemetry?h=...&x=...&y=...');
 }
 
 function stopHTTP() {
     httpModeActive = false;
-    //console.log('HTTP modu kapatıldı');
+    console.log('HTTP modu kapatıldı');
 }
 
 // ============================================
@@ -1063,13 +1063,13 @@ function switchDataSource(newSource) {
         startHTTP();
     }
 
-    //console.log(`Veri kaynağı değiştirildi: ${newSource}`);
+    console.log(`Veri kaynağı değiştirildi: ${newSource}`);
     return { success: true, message: `Veri kaynağı ${newSource} olarak değiştirildi` };
 }
 
 // Başlangıçta veri kaynağını başlat
 function initDataSource() {
-    //console.log(`\n Veri kaynağı: ${DATA_SOURCE}`);
+    console.log(`\n Veri kaynağı: ${DATA_SOURCE}`);
     if (DATA_SOURCE === 'MQTT') {
         startMQTT();
     } else {
@@ -1093,7 +1093,7 @@ app.get('/data', (req, res) => {
 
     // KEY kontrolünü hemen yap
     if (q.key !== key || !q.key) {
-        //console.log('⚠️ Unauthorized access detected');
+        console.log('⚠️ Unauthorized access detected');
         return res.status(401).send('UNAUTHORIZED');
     }
 
@@ -1149,7 +1149,7 @@ app.get('/data', (req, res) => {
         };
 
         processIncomingData(data);
-        //console.log(`⚡ /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);
+        console.log(`⚡ /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);
     });
 });
 
@@ -1271,7 +1271,7 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
 
     // Client'ı listeye ekle
     sseClients.add(res);
-    //console.log(`🔌 SSE client bağlandı. Toplam: ${sseClients.size}`);
+    console.log(`🔌 SSE client bağlandı. Toplam: ${sseClients.size}`);
 
     // İlk bağlantıda mevcut veriyi gönder — sadece son 25 saniye içinde gelmişse
     const STALE_THRESHOLD_MS = 25000; // 25 saniye
@@ -1280,7 +1280,7 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
         if (dataAge <= STALE_THRESHOLD_MS) {
             res.write(`data: ${JSON.stringify(latestTelemetryData)}\n\n`);
         } else {
-            //console.log(`⏳ SSE: Son veri ${(dataAge / 1000).toFixed(1)}s eski, yeni client'a gönderilmedi.`);
+            console.log(`⏳ SSE: Son veri ${(dataAge / 1000).toFixed(1)}s eski, yeni client'a gönderilmedi.`);
         }
     }
 
@@ -1294,7 +1294,7 @@ app.get('/api/telemetry/stream', requireAuth, (req, res) => {
     req.on('close', () => {
         clearInterval(heartbeat);
         sseClients.delete(res);
-        //console.log(`🔌 SSE client ayrıldı. Toplam: ${sseClients.size}`);
+        console.log(`🔌 SSE client ayrıldı. Toplam: ${sseClients.size}`);
     });
 });
 /*
@@ -1322,7 +1322,7 @@ app.get('/api/telemetry', requireAuth, (req, res) => {
 
     // 5 saniyeden fazla veri gelmemişse bağlantı kesildi
     if (timeSinceLastData > 5000) {
-        //console.log(`⚠️ Veri akışı kesildi (${timeSinceLastData}ms önce)`);
+        console.log(`⚠️ Veri akışı kesildi (${timeSinceLastData}ms önce)`);
         return res.status(503).json({
             error: 'Veri akışı kesildi',
             lastDataTime: lastDataTime,
@@ -1388,7 +1388,7 @@ app.post('/api/test/start', requireAdmin, (req, res) => {
     testMode.testName = `test_${day}-${month}-${year}_${hours}-${minutes}-${seconds}.csv`;
     testMode.pendingTestData = [];
 
-    //console.log(`Test başlatıldı: ${testMode.testName}`);
+    console.log(`Test başlatıldı: ${testMode.testName}`);
 
     res.json({
         success: true,
@@ -1507,7 +1507,7 @@ app.post('/api/test/resume', requireAdmin, (req, res) => {
     testMode.paused = false;
     testMode.pausedAt = null;
 
-    //console.log(`▶️ Test devam ediyor: ${testMode.testName} | Duraklatma süresi: ${formatTestTime(pauseDuration)}`);
+    console.log(`▶️ Test devam ediyor: ${testMode.testName} | Duraklatma süresi: ${formatTestTime(pauseDuration)}`);
     res.json({ success: true, message: 'Test devam ediyor', testName: testMode.testName, pauseDuration });
 });
 
@@ -1613,7 +1613,7 @@ app.patch('/api/test/rename/:fileName', requireAdmin, (req, res) => {
 
     try {
         fs.renameSync(oldFilePath, newFilePath);
-        //console.log(`📝 Test dosyası yeniden adlandırıldı: ${oldFileName} → ${cleanName}`);
+        console.log(`📝 Test dosyası yeniden adlandırıldı: ${oldFileName} → ${cleanName}`);
         res.json({
             success: true,
             message: `Dosya yeniden adlandırıldı`,
@@ -1641,7 +1641,7 @@ app.delete('/api/test/delete/:fileName', requireAdmin, (req, res) => {
     }
 
     fs.unlinkSync(filePath);
-    //console.log(`🗑️ Test dosyası silindi: ${fileName}`);
+    console.log(`🗑️ Test dosyası silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
 
@@ -1688,7 +1688,7 @@ app.delete('/api/tubitak/delete/:fileName', requireAdmin, (req, res) => {
     }
 
     fs.unlinkSync(filePath);
-    //console.log(`🗑️ TÜBİTAK dosyası silindi: ${fileName}`);
+    console.log(`🗑️ TÜBİTAK dosyası silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
 
@@ -1807,7 +1807,7 @@ app.delete('/api/telemetry/delete/:fileName', requireAdmin, (req, res) => {
     }
 
     fs.unlinkSync(filePath);
-    //console.log(`🗑️ Dosya silindi: ${fileName}`);
+    console.log(`🗑️ Dosya silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
 
@@ -2031,7 +2031,7 @@ app.get('/api/laps/stream', requireAuth, (req, res) => {
     req.on('close', () => {
         clearInterval(heartbeat);
         lapSSEClients.delete(res);
-        //console.log(`🔌 Lap SSE client ayrıldı. Toplam: ${lapSSEClients.size}`);
+        console.log(`🔌 Lap SSE client ayrıldı. Toplam: ${lapSSEClients.size}`);
     });
 });
 
@@ -2052,7 +2052,7 @@ app.post('/api/laps/start', requireAdmin, (req, res) => {
         currentJwh: currentJwh
     };
 
-    //console.log(`🏁 Yarış başlatıldı! Başlangıç Jwh: ${currentJwh}`);
+    console.log(`🏁 Yarış başlatıldı! Başlangıç Jwh: ${currentJwh}`);
     broadcastLapState();
 
     res.json({
@@ -2094,7 +2094,7 @@ app.post('/api/laps/lap', requireAdmin, (req, res) => {
     lapState.laps.push(lap);
     lapState.currentJwh = currentJwh;
 
-    //console.log(`🏁 Tur ${lapNum} kaydedildi! Süre: ${lap.lapDuration}ms, Wh: ${lap.lapJwh.toFixed(3)}`);
+    console.log(`🏁 Tur ${lapNum} kaydedildi! Süre: ${lap.lapDuration}ms, Wh: ${lap.lapJwh.toFixed(3)}`);
     broadcastLapState();
 
     res.json({
@@ -2119,7 +2119,7 @@ app.post('/api/laps/stop', requireAdmin, (req, res) => {
         lapState.savedFileName = savedFile;
     }
 
-    //console.log(`🏁 Yarış durduruldu! Toplam ${lapState.laps.length} tur${savedFile ? ` | Kaydedildi: ${savedFile}` : ''}`);
+    console.log(`🏁 Yarış durduruldu! Toplam ${lapState.laps.length} tur${savedFile ? ` | Kaydedildi: ${savedFile}` : ''}`);
     broadcastLapState();
 
     res.json({
@@ -2147,7 +2147,7 @@ app.post('/api/laps/reset', requireAdmin, (req, res) => {
         savedFileName: null
     };
 
-    //console.log(`🏁 Yarış sıfırlandı!${savedFile ? ` Kaydedilen dosya: ${savedFile}` : ''}`);
+    console.log(`🏁 Yarış sıfırlandı!${savedFile ? ` Kaydedilen dosya: ${savedFile}` : ''}`);
     broadcastLapState();
 
     res.json({
@@ -2249,7 +2249,7 @@ app.post('/api/races/rename', requireAdmin, (req, res) => {
             fs.writeFileSync(newJsonPath, JSON.stringify(meta, null, 2), 'utf8');
             fs.unlinkSync(oldJsonPath);
         }
-        //console.log(`📁 Yarış yeniden adlandırıldı: ${oldFileName} → ${newFileName}`);
+        console.log(`📁 Yarış yeniden adlandırıldı: ${oldFileName} → ${newFileName}`);
         res.json({ success: true, newFileName });
     } catch (e) {
         //console.error('Yeniden adlandırma hatası:', e);
@@ -2277,8 +2277,8 @@ app.delete('/api/races/delete/:fileName(*)', requireAdmin, (req, res) => {
     try {
         fs.unlinkSync(csvPath);
         if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
-            //console.log(`🗑️ Yarış silindi: ${fileName}`);
-            res.json({ success: true });
+        console.log(`🗑️ Yarış silindi: ${fileName}`);
+        res.json({ success: true });
     } catch (e) {
         //console.error('Silme hatası:', e);
         res.status(500).json({ error: 'Silme başarısız: ' + e.message });
@@ -2616,7 +2616,7 @@ app.get('/api/sectors/realtime-stream', requireAdmin, (req, res) => {
     res.flushHeaders();
 
     raceSectorClients.add(res);
-    //console.log(`🔌 Race Sector SSE client bağlandı. Toplam: ${raceSectorClients.size}`);
+    console.log(`🔌 Race Sector SSE client bağlandı. Toplam: ${raceSectorClients.size}`);
 
     // Yeni bağlanan client'a en son sektör verisini hemen gönder
     if (lastRealtimeSectorPayload) {
@@ -2675,25 +2675,25 @@ try { app.use(favicon(path.join(__dirname, 'logo.ico'))); } catch (e) { }
 // SERVER BAŞLAT
 // ============================================
 app.listen(PORT, () => {
-    //console.log(`\n Hidroana Telemetri Sunucusu Başlatıldı`);
-    //console.log(`Adres: http://localhost:${PORT}`);
-    //console.log(`Login: http://localhost:${PORT}/login`);
-    //console.log(`Veri klasörü: ${DATA_DIR}\n`);
+    console.log(`\n Hidroana Telemetri Sunucusu Başlatıldı`);
+    console.log(`Adres: http://localhost:${PORT}`);
+    console.log(`Login: http://localhost:${PORT}/login`);
+    console.log(`Veri klasörü: ${DATA_DIR}\n`);
     initDataSource();
 });
 
 // Sunucu kapanırken bekleyen verileri kaydet (ASENKRON)
 process.on('SIGINT', async () => {
-    //console.log('\n⏹️ Sunucu kapatılıyor...');
+    console.log('\n⏹️ Sunucu kapatılıyor...');
     if (pendingData.length > 0 || testMode.pendingTestData.length > 0 || tubitakSession.pending.length > 0) {
-        //console.log(`📝 ${pendingData.length} bekleyen veri kaydediliyor...`);
+        console.log(`📝 ${pendingData.length} bekleyen veri kaydediliyor...`);
         await flushDataToFile();
         if (testMode.active) {
             await flushTestDataToFile();
         }
         await flushTubitakData(true); // force flush
     }
-    //console.log('✅ Veriler kaydedildi. Çıkış yapılıyor...');
+    console.log('✅ Veriler kaydedildi. Çıkış yapılıyor...');
     process.exit(0);
 });
 
