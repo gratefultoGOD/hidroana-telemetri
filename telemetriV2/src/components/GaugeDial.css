@@ -1,0 +1,75 @@
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.gauge__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.gauge__track {
+  stroke: #eef0f3;
+}
+
+.gauge__zone {
+  opacity: 0.5;
+}
+
+.gauge__zone--warning {
+  stroke: #fde3b8;
+}
+
+.gauge__zone--danger {
+  stroke: #f8cdd0;
+}
+
+.gauge__tick {
+  stroke: #d1d5db;
+  stroke-width: 2;
+}
+
+.gauge__needle {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: all 0.25s ease;
+}
+
+.gauge__hub {
+  fill: #ffffff;
+  stroke: #d1d5db;
+  stroke-width: 2;
+}
+
+.gauge__readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -0.6rem;
+}
+
+.gauge__value {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.25s ease;
+}
+
+.gauge__unit {
+  font-size: 0.78rem;
+  font-weight: 400;
+  margin-left: 0.2rem;
+  color: var(--text-muted);
+}
+
+.gauge__label {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

@@ -590,6 +590,31 @@
             color: var(--text-muted);
         }
 
+        /* Araç rozeti (Urban / Proto) — yüklenen test dosyasına göre */
+        .vehicle-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .vehicle-badge--proto {
+            color: #ff6b9d;
+            background: rgba(255, 107, 157, 0.12);
+            border-color: rgba(255, 107, 157, 0.3);
+        }
+
+        .vehicle-badge--urban {
+            color: #43e97b;
+            background: rgba(67, 233, 123, 0.12);
+            border-color: rgba(67, 233, 123, 0.3);
+        }
+
         /* ===================== STATES ===================== */
         .empty-state {
             display: flex;
@@ -840,6 +865,7 @@
             <div class="header-left">
                 <a href="/" class="back-link">← Ana Sayfa</a>
                 <h1>🎬 Test Oynatıcı</h1>
+                <span id="vehicleBadge" class="vehicle-badge vehicle-badge--proto">🏎️ Proto</span>
                 <div id="playingBadge" style="display:none;" class="playing-badge">
                     <span class="dot"></span>OYNATILIYOR
                 </div>
@@ -1032,7 +1058,7 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:#667eea">⚡ JM Voltaj</span>
+                                    <span class="chart-title" style="color:#667eea" data-proto="⚡ JM Voltaj" data-urban="⚡ Motor Voltaj">⚡ JM Voltaj</span>
                                     <span class="chart-val" style="color:#667eea"><span id="cv-jv">--</span> <span
                                             style="font-size:10px;font-weight:400">V</span></span>
                                 </div>
@@ -1043,7 +1069,7 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:#ab47bc">⚡ JM Akım</span>
+                                    <span class="chart-title" style="color:#ab47bc" data-proto="⚡ JM Akım" data-urban="⚡ Motor Akım">⚡ JM Akım</span>
                                     <span class="chart-val" style="color:#ab47bc"><span id="cv-jc">--</span> <span
                                             style="font-size:10px;font-weight:400">A</span></span>
                                 </div>
@@ -1056,7 +1082,7 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:var(--joule-color)">🔌 Joulmetre Güç</span>
+                                    <span class="chart-title" style="color:var(--joule-color)" data-proto="🔌 Joulmetre Güç" data-urban="🔌 Motor Güç">🔌 Joulmetre Güç</span>
                                     <span class="chart-val" style="color:var(--joule-color);"><span id="cv-jw">--</span>
                                         <span style="font-size:10px;font-weight:400;">W</span></span>
                                 </div>
@@ -1067,7 +1093,7 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:var(--joule-color)">📈 Joulmetre Wh</span>
+                                    <span class="chart-title" style="color:var(--joule-color)" data-proto="📈 Joulmetre Wh" data-urban="📈 Motor Wh">📈 Joulmetre Wh</span>
                                     <span class="chart-val" style="color:var(--joule-color);"><span
                                             id="cv-jwh">--</span> <span
                                             style="font-size:10px;font-weight:400;">Wh</span></span>
@@ -1094,6 +1120,19 @@
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
                             <div class="chart-canvas-wrap"><canvas id="chartBatTemp"></canvas></div>
+                        </div>
+
+                        <!-- Tank Sıcaklığı (yalnızca URBAN test kayıtlarında) -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#4dd0e1">🌡️ Tank Sıcaklığı</span>
+                                    <span class="chart-val" style="color:#4dd0e1;"><span id="cv-tank">--</span> <span
+                                            style="font-size:10px;font-weight:400;">°C</span></span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartTank"></canvas></div>
                         </div>
 
                     </div>
@@ -1152,16 +1191,9 @@
             .then(data => {
                 if (!data.authenticated) {
                     window.location.href = '/login';
-                } else if (data.user.role !== 'admin') {
-                    document.body.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;color:#e8eaf6;font-family:Inter,sans-serif">
-                    <div style="font-size:48px">🔒</div>
-                    <div style="font-size:20px;font-weight:700">Yetkisiz Erişim</div>
-                    <div style="color:#8892b0">Bu sayfa yalnızca admin kullanıcılar içindir.</div>
-                    <a href="/" style="color:#667eea;text-decoration:none;margin-top:8px">← Ana Sayfaya Dön</a>
-                </div>`;
                 } else {
-                    // Admin doğrulandı — dosya listesini çek ve ilk dosyayı otomatik yükle
+                    // Giriş yapıldı — izleme (oynatma) tüm kullanıcılara açık.
+                    // Normal kullanıcılar yalnızca izler; indirme/düzenleme/silme yoktur.
                     loadFileList();
                 }
             })
@@ -1217,6 +1249,7 @@
         let playbackSpeed = 1.0;
         let playbackTimeout = null;
         let lastBearing = 0;
+        let currentVehicle = 'proto'; // Yüklenen test dosyasının aracı: 'proto' | 'urban'
 
         const MAX_CHART_POINTS = 10;
 
@@ -1349,10 +1382,12 @@
             const sel = document.getElementById('fileSelect');
             const fileName = sel.value;
             if (!fileName) return;
+            // Araç tespiti: dosya adı 'test_urban_' ile başlıyorsa URBAN, değilse PROTO
+            currentVehicle = fileName.startsWith('test_urban_') ? 'urban' : 'proto';
             const ind = document.getElementById('loadingIndicator');
             ind.style.display = '';
             try {
-                const res = await fetch('/api/test/download/' + encodeURIComponent(fileName));
+                const res = await fetch('/api/test/content/' + encodeURIComponent(fileName));
                 if (!res.ok) throw new Error('İndirilemedi: ' + res.status);
                 const text = await res.text();
                 fileData = parseCSV(text);
@@ -1397,6 +1432,8 @@
                 id: 'chartBatTemp', label: 'Bat. Sıcaklıkları', color: '#ef5350', fields: ['t1', 't2', 't3'],
                 dual: true, dualColors: ['#ef5350', '#ff8a65', '#ffd54f'], dualLabels: ['T1 (°C)', 'T2 (°C)', 'T3 (°C)']
             },
+            // Tank sıcaklığı — yalnızca URBAN test kayıtlarında veri gelir
+            { id: 'chartTank', label: 'Tank Sıcaklığı (°C)', color: '#4dd0e1', fields: ['T_tank_C'] },
         ];
 
         function makeChartConfig(def) {
@@ -1470,11 +1507,63 @@
             return cfg;
         }
 
+        // Bir alanın yüklü veride en az bir geçerli sayısal değeri var mı?
+        function dataHasField(field) {
+            for (let i = 0; i < fileData.length; i++) {
+                const v = fileData[i][field];
+                if (v !== undefined && v !== '' && !isNaN(Number(v))) return true;
+            }
+            return false;
+        }
+
+        // Araç tipine göre etiketleri ve rozeti güncelle (Joulmetre ↔ Motor)
+        function applyVehicleUI(vehicle) {
+            const isUrban = vehicle === 'urban';
+
+            // Grafik başlık etiketleri (DOM)
+            document.querySelectorAll('.chart-title[data-proto][data-urban]').forEach(el => {
+                el.textContent = isUrban ? el.getAttribute('data-urban') : el.getAttribute('data-proto');
+            });
+
+            // chartDefs tooltip etiketleri (Joulmetre → Motor)
+            const JM_LABELS = {
+                chartJv: ['JM Voltaj (V)', 'Motor Voltaj (V)'],
+                chartJc: ['JM Akım (A)', 'Motor Akım (A)'],
+                chartJw: ['JM Güç (W)', 'Motor Güç (W)'],
+                chartJwh: ['JM Wh', 'Motor Wh']
+            };
+            chartDefs.forEach(def => {
+                if (JM_LABELS[def.id]) def.label = JM_LABELS[def.id][isUrban ? 1 : 0];
+            });
+
+            // Rozet
+            const badge = document.getElementById('vehicleBadge');
+            if (badge) {
+                badge.textContent = isUrban ? '🚙 Urban' : '🏎️ Proto';
+                badge.className = 'vehicle-badge ' + (isUrban ? 'vehicle-badge--urban' : 'vehicle-badge--proto');
+            }
+        }
+
+        // Veride hiç değeri olmayan grafik kartlarını gizle: PROTO'da tank sıcaklığı,
+        // URBAN'da PROTO'ya özel alanlar otomatik gizlenir. Oynatma araca göre uyarlanır.
+        function applyChartVisibility() {
+            chartDefs.forEach(def => {
+                const canvas = document.getElementById(def.id);
+                if (!canvas) return;
+                const card = canvas.closest('.chart-card');
+                if (!card) return;
+                const hasData = def.fields.some(f => dataHasField(f));
+                def._skip = !hasData;
+                card.style.display = hasData ? '' : 'none';
+            });
+        }
+
         function initCharts() {
             chartDefs.forEach(def => {
                 const canvas = document.getElementById(def.id);
                 if (!canvas) return;
-                if (charts[def.id]) { charts[def.id].destroy(); }
+                if (charts[def.id]) { charts[def.id].destroy(); delete charts[def.id]; }
+                if (def._skip) return; // Bu araçta veri yok — grafik oluşturma
                 charts[def.id] = new Chart(canvas.getContext('2d'), makeChartConfig(def));
             });
             initStatElements();
@@ -1485,6 +1574,7 @@
             chartDefs.forEach(def => {
                 const canvas = document.getElementById(def.id);
                 if (!canvas) return;
+                if (def._skip) return; // Gizli grafiğe istatistik şeridi ekleme
                 const card = canvas.closest('.chart-card');
                 if (!card) return;
                 const header = card.querySelector('.chart-card-header');
@@ -1640,6 +1730,8 @@
             // Init charts
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('chartsGroup').style.display = 'block';
+            applyVehicleUI(currentVehicle);   // Araç etiketleri + rozet (Joulmetre/Motor)
+            applyChartVisibility();           // Araca göre grafikleri göster/gizle
             initCharts();
 
             // Duration info
@@ -1766,6 +1858,7 @@
             setCv('cv-jv', row.jv); setCv('cv-jc', row.jc);
             setCv('cv-jw', row.jw); setCv('cv-jwh', row.jwh);
             setCv('cv-t1', row.t1); setCv('cv-t2', row.t2); setCv('cv-t3', row.t3);
+            setCv('cv-tank', row.T_tank_C);
 
             // GSM: hem grafik başlığında hem header'da güncelle
             setCv('cv-gs', row.gs);

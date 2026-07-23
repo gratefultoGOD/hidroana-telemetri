@@ -1,0 +1,68 @@
+.speed-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.speed-panel__body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  flex: 1;
+}
+
+.speed-panel__gps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.speed-panel__gps-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.speed-panel__gps-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.speed-panel__gps-value em {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 400;
+  margin-left: 0.15rem;
+  color: var(--text-muted);
+}
+
+.speed-panel__body .signal-meter {
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 480px) {
+  .speed-panel__body {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .speed-panel__gps {
+    align-items: center;
+    margin-top: -0.5rem;
+  }
+
+  .speed-panel__body .signal-meter {
+    margin-top: 0.3rem;
+    padding-top: 0.5rem;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: none;
+    width: 100%;
+    justify-content: center;
+  }
+}

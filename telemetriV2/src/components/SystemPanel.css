@@ -1,0 +1,80 @@
+.system-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.system-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.system-panel__icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.system-panel__header h2 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  margin: 0;
+}
+
+.system-panel__gauges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  justify-items: center;
+}
+
+@media (max-width: 720px) {
+  .system-panel__gauges {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+}
+
+.system-panel__stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.system-panel__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.system-panel__stat-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.system-panel__stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.system-panel__stat-value em {
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 400;
+  margin-left: 0.15rem;
+  color: var(--text-muted);
+}

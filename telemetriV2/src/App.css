@@ -1,0 +1,214 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem clamp(1rem, 2vw, 2rem) 2rem;
+  gap: 1.25rem;
+  max-width: 1900px;
+  margin: 0 auto;
+}
+
+.app__header {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app__header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.app__collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.app__collapse-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.app__header-details {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
+  overflow: hidden;
+  max-height: 40rem;
+  opacity: 1;
+  margin-top: 0.85rem;
+  transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease;
+}
+
+.app__header-details.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.app__header-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.app__title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app__title-mark {
+  font-size: 1.5rem;
+}
+
+.app__title h1 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text);
+}
+
+.app__title p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.app__status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.app__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.app__status-dot.is-live {
+  background: #16a34a;
+}
+
+.app__clock {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5rem;
+}
+
+.app__settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel, transparent);
+  color: var(--text);
+  font-size: 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+
+.app__settings-btn:hover {
+  border-color: var(--text-muted);
+}
+
+.app__grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.3fr) minmax(0, 1.5fr) 220px;
+  grid-template-areas:
+    'speed battery status'
+    'map fuelcell status'
+    'map motor status';
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.app__cell {
+  display: flex;
+  min-width: 0;
+}
+
+.app__cell > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.app__cell--status {
+  grid-area: status;
+}
+
+.app__cell--battery {
+  grid-area: battery;
+}
+
+.app__cell--fuelcell {
+  grid-area: fuelcell;
+}
+
+.app__cell--motor {
+  grid-area: motor;
+}
+
+.app__cell--map {
+  grid-area: map;
+}
+
+.app__cell--speed {
+  grid-area: speed;
+}
+
+@media (max-width: 1100px) {
+  .app__grid {
+    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-areas:
+      'battery status'
+      'fuelcell status'
+      'motor status'
+      'speed speed'
+      'map map';
+  }
+}
+
+@media (max-width: 760px) {
+  .app__grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'battery'
+      'fuelcell'
+      'motor'
+      'speed'
+      'map'
+      'status';
+  }
+}
+
+.app__footer {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}

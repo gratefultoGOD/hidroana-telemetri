@@ -1,0 +1,62 @@
+.test-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.test-controls__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.test-controls__btn:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.test-controls__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.test-controls__btn--active {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.test-controls__btn--pause {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.test-controls__timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--danger);
+  min-width: 4.5rem;
+}
+
+.test-controls__timer.is-paused {
+  color: var(--warning);
+}
+
+.test-controls__note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.test-controls__error {
+  font-size: 0.75rem;
+  color: var(--danger);
+}
