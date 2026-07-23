@@ -1,17 +1,21 @@
 .app {
-  min-height: 100vh;
+  /* Masaüstünde tüm pano kaydırma olmadan viewport'a sığar */
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 1.25rem clamp(1rem, 2vw, 2rem) 2rem;
-  gap: 1.25rem;
+  padding: 0.55rem clamp(0.6rem, 1.4vw, 1.4rem);
+  gap: 0.55rem;
   max-width: 1900px;
   margin: 0 auto;
+  overflow: hidden;
 }
 
 .app__header {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  padding-bottom: 1rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -20,20 +24,20 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .app__collapse-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.6rem;
+  height: 1.6rem;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
@@ -48,11 +52,11 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.85rem;
+  gap: 0.6rem;
   overflow: hidden;
   max-height: 40rem;
   opacity: 1;
-  margin-top: 0.85rem;
+  margin-top: 0.6rem;
   transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease;
 }
 
@@ -66,21 +70,21 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .app__title {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 
 .app__title-mark {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
 }
 
 .app__title h1 {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
@@ -88,8 +92,8 @@
 }
 
 .app__title p {
-  margin: 0.15rem 0 0;
-  font-size: 0.85rem;
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 
@@ -138,24 +142,30 @@
 }
 
 .app__grid {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(360px, 1.3fr) minmax(0, 1.5fr) 220px;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(0, 1.5fr) minmax(168px, 210px);
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     'speed battery status'
     'map fuelcell status'
     'map motor status';
-  gap: 1rem;
+  gap: 0.55rem;
   align-items: stretch;
+  min-width: 0;
 }
 
 .app__cell {
   display: flex;
   min-width: 0;
+  min-height: 0;
 }
 
 .app__cell > * {
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .app__cell--status {
@@ -182,15 +192,42 @@
   grid-area: speed;
 }
 
+.app__footer {
+  flex: 0 0 auto;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+/* ── Tablet ve altı: sabit-yükseklik düzeninden çık, normal kaydırmaya dön ── */
 @media (max-width: 1100px) {
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding: 1rem clamp(0.75rem, 2vw, 1.5rem) 1.5rem;
+    gap: 1rem;
+  }
+
   .app__grid {
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, 1fr) 200px;
+    grid-template-rows: none;
     grid-template-areas:
       'battery status'
       'fuelcell status'
       'motor status'
       'speed speed'
       'map map';
+    gap: 0.85rem;
+  }
+
+  /* Kaydırılabilir düzende kadranlar genişliğe göre ölçeklenir */
+  .gauge {
+    width: clamp(96px, 22vw, 150px);
+  }
+
+  .map-panel {
+    min-height: 320px;
   }
 }
 
@@ -205,10 +242,12 @@
       'map'
       'status';
   }
-}
 
-.app__footer {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.78rem;
+  .gauge {
+    width: clamp(100px, 26vw, 150px);
+  }
+
+  .map-panel {
+    min-height: 280px;
+  }
 }

@@ -74,7 +74,7 @@ export default function GaugeDial({
   const displayValue = Number.isFinite(value) ? value.toFixed(decimals) : '--'
 
   return (
-    <div className="gauge" style={{ width: size }}>
+    <div className="gauge">
       <svg viewBox={`0 0 ${size} ${size * 0.9}`} className="gauge__svg">
         <path d={trackPath} className="gauge__track" strokeWidth={size * 0.055} fill="none" />
         <path d={warningPath} className="gauge__zone gauge__zone--warning" strokeWidth={size * 0.055} fill="none" />

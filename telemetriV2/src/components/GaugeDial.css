@@ -3,6 +3,10 @@
   flex-direction: column;
   align-items: center;
   position: relative;
+  /* Kadran boyutu ekran YÜKSEKLİĞİNE göre ölçeklenir: Windows'ta %125/%150
+     ölçeklemede viewport kısaldığında kadranlar da küçülür → sayfa sığar. */
+  width: clamp(70px, 11.5vh, 148px);
+  max-width: 100%;
 }
 
 .gauge__svg {
@@ -48,28 +52,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: -0.6rem;
+  margin-top: -0.5rem;
 }
 
 .gauge__value {
-  font-size: 1.35rem;
+  font-size: clamp(0.8rem, 1.95vh, 1.3rem);
   font-weight: 600;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   transition: color 0.25s ease;
+  line-height: 1.1;
 }
 
 .gauge__unit {
-  font-size: 0.78rem;
+  font-size: clamp(0.55rem, 1.2vh, 0.78rem);
   font-weight: 400;
   margin-left: 0.2rem;
   color: var(--text-muted);
 }
 
 .gauge__label {
-  margin-top: 0.15rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  margin-top: 0.1rem;
+  font-size: clamp(0.5rem, 1.05vh, 0.72rem);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-muted);
+  text-align: center;
 }

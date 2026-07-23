@@ -8,8 +8,9 @@
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  gap: clamp(0.75rem, 3vw, 2rem);
   flex: 1;
+  min-height: 0;
 }
 
 .speed-panel__gps {
