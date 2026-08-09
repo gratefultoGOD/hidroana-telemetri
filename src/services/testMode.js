@@ -162,6 +162,15 @@ async function flushTestDataToFile() {
     }
 }
 
+function detectTestVehicle(headers, fileName = '') {
+    const urbanFields = new Set([
+        'T_tank_C', 'max_temperature', 'mv', 'mc', 'mw',
+        'ischarging', 'controller_speed', 'error_code'
+    ]);
+    if (headers.some(header => urbanFields.has(header))) return 'urban';
+    return fileName.startsWith('test_urban_') ? 'urban' : 'proto';
+}
+
 // Test dosyalarının listesini al (ASENKRON — event loop bloklamaz)
 async function getTestFiles() {
     try {
@@ -181,12 +190,15 @@ async function getTestFiles() {
             const content = await fsPromises.readFile(filePath, 'utf8');
             const lines = content.split('\n').filter(line => line.trim());
             const dataCount = Math.max(0, lines.length - 1);
+            const headers = lines.length > 0
+                ? lines[0].replace('\uFEFF', '').split(';').map(header => header.trim())
+                : [];
+            const vehicle = detectTestVehicle(headers, f);
 
             // Dosya içeriğindeki ilk veri satırından tarih ve saat bilgisini çıkar
             let dateStr = '', timeStr = '';
             if (lines.length > 1) {
                 const firstDataRow = lines[1].split(';');
-                const headers = lines[0].replace('\uFEFF', '').split(';');
                 const dateIdx = headers.indexOf('date');
                 const timeIdx = headers.indexOf('time');
                 if (dateIdx !== -1 && timeIdx !== -1 && firstDataRow[dateIdx] && firstDataRow[timeIdx]) {
@@ -197,7 +209,7 @@ async function getTestFiles() {
 
             files.push({
                 fileName: f,
-                vehicle: f.startsWith('test_urban_') ? 'urban' : 'proto',
+                vehicle,
                 date: dateStr,
                 time: timeStr,
                 dataCount: dataCount,
@@ -228,5 +240,6 @@ module.exports = {
     resumeTest,
     recordTestData,
     flushTestDataToFile,
+    detectTestVehicle,
     getTestFiles
 };

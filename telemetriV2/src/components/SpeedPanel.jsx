@@ -4,7 +4,7 @@ import { SPEED_RANGE, GPS_SPEED_RANGE } from '../hooks/useTelemetryData'
 import './SystemPanel.css'
 import './SpeedPanel.css'
 
-export default function SpeedPanel({ speedKph, gpsSpeed, signalPct }) {
+export default function SpeedPanel({ speedKph, gpsSpeed, signalStrength, lapTime, totalTime, timingActive }) {
   return (
     <section className="system-panel speed-panel">
       <header className="system-panel__header">
@@ -29,7 +29,17 @@ export default function SpeedPanel({ speedKph, gpsSpeed, signalPct }) {
             <em>{GPS_SPEED_RANGE.unit}</em>
           </span>
         </div>
-        <SignalMeter pct={signalPct} />
+        <SignalMeter signal={signalStrength} />
+        <div className="speed-panel__timing" data-active={timingActive}>
+          <span className="speed-panel__timing-row">
+            <span>Tur Süresi</span>
+            <strong>{lapTime}</strong>
+          </span>
+          <span className="speed-panel__timing-row">
+            <span>Toplam Süre</span>
+            <strong>{totalTime}</strong>
+          </span>
+        </div>
       </div>
     </section>
   )

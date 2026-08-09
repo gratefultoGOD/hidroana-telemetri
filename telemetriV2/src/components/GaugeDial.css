@@ -16,7 +16,7 @@
 }
 
 .gauge__track {
-  stroke: #eef0f3;
+  stroke: var(--gauge-track);
 }
 
 .gauge__zone {
@@ -24,15 +24,15 @@
 }
 
 .gauge__zone--warning {
-  stroke: #fde3b8;
+  stroke: var(--gauge-warning);
 }
 
 .gauge__zone--danger {
-  stroke: #f8cdd0;
+  stroke: var(--gauge-danger);
 }
 
 .gauge__tick {
-  stroke: #d1d5db;
+  stroke: var(--gauge-tick);
   stroke-width: 2;
 }
 
@@ -43,8 +43,8 @@
 }
 
 .gauge__hub {
-  fill: #ffffff;
-  stroke: #d1d5db;
+  fill: var(--gauge-hub);
+  stroke: var(--gauge-tick);
   stroke-width: 2;
 }
 

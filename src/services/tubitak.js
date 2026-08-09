@@ -1,7 +1,7 @@
 // ============================================
 // TÜBİTAK KAYIT SİSTEMİ
-// Her server başlatmasında (veya 60s veri boşluğunda) eşsiz bir dosya
-// oluşturulur; her gelen veri anında kaydedilir.
+// Yalnızca URBAN telemetrisi kaydedilir. Her server başlatmasında (veya 60s
+// veri boşluğunda) eşsiz bir dosya oluşturulur; her gelen veri anında kaydedilir.
 // Başlık: zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh
 // ============================================
 const fs = require('fs');
@@ -35,8 +35,23 @@ function initTubitakSession(now) {
     console.log(`📋 TÜBİTAK kayıt dosyası oluşturuldu: ${fileName}`);
 }
 
-// Gelen telemetri verisini TÜBİTAK formatında kaydet
-// İlk veri veya TUBITAK_GAP_MS'den uzun boşluk → yeni dosya başlat
+function buildTubitakRow(data, elapsedMs) {
+    // hiz_kmh
+    const hiz = data.h != null ? data.h : '';
+    // T_bat_C: yeni URBAN string'indeki batarya paketi maksimum sıcaklığı
+    const tBat = data.max_temperature != null ? data.max_temperature : '';
+    // T_tank_C: URBAN tank sıcaklığı
+    const tTank = data.T_tank_C != null ? data.T_tank_C : '';
+    // V_bat_V: toplam batarya gerilimi
+    const vBat = data.bv != null ? data.bv : '';
+    // kalan_enerji_Wh
+    const kalan = data.ke != null ? data.ke : '';
+
+    return `${elapsedMs};${hiz};${tBat};${tTank};${vBat};${kalan}`;
+}
+
+// Gelen URBAN telemetri verisini TÜBİTAK formatında kaydet.
+// İlk veri veya TUBITAK_GAP_MS'den uzun boşluk → yeni dosya başlat.
 function recordTubitakData(data, now) {
     const gap = tubitakSession.lastDataTime
         ? (now.getTime() - tubitakSession.lastDataTime)
@@ -51,19 +66,7 @@ function recordTubitakData(data, now) {
     tubitakSession.lastDataTime = now.getTime();
     const elapsedMs = now.getTime() - tubitakSession.startTime;
 
-    // hiz_kmh
-    const hiz = data.h != null ? data.h : '';
-    // T_bat_C: t1, t2, t3 arasından en yüksek değer
-    const temps = [data.t1, data.t2, data.t3].map(v => parseFloat(v)).filter(v => !isNaN(v));
-    const tBat = temps.length > 0 ? Math.max(...temps) : '';
-    // T_tank_C: şimdilik yakıt hücresi harici sıcaklık (fet)
-    const tTank = data.fet != null ? data.fet : '';
-    // V_bat_V: toplam batarya gerilimi
-    const vBat = data.bv != null ? data.bv : '';
-    // kalan_enerji_Wh
-    const kalan = data.ke != null ? data.ke : '';
-
-    tubitakSession.pending.push(`${elapsedMs};${hiz};${tBat};${tTank};${vBat};${kalan}`);
+    tubitakSession.pending.push(buildTubitakRow(data, elapsedMs));
     flushTubitakData();
 }
 
@@ -83,7 +86,7 @@ async function flushTubitakData(force = false) {
     try {
         const content = rows.join('\n') + '\n';
         await fsPromises.appendFile(filePath, content, 'utf8');
-        if (state.dataCounter % 10 === 0) {
+        if (state.urbanDataCounter % 10 === 0) {
             console.log(`📋 TÜBİTAK: ${rows.length} kayıt yazıldı → ${tubitakSession.fileName}`);
         }
     } catch (err) {
@@ -116,4 +119,4 @@ function getTubitakFiles() {
         .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
 }
 
-module.exports = { tubitakSession, recordTubitakData, flushTubitakData, getTubitakFiles };
+module.exports = { tubitakSession, buildTubitakRow, recordTubitakData, flushTubitakData, getTubitakFiles };

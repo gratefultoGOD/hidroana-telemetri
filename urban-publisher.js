@@ -30,8 +30,8 @@ let simState = {
     soc: 85,
     ke: 45,
     bwh: 100,
-    jwh: 50,
-    tank: 30   // Hidrojen tank sıcaklığı (°C) — yumuşak değişim için
+    tank: 30,   // Hidrojen tank sıcaklığı (°C) — yumuşak değişim için
+    tick: 0
 };
 
 console.log('🔌 URBAN publisher — MQTT broker\'a bağlanılıyor...');
@@ -74,8 +74,14 @@ function randomInRange(min, max, decimals = 0) {
 }
 
 function varyValue(base, variance, min, max) {
-    let newValue = base + (Math.random() - 0.5) * variance;
+    const newValue = base + (Math.random() - 0.5) * variance;
     return Math.max(min, Math.min(max, newValue));
+}
+
+function formatChargeTime(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
 }
 
 function sendTelemetryData() {
@@ -87,52 +93,83 @@ function sendTelemetryData() {
     const position = route[routeIndex];
 
     // Update simulated state
-    simState.soc = varyValue(simState.soc, 2, 10, 100);
-    simState.ke = varyValue(simState.ke, 1, 5, 60);
+    simState.tick++;
+    const phase = simState.tick % 48;
+    const isCharging = phase >= 30 && phase < 40;
+    const controllerEnabled = phase < 44;
+    const driveDirection = phase < 16 ? 2 : phase < 26 ? 1 : phase < 42 ? 0 : 2;
+    const hasOverVoltageError = phase >= 22 && phase < 27;
+
+    simState.soc = isCharging
+        ? Math.min(100, simState.soc + 0.35)
+        : varyValue(simState.soc, 1.2, 10, 100);
+    simState.ke = isCharging
+        ? Math.min(60, simState.ke + 0.2)
+        : varyValue(simState.ke, 0.7, 5, 60);
     simState.bwh += randomInRange(0.1, 0.5, 1);
-    simState.jwh += randomInRange(0.05, 0.2, 2);
     simState.tank = varyValue(simState.tank, 1.5, 15, 55);
 
     // config.js convention: raw 'x' alanı enlem (lat), raw 'y' alanı boylam (lng)
     const telemetryData = {
         h: String(randomInRange(20, 90)),            // Hız (km/h)
+        gsmspeed: String(randomInRange(20, 90, 1)),  // GPS/GSM tabanlı hız (km/h)
         x: String(position[0].toFixed(6)),            // Enlem (lat)
         y: String(position[1].toFixed(6)),             // Boylam (lng)
-        gs: String(randomInRange(60, 100)),            // GSM sinyal kalitesi (%)
+        gs: String(randomInRange(0, 33)),              // GSM sinyal kalitesi (0-32)
 
         fv: String(randomInRange(30, 50, 1)),          // Yakıt hücresi voltaj (V)
         fa: String(randomInRange(5, 25, 1)),           // Yakıt hücresi akım (A)
         fw: String(randomInRange(200, 800)),           // Yakıt hücresi watt (W)
         fet: String(randomInRange(25, 45)),            // Yakıt hücresi dış sıcaklık (°C)
         fit: String(randomInRange(50, 75)),            // Yakıt hücresi iç sıcaklık (°C)
+        T_tank_C: String(simState.tank.toFixed(1)),    // Hidrojen tank sıcaklığı (°C)
 
         bv: String(randomInRange(40, 60, 1)),          // Batarya voltaj (V)
         bc: String(randomInRange(5, 40, 1)),           // Batarya akım (A)
         bw: String(randomInRange(500, 2000)),          // Batarya watt (W)
         bwh: String(simState.bwh.toFixed(1)),          // Batarya watt-saat (Wh)
-        t1: String(randomInRange(25, 45)),             // Batarya sıcaklık 1 (°C)
-        t2: String(randomInRange(28, 48)),             // Batarya sıcaklık 2 (°C)
-        t3: String(randomInRange(30, 50)),             // Batarya sıcaklık 3 (°C)
+        max_temperature: String(randomInRange(30, 50)), // Batarya paketi maksimum sıcaklığı (°C)
         soc: String(Math.floor(simState.soc)),         // Şarj durumu (%)
         ke: String(simState.ke.toFixed(1)),            // Kalan enerji (kWh)
+        ischarging: isCharging ? 'charging' : 'not_charging',
+        charge_voltage: isCharging ? String(randomInRange(48, 55, 1)) : '0',
+        charge_current: isCharging ? String(randomInRange(8, 18, 1)) : '0',
+        charge_time: isCharging ? formatChargeTime(115 - ((phase - 30) * 5)) : '',
 
-        jv: String(randomInRange(30, 60, 1)),          // Motor (joulemetre kanalı) voltaj (V)
-        jc: String(randomInRange(5, 50, 1)),           // Motor (joulemetre kanalı) akım (A)
-        jw: String(randomInRange(300, 2500)),          // Motor (joulemetre kanalı) watt (W)
-        jwh: String(simState.jwh.toFixed(1)),          // Motor (joulemetre kanalı) watt-saat (Wh)
-
-        gsmspeed: String(randomInRange(20, 90)),       // GSM tabanlı hız (km/h)
-        T_tank_C: String(simState.tank.toFixed(1))     // Hidrojen tank sıcaklığı (°C)
+        mv: String(randomInRange(30, 60, 1)),          // Motor sürücü voltajı (V)
+        mc: String(randomInRange(5, 50, 1)),           // Motor sürücü akımı (A)
+        mw: String(randomInRange(300, 2500)),          // Motor sürücü gücü (W)
+        enable: controllerEnabled ? '1' : '0',
+        fwd_rev: String(driveDirection),
+        rpm: String(randomInRange(800, 4200)),
+        throttle: String(randomInRange(0, 101)),
+        controller_temperature: String(randomInRange(30, 75)),
+        controller_speed: String(randomInRange(20, 90, 1)),
+        error_code: hasOverVoltageError ? '32' : '0',
+        errorcode1: '0',
+        errorcode2: '0',
+        errorcode3: '0'
     };
 
-    // config.URBAN_DATA_FIELDS sırasına göre yıldız ile ayrılmış string oluştur
+    const missingFields = config.URBAN_DATA_FIELDS.filter(field => telemetryData[field] === undefined);
+    if (missingFields.length > 0) {
+        throw new Error(`Eksik URBAN alanları: ${missingFields.join(', ')}`);
+    }
+
+    // config.URBAN_DATA_FIELDS sırasına göre 35 alanlı yıldız ayrımlı string oluştur
     const message = '01_' + config.URBAN_DATA_FIELDS.map(f => telemetryData[f]).join('*');
 
     client.publish(TOPIC, message, { qos: 1 }, (error) => {
         if (error) {
             console.error('❌ Veri gönderme hatası:', error);
         } else {
-            console.log(`📤 Hız=${telemetryData.h}km/h | SOC=${telemetryData.soc}% | Batarya=${telemetryData.bw}W | Yakıt=${telemetryData.fw}W | Motor=${telemetryData.jw}W | Tank=${telemetryData.T_tank_C}°C`);
+            const chargeInfo = isCharging ? ` | 🔋 Şarj=${telemetryData.charge_time}` : '';
+            const errorInfo = hasOverVoltageError ? ' | ⚠️ Hata=32' : '';
+            console.log(
+                `📤 Hız=${telemetryData.h}km/h | GSM=${telemetryData.gs} | SOC=${telemetryData.soc}%`
+                + ` | Kelly=${controllerEnabled ? 'Açık' : 'Kapalı'}/${driveDirection}`
+                + `${chargeInfo}${errorInfo}`
+            );
         }
     });
 }

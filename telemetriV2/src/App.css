@@ -11,6 +11,45 @@
   overflow: hidden;
 }
 
+.app::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 12% 5%, var(--ambient-primary), transparent 28%),
+    radial-gradient(circle at 90% 90%, var(--ambient-secondary), transparent 30%);
+  content: '';
+  pointer-events: none;
+}
+
+.app__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.app__theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 1.85rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.app__theme-btn:hover {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+
 .app__header {
   flex: 0 0 auto;
   display: flex;
@@ -113,10 +152,16 @@
 }
 
 .app__status-dot.is-live {
-  background: #16a34a;
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12), 0 0 12px rgba(34, 197, 94, 0.55);
 }
 
-.app__clock {
+.app__last-data {
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border);
+}
+
+.app__last-data strong {
   color: var(--text);
   font-variant-numeric: tabular-nums;
   min-width: 5.5rem;
@@ -145,7 +190,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(280px, 1.2fr) minmax(0, 1.5fr) minmax(168px, 210px);
+  grid-template-columns: minmax(370px, 1.3fr) minmax(0, 1.55fr) minmax(225px, 270px);
   grid-template-rows: repeat(3, minmax(0, 1fr));
   grid-template-areas:
     'speed battery status'
@@ -154,6 +199,80 @@
   gap: 0.55rem;
   align-items: stretch;
   min-width: 0;
+}
+
+.app__right-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.app__right-rail .status-panel {
+  flex: 0 0 auto;
+}
+
+.charging-effect {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.15), transparent 45%);
+  pointer-events: none;
+  animation: charging-screen-flash 1.8s ease-out forwards;
+}
+
+.charging-effect__ring {
+  position: absolute;
+  width: 9rem;
+  height: 9rem;
+  border: 2px solid rgba(74, 222, 128, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.45), inset 0 0 30px rgba(34, 197, 94, 0.2);
+  animation: charging-ring 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.charging-effect__bolt {
+  z-index: 1;
+  display: grid;
+  width: 5rem;
+  height: 5rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #052e16;
+  font-size: 3.4rem;
+  font-weight: 900;
+  box-shadow: 0 0 50px rgba(74, 222, 128, 0.85);
+  animation: charging-bolt-pop 1.3s ease-out forwards;
+}
+
+.charging-effect > span {
+  position: absolute;
+  top: calc(50% + 4.3rem);
+  color: #bbf7d0;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+}
+
+@keyframes charging-screen-flash {
+  0% { opacity: 0; }
+  18%, 65% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes charging-ring {
+  0% { opacity: 0; transform: scale(0.35); }
+  45% { opacity: 1; }
+  100% { opacity: 0; transform: scale(5); }
+}
+
+@keyframes charging-bolt-pop {
+  0% { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  35% { opacity: 1; transform: scale(1.08) rotate(0); }
+  100% { opacity: 0; transform: scale(0.94); }
 }
 
 .app__cell {
@@ -221,6 +340,11 @@
     gap: 0.85rem;
   }
 
+  .app__right-rail .status-panel,
+  .app__right-rail .kelly-panel {
+    flex: 1 1 auto;
+  }
+
   /* Kaydırılabilir düzende kadranlar genişliğe göre ölçeklenir */
   .gauge {
     width: clamp(96px, 22vw, 150px);
@@ -228,6 +352,15 @@
 
   .map-panel {
     min-height: 320px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .charging-effect,
+  .charging-effect__ring,
+  .charging-effect__bolt,
+  .charging-banner {
+    animation: none;
   }
 }
 

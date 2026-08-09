@@ -29,14 +29,18 @@ const NUMERIC_FIELDS = [
     'soc', 'ke', 'jv', 'jc', 'jw', 'jwh'
 ];
 
-// URBAN aracı: aynı alan sırasının bir alt kümesi + sona eklenen
-// gsmspeed ve T_tank_C (tank sıcaklığı — string'in en sonunda gelir)
-// (mt, watt, ppm, gx/gy/gz, ax/ay/az, flow, totalflow, pitch/roll/yaw,
-//  driver_pot, direksiyon_angle URBAN string'inde yok)
+// URBAN aracı MQTT string'i. Bu sıra araç yazılımıyla birebir aynı kalmalıdır.
+// JavaScript anahtarlarında '/' ve boşluk kullanmamak için fwd/rev -> fwd_rev,
+// sürücü sıcaklığı/hızı ve hata kodu da açık isimlerle tutulur.
 const URBAN_DATA_FIELDS = [
-    'h', 'x', 'y', 'gs', 'fv', 'fa', 'fw', 'fet', 'fit',
-    'bv', 'bc', 'bw', 'bwh', 't1', 't2', 't3', 'soc', 'ke',
-    'jv', 'jc', 'jw', 'jwh', 'gsmspeed', 'T_tank_C'
+    'h', 'gsmspeed', 'x', 'y', 'gs',
+    'fv', 'fa', 'fw', 'fet', 'fit', 'T_tank_C',
+    'bv', 'bc', 'bw', 'bwh', 'max_temperature', 'soc', 'ke',
+    'ischarging', 'charge_voltage', 'charge_current', 'charge_time',
+    'mv', 'mc', 'mw',
+    'enable', 'fwd_rev', 'rpm', 'throttle',
+    'controller_temperature', 'controller_speed', 'error_code',
+    'errorcode1', 'errorcode2', 'errorcode3'
 ];
 
 const URBAN_CSV_HEADERS = ['date', 'time', ...URBAN_DATA_FIELDS];
@@ -44,9 +48,11 @@ const URBAN_CSV_HEADERS = ['date', 'time', ...URBAN_DATA_FIELDS];
 // URBAN test CSV başlıkları: başa test süresi eklenir
 const URBAN_TEST_CSV_HEADERS = ['test_time', ...URBAN_CSV_HEADERS];
 
-// URBAN ortalama hesaplamasında kullanılan sayısal alanlar
-// (NUMERIC_FIELDS + tank sıcaklığı T_tank_C)
-const URBAN_NUMERIC_FIELDS = [...NUMERIC_FIELDS, 'T_tank_C'];
+// URBAN ortalama hesaplamasında kullanılan sayısal alanlar. charge_time ve
+// ischarging string olarak gelebileceğinden sayısal ortalamaya katılmaz.
+const URBAN_NUMERIC_FIELDS = URBAN_DATA_FIELDS.filter(field => ![
+    'ischarging', 'charge_time'
+].includes(field));
 
 module.exports = {
     ROOT_DIR,

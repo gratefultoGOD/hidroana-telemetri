@@ -28,7 +28,7 @@ export default function GaugeDial({
   max = 100,
   unit = '',
   decimals = 1,
-  color = '#2563eb',
+  color = '#4f8cff',
   warningAt = 0.7,
   dangerAt = 0.9,
   size = 190,
@@ -37,7 +37,7 @@ export default function GaugeDial({
   const valueAngle = START_ANGLE + ratio * SWEEP
 
   const zone = ratio >= dangerAt ? 'danger' : ratio >= warningAt ? 'warning' : 'normal'
-  const activeColor = zone === 'danger' ? '#dc2626' : zone === 'warning' ? '#d97706' : color
+  const activeColor = zone === 'danger' ? '#f87171' : zone === 'warning' ? '#f59e0b' : color
 
   const cx = size / 2
   const cy = size / 2 + size * 0.06

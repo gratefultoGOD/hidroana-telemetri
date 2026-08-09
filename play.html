@@ -1103,18 +1103,20 @@
                             <div class="chart-canvas-wrap"><canvas id="chartJwh"></canvas></div>
                         </div>
 
-                        <!-- Batarya Sıcaklıkları -->
+                        <!-- Batarya sıcaklığı: Proto'da T1/T2/T3, Urban'da maksimum paket sıcaklığı -->
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title">🌡️ Batarya Sıcaklıkları</span>
+                                    <span class="chart-title" data-proto="🌡️ Batarya Sıcaklıkları" data-urban="🌡️ Batarya Maks. Sıcaklığı">🌡️ Batarya Sıcaklıkları</span>
                                     <div style="display:flex;gap:10px;">
-                                        <span class="chart-val" style="color:#ef5350;"><span id="cv-t1">--</span> <span
+                                        <span class="chart-val" data-vehicle-only="proto" style="color:#ef5350;"><span id="cv-t1">--</span> <span
                                                 style="font-size:10px;font-weight:400;">T1</span></span>
-                                        <span class="chart-val" style="color:#ff8a65;"><span id="cv-t2">--</span> <span
+                                        <span class="chart-val" data-vehicle-only="proto" style="color:#ff8a65;"><span id="cv-t2">--</span> <span
                                                 style="font-size:10px;font-weight:400;">T2</span></span>
-                                        <span class="chart-val" style="color:#ffd54f;"><span id="cv-t3">--</span> <span
+                                        <span class="chart-val" data-vehicle-only="proto" style="color:#ffd54f;"><span id="cv-t3">--</span> <span
                                                 style="font-size:10px;font-weight:400;">T3</span></span>
+                                        <span class="chart-val" data-vehicle-only="urban" style="color:#ef5350;display:none;"><span id="cv-max-temperature">--</span> <span
+                                                style="font-size:10px;font-weight:400;">°C</span></span>
                                     </div>
                                 </div>
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
@@ -1133,6 +1135,75 @@
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
                             <div class="chart-canvas-wrap"><canvas id="chartTank"></canvas></div>
+                        </div>
+
+                        <!-- Yeni URBAN string'i: GPS/GSM hızı -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#60a5fa">🛰️ GPS Hızı</span>
+                                    <span class="chart-val" style="color:#60a5fa"><span id="cv-gsmspeed">--</span> <span style="font-size:10px;font-weight:400;">km/h</span></span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartGpsSpeed"></canvas></div>
+                        </div>
+
+                        <!-- Yeni URBAN string'i: şarj -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#4ade80">🔋 Şarj</span>
+                                    <span class="chart-val" id="cv-charge-state" style="color:#4ade80">--</span>
+                                    <span class="chart-val" style="color:#86efac"><span id="cv-charge-voltage">--</span> V</span>
+                                    <span class="chart-val" style="color:#facc15"><span id="cv-charge-current">--</span> A</span>
+                                    <span class="chart-val" style="color:#a7f3d0">Tahmini: <span id="cv-charge-time">--</span></span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartCharge"></canvas></div>
+                        </div>
+
+                        <!-- Kelly hareket verileri -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#c084fc">⚙️ Kelly Hareket</span>
+                                    <span class="chart-val" style="color:#c084fc">RPM: <span id="cv-kelly-rpm">--</span></span>
+                                    <span class="chart-val" style="color:#67e8f9">Hız: <span id="cv-kelly-speed">--</span> km/h</span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartKellyMotion"></canvas></div>
+                        </div>
+
+                        <!-- Kelly yük/sıcaklık -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#fb923c">⚙️ Kelly Yük</span>
+                                    <span class="chart-val" style="color:#fb923c">Throttle: <span id="cv-throttle">--</span>%</span>
+                                    <span class="chart-val" style="color:#f87171">Sıcaklık: <span id="cv-controller-temperature">--</span> °C</span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartKellyLoad"></canvas></div>
+                        </div>
+
+                        <!-- Kelly durum/hata -->
+                        <div class="chart-card draggable-item">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#f59e0b">⚠️ Kelly Durum / Hata</span>
+                                    <span class="chart-val">Enable: <span id="cv-enable">--</span></span>
+                                    <span class="chart-val">Yön: <span id="cv-direction">--</span></span>
+                                    <span class="chart-val" style="color:#f87171">Kod: <span id="cv-error-code">--</span></span>
+                                    <span class="chart-val" id="cv-error-label" style="color:#fca5a5">--</span>
+                                    <span class="chart-val" style="color:#fbbf24">Ek: <span id="cv-extra-errors">--</span></span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartKellyError"></canvas></div>
                         </div>
 
                     </div>
@@ -1363,6 +1434,7 @@
                 data.files.forEach((f, i) => {
                     const opt = document.createElement('option');
                     opt.value = f.fileName;
+                    opt.dataset.vehicle = f.vehicle;
                     opt.textContent = `${f.fileName}  (${f.dataCount} satır, ${f.date} ${f.time})`;
                     sel.appendChild(opt);
                 });
@@ -1382,8 +1454,12 @@
             const sel = document.getElementById('fileSelect');
             const fileName = sel.value;
             if (!fileName) return;
-            // Araç tespiti: dosya adı 'test_urban_' ile başlıyorsa URBAN, değilse PROTO
-            currentVehicle = fileName.startsWith('test_urban_') ? 'urban' : 'proto';
+            // Araç türü API tarafından CSV başlıklarından belirlenir; yeniden
+            // adlandırma dosyanın Urban/Proto türünü değiştirmez.
+            const selectedVehicle = sel.options[sel.selectedIndex]?.dataset.vehicle;
+            currentVehicle = selectedVehicle === 'urban' || selectedVehicle === 'proto'
+                ? selectedVehicle
+                : (fileName.startsWith('test_urban_') ? 'urban' : 'proto');
             const ind = document.getElementById('loadingIndicator');
             ind.style.display = '';
             try {
@@ -1391,6 +1467,7 @@
                 if (!res.ok) throw new Error('İndirilemedi: ' + res.status);
                 const text = await res.text();
                 fileData = parseCSV(text);
+                if (currentVehicle === 'urban') fileData = normalizeUrbanRows(fileData);
                 if (fileData.length === 0) { alert('Dosya boş veya format hatalı.'); return; }
                 initPlayer();
             } catch (e) {
@@ -1404,6 +1481,25 @@
         // CHARTS INIT
         // =============================================
         let charts = {};
+
+        // Eski URBAN test dosyaları da oynatılabilsin: yeni alanlar yoksa önceki
+        // jv/jc/jw ve t1/t2/t3 değerlerinden uyumlu karşılıkları üret.
+        function normalizeUrbanRows(rows) {
+            return rows.map(row => {
+                const oldTemps = [row.t1, row.t2, row.t3]
+                    .map(Number)
+                    .filter(Number.isFinite);
+                return {
+                    ...row,
+                    mv: row.mv !== undefined && row.mv !== '' ? row.mv : row.jv,
+                    mc: row.mc !== undefined && row.mc !== '' ? row.mc : row.jc,
+                    mw: row.mw !== undefined && row.mw !== '' ? row.mw : row.jw,
+                    max_temperature: row.max_temperature !== undefined && row.max_temperature !== ''
+                        ? row.max_temperature
+                        : (oldTemps.length ? Math.max(...oldTemps) : ''),
+                };
+            });
+        }
 
         const chartDefs = [
             { id: 'chartH', label: 'Hız (km/h)', color: '#ff6b9d', fields: ['h'] },
@@ -1434,7 +1530,53 @@
             },
             // Tank sıcaklığı — yalnızca URBAN test kayıtlarında veri gelir
             { id: 'chartTank', label: 'Tank Sıcaklığı (°C)', color: '#4dd0e1', fields: ['T_tank_C'] },
+            // Yeni URBAN string'i
+            { id: 'chartGpsSpeed', label: 'GPS Hızı (km/h)', color: '#60a5fa', fields: ['gsmspeed'] },
+            {
+                id: 'chartCharge', label: 'Şarj', color: '#4ade80', fields: ['charge_voltage', 'charge_current'],
+                dual: true, dualColors: ['#4ade80', '#facc15'], dualLabels: ['Şarj Voltajı (V)', 'Şarj Akımı (A)']
+            },
+            {
+                id: 'chartKellyMotion', label: 'Kelly Hareket', color: '#c084fc', fields: ['rpm', 'controller_speed'],
+                dual: true, dualColors: ['#c084fc', '#67e8f9'], dualLabels: ['RPM', 'Kelly Hızı (km/h)']
+            },
+            {
+                id: 'chartKellyLoad', label: 'Kelly Yük', color: '#fb923c', fields: ['throttle', 'controller_temperature'],
+                dual: true, dualColors: ['#fb923c', '#f87171'], dualLabels: ['Throttle (%)', 'Sıcaklık (°C)']
+            },
+            {
+                id: 'chartKellyError', label: 'Kelly Hata Kodları', color: '#f87171',
+                fields: ['error_code', 'errorcode1', 'errorcode2', 'errorcode3'], dual: true,
+                dualColors: ['#f87171', '#fbbf24', '#fb923c', '#f43f5e'],
+                dualLabels: ['Ana Hata', 'Hata 1', 'Hata 2', 'Hata 3']
+            },
         ];
+
+        function configureChartDefsForVehicle(isUrban) {
+            const byId = id => chartDefs.find(def => def.id === id);
+            const motorFields = [
+                ['chartJv', 'jv', 'mv'],
+                ['chartJc', 'jc', 'mc'],
+                ['chartJw', 'jw', 'mw'],
+            ];
+            motorFields.forEach(([id, protoField, urbanField]) => {
+                byId(id).fields = [isUrban ? urbanField : protoField];
+            });
+
+            const batTemp = byId('chartBatTemp');
+            if (isUrban) {
+                batTemp.label = 'Batarya Maks. Sıcaklığı (°C)';
+                batTemp.fields = ['max_temperature'];
+                batTemp.dual = false;
+                batTemp.color = '#ef5350';
+            } else {
+                batTemp.label = 'Batarya Sıcaklıkları';
+                batTemp.fields = ['t1', 't2', 't3'];
+                batTemp.dual = true;
+                batTemp.dualColors = ['#ef5350', '#ff8a65', '#ffd54f'];
+                batTemp.dualLabels = ['T1 (°C)', 'T2 (°C)', 'T3 (°C)'];
+            }
+        }
 
         function makeChartConfig(def) {
             const datasets = def.dual
@@ -1520,9 +1662,15 @@
         function applyVehicleUI(vehicle) {
             const isUrban = vehicle === 'urban';
 
+            configureChartDefsForVehicle(isUrban);
+
             // Grafik başlık etiketleri (DOM)
             document.querySelectorAll('.chart-title[data-proto][data-urban]').forEach(el => {
                 el.textContent = isUrban ? el.getAttribute('data-urban') : el.getAttribute('data-proto');
+            });
+
+            document.querySelectorAll('[data-vehicle-only]').forEach(el => {
+                el.style.display = el.getAttribute('data-vehicle-only') === vehicle ? '' : 'none';
             });
 
             // chartDefs tooltip etiketleri (Joulmetre → Motor)
@@ -1559,6 +1707,7 @@
         }
 
         function initCharts() {
+            document.querySelectorAll('.stat-strip').forEach(strip => strip.remove());
             chartDefs.forEach(def => {
                 const canvas = document.getElementById(def.id);
                 if (!canvas) return;
@@ -1830,6 +1979,30 @@
             return parseFloat(n.toFixed(4)).toString();
         };
         const setCv = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = formatExact(val); };
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val === undefined || val === null || val === '' ? '--' : String(val);
+        };
+
+        function isChargingValue(value) {
+            if (value === undefined || value === null || value === '') return false;
+            const normalized = String(value).trim().toLocaleLowerCase('tr-TR');
+            return !['0', 'false', 'no', 'hayır', 'hayir', 'kapalı', 'kapali', 'not_charging', 'not charging'].includes(normalized);
+        }
+
+        function directionLabel(value) {
+            const direction = Number(value);
+            if (direction === 0) return 'Geri';
+            if (direction === 2) return 'İleri';
+            return 'Boş';
+        }
+
+        function kellyErrorLabel(value) {
+            const code = Number(value);
+            if (code === 0) return 'Hata yok';
+            if (code === 32) return 'Over voltage';
+            return 'Tanımsız hata kodu';
+        }
 
         // rebuildMode = true  → seek/scrub: grafikleri sıfırlayıp yeniden çiz
         // rebuildMode = false → normal oynatma: tek nokta ekle
@@ -1855,10 +2028,30 @@
             setCv('cv-bwh-val', row.bwh);
             setCv('cv-fv', row.fv); setCv('cv-fa', row.fa);
             setCv('cv-fw', row.fw); setCv('cv-fet', row.fet); setCv('cv-fit', row.fit);
-            setCv('cv-jv', row.jv); setCv('cv-jc', row.jc);
-            setCv('cv-jw', row.jw); setCv('cv-jwh', row.jwh);
+            const isUrban = currentVehicle === 'urban';
+            setCv('cv-jv', isUrban ? row.mv : row.jv); setCv('cv-jc', isUrban ? row.mc : row.jc);
+            setCv('cv-jw', isUrban ? row.mw : row.jw); setCv('cv-jwh', row.jwh);
             setCv('cv-t1', row.t1); setCv('cv-t2', row.t2); setCv('cv-t3', row.t3);
+            setCv('cv-max-temperature', row.max_temperature);
             setCv('cv-tank', row.T_tank_C);
+            setCv('cv-gsmspeed', row.gsmspeed);
+
+            // Yeni URBAN şarj ve Kelly alanları
+            setText('cv-charge-state', isChargingValue(row.ischarging) ? 'Şarj Oluyor' : 'Şarj Yok');
+            setCv('cv-charge-voltage', row.charge_voltage);
+            setCv('cv-charge-current', row.charge_current);
+            setText('cv-charge-time', row.charge_time);
+            setCv('cv-kelly-rpm', row.rpm);
+            setCv('cv-kelly-speed', row.controller_speed);
+            setCv('cv-throttle', row.throttle);
+            setCv('cv-controller-temperature', row.controller_temperature);
+            setText('cv-enable', Number(row.enable) === 1 ? 'Açık' : 'Kapalı');
+            setText('cv-direction', directionLabel(row.fwd_rev));
+            setCv('cv-error-code', row.error_code);
+            setText('cv-error-label', kellyErrorLabel(row.error_code));
+            const extraErrors = [row.errorcode1, row.errorcode2, row.errorcode3]
+                .filter(code => code !== undefined && code !== '' && Number(code) !== 0);
+            setText('cv-extra-errors', extraErrors.length ? extraErrors.join(', ') : 'Yok');
 
             // GSM: hem grafik başlığında hem header'da güncelle
             setCv('cv-gs', row.gs);

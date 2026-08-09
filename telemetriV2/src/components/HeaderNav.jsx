@@ -2,20 +2,18 @@ import { useEffect, useState } from 'react'
 import RecordsModal from './RecordsModal'
 import './HeaderNav.css'
 
-// Proto panelindeki (index.html) navigasyon butonlarının URBAN karşılığı.
-// İzleme sayfaları (tur takip / yarış izle / test oynat / 3D) TÜM kullanıcılara
-// açıktır — normal kullanıcılar yalnızca izler, müdahale edemez. "Sektör Oluştur"
-// bir düzenleme aracı olduğundan yalnızca admin görür.
+// Urban panelinde yalnızca bu araçta kullanılan izleme sayfaları bulunur.
+// 3D görünüm kaldırıldı; sektör oluşturma sistemi sunucuda kalır ancak Urban
+// navigasyonunda gösterilmez.
 const NAV = [
   { href: '/laps', label: '🏁 Tur Takip' },
   { href: '/race', label: '🏎️ Yarış İzle' },
   { href: '/play', label: '🎥 Test Oynat' },
-  { href: '/3dview', label: '🌍 3D Görünüm' },
-  { href: '/sectors', label: '🏁 Sektör Oluştur', admin: true },
 ]
 
 export default function HeaderNav() {
   const [isAdmin, setIsAdmin] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [modal, setModal] = useState(null) // 'test' | 'daily' | 'tubitak' | null
 
   useEffect(() => {
@@ -24,6 +22,15 @@ export default function HeaderNav() {
       .then((d) => setIsAdmin(!!d.authenticated && d.user?.role === 'admin'))
       .catch(() => setIsAdmin(false))
   }, [])
+
+  const logout = async () => {
+    setLoggingOut(true)
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' })
+    } finally {
+      window.location.assign('/login')
+    }
+  }
 
   return (
     <nav className="header-nav">
@@ -38,6 +45,13 @@ export default function HeaderNav() {
           <button className="header-nav__btn" onClick={() => setModal('tubitak')}>📊 TÜBİTAK</button>
         </>
       )}
+      <button
+        className="header-nav__btn header-nav__btn--logout"
+        onClick={logout}
+        disabled={loggingOut}
+      >
+        {loggingOut ? 'Çıkılıyor…' : '↪ Hesaptan Çık'}
+      </button>
       {modal && <RecordsModal type={modal} onClose={() => setModal(null)} />}
     </nav>
   )

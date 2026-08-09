@@ -1,22 +1,17 @@
 import './SignalMeter.css'
 
-const LEVELS = ['Sinyal Yok', 'Zayıf', 'Orta', 'İyi', 'Mükemmel']
+const LEVELS = ['Sinyal Yok', 'Zayıf', 'Orta', 'İyi', 'Çok İyi']
 
-function levelFromPct(pct) {
-  if (pct >= 80) return 4
-  if (pct >= 55) return 3
-  if (pct >= 30) return 2
-  if (pct >= 10) return 1
-  return 0
+function levelFromSignal(signal) {
+  if (signal <= 0) return 0
+  return Math.min(4, Math.ceil(signal / 8))
 }
 
-// Sinyal kalitesi hem dört kolonlu çubuk göstergesiyle temsil edilir
-// hem de sayısal değeri (%) doğrudan yazdırılır.
-export default function SignalMeter({ pct }) {
-  const level = levelFromPct(pct)
+export default function SignalMeter({ signal }) {
+  const level = levelFromSignal(signal)
   const label = LEVELS[level]
   const zone = level <= 1 ? 'danger' : level === 2 ? 'warning' : 'normal'
-  const value = Number.isFinite(pct) ? Math.round(pct) : null
+  const value = Number.isFinite(signal) ? Math.round(signal) : null
 
   return (
     <div className="signal-meter" data-zone={zone}>
@@ -30,8 +25,8 @@ export default function SignalMeter({ pct }) {
         ))}
       </div>
       <div className="signal-meter__text">
-        <span className="signal-meter__label">Sinyal · {label}</span>
-        <span className="signal-meter__level">{value !== null ? `${value}%` : '--'}</span>
+        <span className="signal-meter__label">GSM · {label}</span>
+        <span className="signal-meter__level">{value !== null ? value : '--'}</span>
       </div>
     </div>
   )

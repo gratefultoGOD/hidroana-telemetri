@@ -4,8 +4,8 @@ import './StatusPanel.css'
 
 const SENSORS = [
   { key: 't1', label: 'T1 · Batarya Paketi' },
-  { key: 't2', label: 'T2 · Yakıt Hücresi' },
-  { key: 't3', label: 'T3 · Motor / İnvertör' },
+  { key: 't2', label: 'T2 · Batarya Paketi' },
+  { key: 't3', label: 'T3 · Batarya Paketi' },
   { key: 'tank', label: 'Tank Sıcaklığı' },
 ]
 

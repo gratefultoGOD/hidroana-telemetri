@@ -50,7 +50,7 @@ function getCurrentJwh() {
     const latest = getActiveVehicle() === 'urban'
         ? state.latestUrbanTelemetryData
         : state.latestTelemetryData;
-    return latest ? (parseFloat(latest.jwh) || 0) : 0;
+    return latest ? (parseFloat(latest.jwh ?? latest.bwh) || 0) : 0;
 }
 
 // Yarışı başlat

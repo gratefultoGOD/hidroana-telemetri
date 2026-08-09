@@ -54,32 +54,9 @@ dataRouter.get('/data', (req, res) => {
     // aktif araca göre belirlenir — endpoint/key aynı kalır
     setImmediate(() => {
         if (getActiveVehicle() === 'urban') {
-            const data = {
-                h: q.h || null,
-                x: q.x || null,
-                y: q.y || null,
-                gs: q.gs || null,
-                fv: q.fv || null,
-                fa: q.fa || null,
-                fw: q.fw || null,
-                fet: q.fet || null,
-                fit: q.fit || null,
-                bv: q.bv || null,
-                bc: q.bc || null,
-                bw: q.bw || null,
-                bwh: q.bwh || null,
-                t1: q.t1 || null,
-                t2: q.t2 || null,
-                t3: q.t3 || null,
-                soc: q.soc || null,
-                ke: q.ke || null,
-                jv: q.jv || null,
-                jc: q.jc || null,
-                jw: q.jw || null,
-                jwh: q.jwh || null,
-                gsmspeed: q.gsmspeed || null,
-                T_tank_C: q.T_tank_C || null
-            };
+            const data = Object.fromEntries(
+                config.URBAN_DATA_FIELDS.map(field => [field, q[field] ?? null])
+            );
 
             processIncomingUrbanData(data);
             console.log(`⚡ [URBAN] /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);

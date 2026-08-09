@@ -30,7 +30,7 @@ function parseStarSeparatedData(rawMessage) {
 function parseUrbanStarSeparatedData(rawMessage) {
     let dataString = rawMessage;
     if (rawMessage.includes('_')) {
-        dataString = rawMessage.split('_')[1];
+        dataString = rawMessage.slice(rawMessage.indexOf('_') + 1);
     }
     const values = dataString.split('*');
     const data = {};
@@ -67,6 +67,9 @@ function processIncomingUrbanData(data) {
 
     // Test modu aktifse test verilerini de kaydet (duraklatılmışsa kaydedilmez)
     testModeService.recordTestData(dataWithTimestamp, now);
+
+    // TÜBİTAK kaydı yalnızca URBAN aracından alınır.
+    tubitak.recordTubitakData(dataWithTimestamp, now);
 
     state.urbanConnectionStatus.connected = true;
     state.urbanConnectionStatus.lastUpdate = now.toISOString();
@@ -127,9 +130,6 @@ function processIncomingData(data) {
 
     // Test modu aktifse test verilerini de kaydet (duraklatılmışsa kaydedilmez)
     testModeService.recordTestData(dataWithTimestamp, now);
-
-    // TÜBİTAK formatında kaydet — her veri geldiğinde
-    tubitak.recordTubitakData(dataWithTimestamp, now);
 
     state.connectionStatus.connected = true;
     state.connectionStatus.lastUpdate = now.toISOString();
