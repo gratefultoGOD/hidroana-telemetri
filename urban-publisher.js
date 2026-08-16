@@ -13,6 +13,32 @@ const config = require('./src/config');
 const TOPIC = config.MQTT_TOPIC; // 'data' — sunucunun dinlediği tek topic
 const TAKE_TOPIC = config.MQTT_TAKE;
 const SEND_INTERVAL_MS = parseInt(process.env.SEND_INTERVAL) || 1000;
+const ERROR_HOLD_TICKS = Math.max(1, parseInt(process.env.ERROR_HOLD_TICKS) || 3);
+
+const KELLY_ERROR_TESTS = [
+    { code: 0, label: 'Hata yok' },
+    { code: 1, label: 'ERR0: Identification error' },
+    { code: 2, label: 'ERR1: Over voltage' },
+    { code: 4, label: 'ERR2: Low voltage' },
+    { code: 8, label: 'ERR3: Reserved' },
+    { code: 16, label: 'ERR4: Stall' },
+    { code: 32, label: 'ERR5: Internal volts fault' },
+    { code: 64, label: 'ERR6: Over temperature' },
+    { code: 128, label: 'ERR7: Throttle error at power-up' },
+    { code: 256, label: 'ERR8: Reserved' },
+    { code: 512, label: 'ERR9: Internal reset' },
+    { code: 1024, label: 'ERR10: Hall throttle is open or short-circuit' },
+    { code: 2048, label: 'ERR11: Angle sensor error' },
+    { code: 4096, label: 'ERR12: Reserved' },
+    { code: 8192, label: 'ERR13: Reserved' },
+    { code: 16384, label: 'ERR14: Motor over-temperature' },
+    { code: 32768, label: 'ERR15: Hall Galvanometer sensor error' },
+    {
+        code: 1,
+        label: 'Dört tekil hata alanı testi — ERR0: Identification error',
+        extraCodes: [2, 32, 16384]
+    }
+];
 
 // Route coordinates (test amaçlı basit bir döngü)
 const route = [
@@ -43,6 +69,7 @@ client.on('connect', () => {
     console.log(`📡 Topic: ${TOPIC} (URBAN formatında)`);
     console.log(`📊 Veri formatı: ${config.URBAN_DATA_FIELDS.join(', ')}`);
     console.log(`⏱️  Gönderim aralığı: ${SEND_INTERVAL_MS}ms`);
+    console.log(`🧪 Kelly hata testi: ${KELLY_ERROR_TESTS.length} durum, durum başına ${ERROR_HOLD_TICKS} gönderim`);
     console.log('⚠️  /settings sayfasında "Urban" + "MQTT" seçili olduğundan emin olun!\n');
 
     sendTelemetryData();
@@ -98,7 +125,9 @@ function sendTelemetryData() {
     const isCharging = phase >= 30 && phase < 40;
     const controllerEnabled = phase < 44;
     const driveDirection = phase < 16 ? 2 : phase < 26 ? 1 : phase < 42 ? 0 : 2;
-    const hasOverVoltageError = phase >= 22 && phase < 27;
+    const errorTestIndex = Math.floor((simState.tick - 1) / ERROR_HOLD_TICKS) % KELLY_ERROR_TESTS.length;
+    const activeErrorTest = KELLY_ERROR_TESTS[errorTestIndex];
+    const extraErrorCodes = activeErrorTest.extraCodes || [0, 0, 0];
 
     simState.soc = isCharging
         ? Math.min(100, simState.soc + 0.35)
@@ -145,10 +174,10 @@ function sendTelemetryData() {
         throttle: String(randomInRange(0, 101)),
         controller_temperature: String(randomInRange(30, 75)),
         controller_speed: String(randomInRange(20, 90, 1)),
-        error_code: hasOverVoltageError ? '2' : '0',
-        errorcode1: '0',
-        errorcode2: '0',
-        errorcode3: '0'
+        error_code: String(activeErrorTest.code),
+        errorcode1: String(extraErrorCodes[0] || 0),
+        errorcode2: String(extraErrorCodes[1] || 0),
+        errorcode3: String(extraErrorCodes[2] || 0)
     };
 
     const missingFields = config.URBAN_DATA_FIELDS.filter(field => telemetryData[field] === undefined);
@@ -164,11 +193,16 @@ function sendTelemetryData() {
             console.error('❌ Veri gönderme hatası:', error);
         } else {
             const chargeInfo = isCharging ? ` | 🔋 Şarj=${telemetryData.charge_time}` : '';
-            const errorInfo = hasOverVoltageError ? ' | ⚠️ Hata=2 (ERR1: Over voltage)' : '';
+            const errorInfo = activeErrorTest.code === 0
+                ? ' | ✅ Hata=0 (Hata yok)'
+                : ` | ⚠️ Hata=${activeErrorTest.code} (${activeErrorTest.label})`;
+            const extraErrorInfo = activeErrorTest.extraCodes
+                ? ` | Ek=${activeErrorTest.extraCodes.join('/')}`
+                : '';
             console.log(
                 `📤 Hız=${telemetryData.h}km/h | GSM=${telemetryData.gs} | SOC=${telemetryData.soc}%`
                 + ` | Kelly=${controllerEnabled ? 'Açık' : 'Kapalı'}/${driveDirection}`
-                + `${chargeInfo}${errorInfo}`
+                + `${chargeInfo}${errorInfo}${extraErrorInfo}`
             );
         }
     });

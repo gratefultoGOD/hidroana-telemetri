@@ -1,6 +1,6 @@
 import './SystemPanel.css'
 import './KellyPanel.css'
-import { decodeKellyErrorMask, normalizeKellyErrorMask } from '../utils/kellyErrors'
+import { getKellyError, normalizeKellyErrorCode } from '../utils/kellyErrors'
 
 function directionLabel(value) {
   if (value === 0) return 'Geri'
@@ -17,11 +17,15 @@ function DataRow({ label, children, tone }) {
   )
 }
 
+function errorLabel(error) {
+  return error.code ? `${error.code}: ${error.name}` : error.name
+}
+
 export default function KellyPanel({ data }) {
-  const errorCode = normalizeKellyErrorMask(data.errorCode)
-  const activeErrors = decodeKellyErrorMask(errorCode)
+  const errorCode = normalizeKellyErrorCode(data.errorCode)
+  const activeError = getKellyError(errorCode)
   const extraErrors = data.extraErrorCodes
-    .map((code, index) => ({ index, code: normalizeKellyErrorMask(code) }))
+    .map((code, index) => ({ index, code: normalizeKellyErrorCode(code) }))
     .filter((error) => error.code !== 0)
   const throttleTone = data.throttle >= 85 ? 'danger' : data.throttle >= 60 ? 'warning' : 'normal'
 
@@ -59,16 +63,15 @@ export default function KellyPanel({ data }) {
             <strong>{errorCode}</strong>
           </div>
           <div className="kelly-error__messages">
-            {activeErrors.length === 0
+            {!activeError
               ? <p>Hata yok</p>
-              : activeErrors.map((error) => <p key={`${error.code}-${error.value}`}>{error.code}: {error.name}</p>)}
+              : <p>{errorLabel(activeError)}</p>}
           </div>
           {extraErrors.map((extraError) => {
-            const decodedErrors = decodeKellyErrorMask(extraError.code)
-            const label = decodedErrors.map((error) => `${error.code}: ${error.name}`).join(', ')
+            const error = getKellyError(extraError.code)
             return (
               <small key={extraError.index}>
-                Ek hata {extraError.index + 1} ({extraError.code}): {label}
+                Ek hata {extraError.index + 1} ({extraError.code}): {errorLabel(error)}
               </small>
             )
           })}

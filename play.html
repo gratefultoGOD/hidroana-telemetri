@@ -1997,7 +1997,7 @@
             return 'Boş';
         }
 
-        const kellyErrorBits = [
+        const kellyErrorCodes = [
             [0, 1, 'Identification error'],
             [1, 2, 'Over voltage'],
             [2, 4, 'Low voltage'],
@@ -2018,16 +2018,11 @@
 
         function kellyErrorLabel(value) {
             const numericValue = Number(value);
-            const mask = Number.isFinite(numericValue) ? Math.max(0, Math.trunc(numericValue)) : 0;
-            if (mask === 0) return 'Hata yok';
+            const errorCode = Number.isFinite(numericValue) ? Math.max(0, Math.trunc(numericValue)) : 0;
+            if (errorCode === 0) return 'Hata yok';
 
-            const labels = kellyErrorBits
-                .filter(([, bitValue]) => (mask & bitValue) === bitValue)
-                .map(([position, , name]) => `ERR${position}: ${name}`);
-            const knownMask = kellyErrorBits.reduce((sum, [, bitValue]) => sum + bitValue, 0);
-            const unknownValue = mask - (mask & knownMask);
-            if (unknownValue > 0) labels.push(`ERR?: Unknown error bits (${unknownValue})`);
-            return labels.join(' | ');
+            const error = kellyErrorCodes.find(([, code]) => code === errorCode);
+            return error ? `ERR${error[0]}: ${error[2]}` : 'Tanımsız hata kodu';
         }
 
         // rebuildMode = true  → seek/scrub: grafikleri sıfırlayıp yeniden çiz

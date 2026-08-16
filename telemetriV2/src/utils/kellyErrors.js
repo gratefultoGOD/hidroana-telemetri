@@ -1,4 +1,4 @@
-export const KELLY_ERROR_BITS = [
+export const KELLY_ERROR_CODES = [
   { position: 0, value: 1, name: 'Identification error' },
   { position: 1, value: 2, name: 'Over voltage' },
   { position: 2, value: 4, name: 'Low voltage' },
@@ -17,25 +17,17 @@ export const KELLY_ERROR_BITS = [
   { position: 15, value: 32768, name: 'Hall Galvanometer sensor error' },
 ]
 
-const KNOWN_ERROR_MASK = KELLY_ERROR_BITS.reduce((mask, error) => mask + error.value, 0)
-
-export function normalizeKellyErrorMask(value) {
+export function normalizeKellyErrorCode(value) {
   const numericValue = Number(value)
   return Number.isFinite(numericValue) ? Math.max(0, Math.trunc(numericValue)) : 0
 }
 
-export function decodeKellyErrorMask(value) {
-  const mask = normalizeKellyErrorMask(value)
-  if (mask === 0) return []
+export function getKellyError(value) {
+  const errorCode = normalizeKellyErrorCode(value)
+  if (errorCode === 0) return null
 
-  const activeErrors = KELLY_ERROR_BITS
-    .filter((error) => (mask & error.value) === error.value)
-    .map((error) => ({ ...error, code: `ERR${error.position}` }))
+  const error = KELLY_ERROR_CODES.find((item) => item.value === errorCode)
+  if (!error) return { position: null, value: errorCode, code: null, name: 'Tanımsız hata kodu' }
 
-  const unknownValue = mask - (mask & KNOWN_ERROR_MASK)
-  if (unknownValue > 0) {
-    activeErrors.push({ position: null, value: unknownValue, code: 'ERR?', name: `Unknown error bits (${unknownValue})` })
-  }
-
-  return activeErrors
+  return { ...error, code: `ERR${error.position}` }
 }
