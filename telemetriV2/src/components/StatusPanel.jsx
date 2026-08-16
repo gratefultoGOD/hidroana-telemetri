@@ -22,7 +22,10 @@ function zoneFor(value) {
 // Basit etiket/değer satırları — kutucuk yok. Bu kart sıcaklık dışında
 // başka durum satırlarıyla da (arıza, durum vb.) büyüyebilsin diye
 // gömülü widget yerine düz metin kullanır.
-export default function StatusPanel({ temps }) {
+export default function StatusPanel({ temps, vehicleControlErrorCodes = [0, 0, 0] }) {
+  const aksErrorCodes = vehicleControlErrorCodes.map((value) => Number.isFinite(value) ? value : 0)
+  const hasAksError = aksErrorCodes.some((value) => value !== 0)
+
   return (
     <section className="system-panel status-panel">
       <header className="system-panel__header">
@@ -43,6 +46,10 @@ export default function StatusPanel({ temps }) {
             </div>
           )
         })}
+        <div className="status-row" data-zone={hasAksError ? 'danger' : 'normal'}>
+          <span className="status-row__label">AKS Hata Kodları</span>
+          <span className="status-row__value">{aksErrorCodes.join(' / ')}</span>
+        </div>
       </div>
     </section>
   )

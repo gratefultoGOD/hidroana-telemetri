@@ -24,9 +24,6 @@ function errorLabel(error) {
 export default function KellyPanel({ data }) {
   const errorCode = normalizeKellyErrorCode(data.errorCode)
   const activeError = getKellyError(errorCode)
-  const extraErrors = data.extraErrorCodes
-    .map((code, index) => ({ index, code: normalizeKellyErrorCode(code) }))
-    .filter((error) => error.code !== 0)
   const throttleTone = data.throttle >= 85 ? 'danger' : data.throttle >= 60 ? 'warning' : 'normal'
 
   return (
@@ -57,7 +54,7 @@ export default function KellyPanel({ data }) {
         <DataRow label="Sıcaklık" tone={data.temperature >= 85 ? 'danger' : data.temperature >= 65 ? 'warning' : undefined}>
           {data.temperature} <em>°C</em>
         </DataRow>
-        <div className="kelly-error" data-has-error={errorCode !== 0 || extraErrors.length > 0}>
+        <div className="kelly-error" data-has-error={errorCode !== 0}>
           <div className="kelly-row">
             <span>Hata Kodu</span>
             <strong>{errorCode}</strong>
@@ -67,14 +64,6 @@ export default function KellyPanel({ data }) {
               ? <p>Hata yok</p>
               : <p>{errorLabel(activeError)}</p>}
           </div>
-          {extraErrors.map((extraError) => {
-            const error = getKellyError(extraError.code)
-            return (
-              <small key={extraError.index}>
-                Ek hata {extraError.index + 1} ({extraError.code}): {errorLabel(error)}
-              </small>
-            )
-          })}
         </div>
       </div>
     </section>

@@ -115,7 +115,7 @@ export default function App() {
       <main className="app__grid">
         <div className="app__cell app__cell--status">
           <aside className="app__right-rail">
-            <StatusPanel temps={data.temps} />
+            <StatusPanel temps={data.temps} vehicleControlErrorCodes={data.vehicleControlErrorCodes} />
             <KellyPanel data={data.kelly} />
           </aside>
         </div>

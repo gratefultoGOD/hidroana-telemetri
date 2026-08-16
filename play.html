@@ -1190,16 +1190,16 @@
                             <div class="chart-canvas-wrap"><canvas id="chartKellyLoad"></canvas></div>
                         </div>
 
-                        <!-- Kelly durum/hata -->
+                        <!-- Kelly ve Araç Kontrol Sistemi durum/hataları -->
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:#f59e0b">⚠️ Kelly Durum / Hata</span>
+                                    <span class="chart-title" style="color:#f59e0b">⚠️ Kontrol Sistemleri / Hata</span>
                                     <span class="chart-val">Enable: <span id="cv-enable">--</span></span>
                                     <span class="chart-val">Yön: <span id="cv-direction">--</span></span>
-                                    <span class="chart-val" style="color:#f87171">Kod: <span id="cv-error-code">--</span></span>
+                                    <span class="chart-val" style="color:#f87171">Kelly Kod: <span id="cv-error-code">--</span></span>
                                     <span class="chart-val" id="cv-error-label" style="color:#fca5a5">--</span>
-                                    <span class="chart-val" style="color:#fbbf24">Ek: <span id="cv-extra-errors">--</span></span>
+                                    <span class="chart-val" style="color:#fbbf24">AKS Kodları: <span id="cv-aks-errors">--</span></span>
                                 </div>
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
@@ -1545,10 +1545,10 @@
                 dual: true, dualColors: ['#fb923c', '#f87171'], dualLabels: ['Throttle (%)', 'Sıcaklık (°C)']
             },
             {
-                id: 'chartKellyError', label: 'Kelly Hata Kodları', color: '#f87171',
+                id: 'chartKellyError', label: 'Kontrol Sistemi Hata Kodları', color: '#f87171',
                 fields: ['error_code', 'errorcode1', 'errorcode2', 'errorcode3'], dual: true,
                 dualColors: ['#f87171', '#fbbf24', '#fb923c', '#f43f5e'],
-                dualLabels: ['Ana Hata', 'Hata 1', 'Hata 2', 'Hata 3']
+                dualLabels: ['Kelly', 'AKS 1', 'AKS 2', 'AKS 3']
             },
         ];
 
@@ -2070,14 +2070,9 @@
             setText('cv-direction', directionLabel(row.fwd_rev));
             setCv('cv-error-code', row.error_code);
             setText('cv-error-label', kellyErrorLabel(row.error_code));
-            const extraErrors = [row.errorcode1, row.errorcode2, row.errorcode3]
-                .filter(code => code !== undefined && code !== '' && Number(code) !== 0);
-            setText(
-                'cv-extra-errors',
-                extraErrors.length
-                    ? extraErrors.map(code => `${formatExact(code)} (${kellyErrorLabel(code)})`).join(' | ')
-                    : 'Yok'
-            );
+            const aksErrorCodes = [row.errorcode1, row.errorcode2, row.errorcode3]
+                .map(code => code === undefined || code === '' ? 0 : formatExact(code));
+            setText('cv-aks-errors', aksErrorCodes.join(' / '));
 
             // GSM: hem grafik başlığında hem header'da güncelle
             setCv('cv-gs', row.gs);

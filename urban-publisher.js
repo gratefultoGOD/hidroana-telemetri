@@ -35,8 +35,8 @@ const KELLY_ERROR_TESTS = [
     { code: 32768, label: 'ERR15: Hall Galvanometer sensor error' },
     {
         code: 1,
-        label: 'Dört tekil hata alanı testi — ERR0: Identification error',
-        extraCodes: [2, 32, 16384]
+        label: 'Kelly ERR0 + Araç Kontrol Sistemi hata alanları testi',
+        vehicleControlErrorCodes: [2, 32, 16384]
     }
 ];
 
@@ -69,7 +69,7 @@ client.on('connect', () => {
     console.log(`📡 Topic: ${TOPIC} (URBAN formatında)`);
     console.log(`📊 Veri formatı: ${config.URBAN_DATA_FIELDS.join(', ')}`);
     console.log(`⏱️  Gönderim aralığı: ${SEND_INTERVAL_MS}ms`);
-    console.log(`🧪 Kelly hata testi: ${KELLY_ERROR_TESTS.length} durum, durum başına ${ERROR_HOLD_TICKS} gönderim`);
+    console.log(`🧪 Kelly + AKS hata testi: ${KELLY_ERROR_TESTS.length} durum, durum başına ${ERROR_HOLD_TICKS} gönderim`);
     console.log('⚠️  /settings sayfasında "Urban" + "MQTT" seçili olduğundan emin olun!\n');
 
     sendTelemetryData();
@@ -127,7 +127,7 @@ function sendTelemetryData() {
     const driveDirection = phase < 16 ? 2 : phase < 26 ? 1 : phase < 42 ? 0 : 2;
     const errorTestIndex = Math.floor((simState.tick - 1) / ERROR_HOLD_TICKS) % KELLY_ERROR_TESTS.length;
     const activeErrorTest = KELLY_ERROR_TESTS[errorTestIndex];
-    const extraErrorCodes = activeErrorTest.extraCodes || [0, 0, 0];
+    const vehicleControlErrorCodes = activeErrorTest.vehicleControlErrorCodes || [0, 0, 0];
 
     simState.soc = isCharging
         ? Math.min(100, simState.soc + 0.35)
@@ -175,9 +175,9 @@ function sendTelemetryData() {
         controller_temperature: String(randomInRange(30, 75)),
         controller_speed: String(randomInRange(20, 90, 1)),
         error_code: String(activeErrorTest.code),
-        errorcode1: String(extraErrorCodes[0] || 0),
-        errorcode2: String(extraErrorCodes[1] || 0),
-        errorcode3: String(extraErrorCodes[2] || 0)
+        errorcode1: String(vehicleControlErrorCodes[0] || 0),
+        errorcode2: String(vehicleControlErrorCodes[1] || 0),
+        errorcode3: String(vehicleControlErrorCodes[2] || 0)
     };
 
     const missingFields = config.URBAN_DATA_FIELDS.filter(field => telemetryData[field] === undefined);
@@ -196,13 +196,13 @@ function sendTelemetryData() {
             const errorInfo = activeErrorTest.code === 0
                 ? ' | ✅ Hata=0 (Hata yok)'
                 : ` | ⚠️ Hata=${activeErrorTest.code} (${activeErrorTest.label})`;
-            const extraErrorInfo = activeErrorTest.extraCodes
-                ? ` | Ek=${activeErrorTest.extraCodes.join('/')}`
+            const vehicleControlErrorInfo = activeErrorTest.vehicleControlErrorCodes
+                ? ` | AKS=${activeErrorTest.vehicleControlErrorCodes.join('/')}`
                 : '';
             console.log(
                 `📤 Hız=${telemetryData.h}km/h | GSM=${telemetryData.gs} | SOC=${telemetryData.soc}%`
                 + ` | Kelly=${controllerEnabled ? 'Açık' : 'Kapalı'}/${driveDirection}`
-                + `${chargeInfo}${errorInfo}${extraErrorInfo}`
+                + `${chargeInfo}${errorInfo}${vehicleControlErrorInfo}`
             );
         }
     });

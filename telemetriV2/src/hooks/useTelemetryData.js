@@ -80,6 +80,7 @@ function initialState() {
     batteryMeta: { soc: 0, ke: 0, maxTemperature: 0 },
     fuelCellTemps: { inner: 0, outer: 0 },
     charging: { active: false, voltage: 0, current: 0, time: '' },
+    vehicleControlErrorCodes: [0, 0, 0],
     kelly: {
       enable: 0,
       direction: 1,
@@ -88,7 +89,6 @@ function initialState() {
       throttle: 0,
       temperature: 0,
       errorCode: 0,
-      extraErrorCodes: [0, 0, 0],
     },
     position: FALLBACK_POSITION,
     heading: 0,
@@ -131,6 +131,7 @@ export function parseUrbanPayload(raw, previousPosition) {
       current: num(raw.charge_current),
       time: raw.charge_time === null || raw.charge_time === undefined ? '' : String(raw.charge_time),
     },
+    vehicleControlErrorCodes: [int(raw.errorcode1), int(raw.errorcode2), int(raw.errorcode3)],
     kelly: {
       enable: int(raw.enable),
       direction: int(raw.fwd_rev ?? raw['fwd/rev'], 1),
@@ -139,7 +140,6 @@ export function parseUrbanPayload(raw, previousPosition) {
       throttle: clamp(int(raw.throttle), 0, 100),
       temperature: int(raw.controller_temperature),
       errorCode: int(raw.error_code),
-      extraErrorCodes: [int(raw.errorcode1), int(raw.errorcode2), int(raw.errorcode3)],
     },
     position,
     heading,
