@@ -1997,11 +1997,37 @@
             return 'Boş';
         }
 
+        const kellyErrorBits = [
+            [0, 1, 'Identification error'],
+            [1, 2, 'Over voltage'],
+            [2, 4, 'Low voltage'],
+            [3, 8, 'Reserved'],
+            [4, 16, 'Stall'],
+            [5, 32, 'Internal volts fault'],
+            [6, 64, 'Over temperature'],
+            [7, 128, 'Throttle error at power-up'],
+            [8, 256, 'Reserved'],
+            [9, 512, 'Internal reset'],
+            [10, 1024, 'Hall throttle is open or short-circuit'],
+            [11, 2048, 'Angle sensor error'],
+            [12, 4096, 'Reserved'],
+            [13, 8192, 'Reserved'],
+            [14, 16384, 'Motor over-temperature'],
+            [15, 32768, 'Hall Galvanometer sensor error'],
+        ];
+
         function kellyErrorLabel(value) {
-            const code = Number(value);
-            if (code === 0) return 'Hata yok';
-            if (code === 32) return 'Over voltage';
-            return 'Tanımsız hata kodu';
+            const numericValue = Number(value);
+            const mask = Number.isFinite(numericValue) ? Math.max(0, Math.trunc(numericValue)) : 0;
+            if (mask === 0) return 'Hata yok';
+
+            const labels = kellyErrorBits
+                .filter(([, bitValue]) => (mask & bitValue) === bitValue)
+                .map(([position, , name]) => `ERR${position}: ${name}`);
+            const knownMask = kellyErrorBits.reduce((sum, [, bitValue]) => sum + bitValue, 0);
+            const unknownValue = mask - (mask & knownMask);
+            if (unknownValue > 0) labels.push(`ERR?: Unknown error bits (${unknownValue})`);
+            return labels.join(' | ');
         }
 
         // rebuildMode = true  → seek/scrub: grafikleri sıfırlayıp yeniden çiz
@@ -2051,7 +2077,12 @@
             setText('cv-error-label', kellyErrorLabel(row.error_code));
             const extraErrors = [row.errorcode1, row.errorcode2, row.errorcode3]
                 .filter(code => code !== undefined && code !== '' && Number(code) !== 0);
-            setText('cv-extra-errors', extraErrors.length ? extraErrors.join(', ') : 'Yok');
+            setText(
+                'cv-extra-errors',
+                extraErrors.length
+                    ? extraErrors.map(code => `${formatExact(code)} (${kellyErrorLabel(code)})`).join(' | ')
+                    : 'Yok'
+            );
 
             // GSM: hem grafik başlığında hem header'da güncelle
             setCv('cv-gs', row.gs);

@@ -1,21 +1,11 @@
 import './SystemPanel.css'
 import './KellyPanel.css'
-
-// Kontrolcü üreticisinin tam hata listesi geldiğinde bu tablo genişletilecek.
-// Şimdilik talepte verilen örnek kod tanımlıdır; bilinmeyen kodlar ham değerleriyle görünür.
-const KELLY_ERROR_CODES = {
-  0: 'Hata yok',
-  32: 'Over voltage',
-}
+import { decodeKellyErrorMask, normalizeKellyErrorMask } from '../utils/kellyErrors'
 
 function directionLabel(value) {
   if (value === 0) return 'Geri'
   if (value === 2) return 'İleri'
   return 'Boş'
-}
-
-function errorLabel(code) {
-  return KELLY_ERROR_CODES[code] || 'Tanımsız hata kodu'
 }
 
 function DataRow({ label, children, tone }) {
@@ -28,7 +18,11 @@ function DataRow({ label, children, tone }) {
 }
 
 export default function KellyPanel({ data }) {
-  const extraErrors = data.extraErrorCodes.filter((code) => code !== 0)
+  const errorCode = normalizeKellyErrorMask(data.errorCode)
+  const activeErrors = decodeKellyErrorMask(errorCode)
+  const extraErrors = data.extraErrorCodes
+    .map((code, index) => ({ index, code: normalizeKellyErrorMask(code) }))
+    .filter((error) => error.code !== 0)
   const throttleTone = data.throttle >= 85 ? 'danger' : data.throttle >= 60 ? 'warning' : 'normal'
 
   return (
@@ -59,15 +53,25 @@ export default function KellyPanel({ data }) {
         <DataRow label="Sıcaklık" tone={data.temperature >= 85 ? 'danger' : data.temperature >= 65 ? 'warning' : undefined}>
           {data.temperature} <em>°C</em>
         </DataRow>
-        <div className="kelly-error" data-has-error={data.errorCode !== 0}>
+        <div className="kelly-error" data-has-error={errorCode !== 0 || extraErrors.length > 0}>
           <div className="kelly-row">
             <span>Hata Kodu</span>
-            <strong>{data.errorCode}</strong>
+            <strong>{errorCode}</strong>
           </div>
-          <p>{errorLabel(data.errorCode)}</p>
-          {extraErrors.length > 0 && (
-            <small>Ek kodlar: {extraErrors.join(', ')}</small>
-          )}
+          <div className="kelly-error__messages">
+            {activeErrors.length === 0
+              ? <p>Hata yok</p>
+              : activeErrors.map((error) => <p key={`${error.code}-${error.value}`}>{error.code}: {error.name}</p>)}
+          </div>
+          {extraErrors.map((extraError) => {
+            const decodedErrors = decodeKellyErrorMask(extraError.code)
+            const label = decodedErrors.map((error) => `${error.code}: ${error.name}`).join(', ')
+            return (
+              <small key={extraError.index}>
+                Ek hata {extraError.index + 1} ({extraError.code}): {label}
+              </small>
+            )
+          })}
         </div>
       </div>
     </section>

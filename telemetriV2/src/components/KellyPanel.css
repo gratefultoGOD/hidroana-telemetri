@@ -82,6 +82,11 @@
   border-bottom: none;
 }
 
+.kelly-error__messages {
+  display: grid;
+  gap: 0.12rem;
+}
+
 .kelly-error p {
   margin: 0.05rem 0 0;
   color: var(--success);
@@ -99,4 +104,5 @@
   margin-top: 0.22rem;
   color: var(--warning);
   font-size: 0.62rem;
+  line-height: 1.25;
 }

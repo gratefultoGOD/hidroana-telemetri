@@ -145,7 +145,7 @@ function sendTelemetryData() {
         throttle: String(randomInRange(0, 101)),
         controller_temperature: String(randomInRange(30, 75)),
         controller_speed: String(randomInRange(20, 90, 1)),
-        error_code: hasOverVoltageError ? '32' : '0',
+        error_code: hasOverVoltageError ? '2' : '0',
         errorcode1: '0',
         errorcode2: '0',
         errorcode3: '0'
@@ -164,7 +164,7 @@ function sendTelemetryData() {
             console.error('❌ Veri gönderme hatası:', error);
         } else {
             const chargeInfo = isCharging ? ` | 🔋 Şarj=${telemetryData.charge_time}` : '';
-            const errorInfo = hasOverVoltageError ? ' | ⚠️ Hata=32' : '';
+            const errorInfo = hasOverVoltageError ? ' | ⚠️ Hata=2 (ERR1: Over voltage)' : '';
             console.log(
                 `📤 Hız=${telemetryData.h}km/h | GSM=${telemetryData.gs} | SOC=${telemetryData.soc}%`
                 + ` | Kelly=${controllerEnabled ? 'Açık' : 'Kapalı'}/${driveDirection}`
