@@ -7,6 +7,7 @@ const config = require('../config');
 const state = require('../state');
 const dataSource = require('../services/dataSource');
 const { processIncomingData, processIncomingUrbanData } = require('../services/dataPipeline');
+const { parseUrbanHttpQuery } = require('../services/urbanPayload');
 const { getActiveVehicle } = require('../services/systemSettings');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -21,6 +22,7 @@ const dataRouter = express.Router();
 dataRouter.get('/data', (req, res) => {
     // Performans ölçümü
     const startTime = process.hrtime.bigint();
+    const receivedAt = Date.now();
 
     if (dataSource.getDataSource() !== 'HTTP') {
         return res.status(400).send('DISABLED');
@@ -32,6 +34,11 @@ dataRouter.get('/data', (req, res) => {
     if (q.key !== config.API_KEY || !q.key) {
         console.log('⚠️ Unauthorized access detected');
         return res.status(401).send('UNAUTHORIZED');
+    }
+
+    const activeVehicle = getActiveVehicle();
+    if (activeVehicle === 'urban' && q.s !== undefined && q.s !== '0' && q.s !== '1') {
+        return res.status(400).send('INVALID_S');
     }
 
     // ÖNCE CEVABI GÖNDER - minimum latency için kritik
@@ -53,12 +60,10 @@ dataRouter.get('/data', (req, res) => {
     // Hangi araç formatının bekleneceği ayarlar sayfasından seçilen
     // aktif araca göre belirlenir — endpoint/key aynı kalır
     setImmediate(() => {
-        if (getActiveVehicle() === 'urban') {
-            const data = Object.fromEntries(
-                config.URBAN_DATA_FIELDS.map(field => [field, q[field] ?? null])
-            );
+        if (activeVehicle === 'urban') {
+            const data = parseUrbanHttpQuery(q);
 
-            processIncomingUrbanData(data);
+            processIncomingUrbanData(data, receivedAt, { source: 'HTTP', startNewFile: q.s === '1' });
             console.log(`⚡ [URBAN] /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);
             return;
         }

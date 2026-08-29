@@ -11,6 +11,7 @@ const testModeService = require('./testMode');
 const tubitak = require('./tubitak');
 const { findBestFlowMatch } = require('./flow');
 const { broadcastToClients, broadcastToUrbanClients } = require('./sse');
+const { normalizeUrbanFlow } = require('./urbanPayload');
 
 // Yıldız ile ayrılmış ham veriyi JSON'a dönüştür
 function parseStarSeparatedData(rawMessage) {
@@ -28,27 +29,39 @@ function parseStarSeparatedData(rawMessage) {
 
 // URBAN aracı için yıldız ile ayrılmış ham veriyi JSON'a dönüştür
 function parseUrbanStarSeparatedData(rawMessage) {
-    let dataString = rawMessage;
-    if (rawMessage.includes('_')) {
-        dataString = rawMessage.slice(rawMessage.indexOf('_') + 1);
+    let dataString = rawMessage.trim();
+    const prefixEnd = dataString.indexOf('_');
+    const firstSeparator = dataString.indexOf('*');
+    if (prefixEnd >= 0 && (firstSeparator < 0 || prefixEnd < firstSeparator)) {
+        dataString = dataString.slice(prefixEnd + 1);
     }
     const values = dataString.split('*');
-    const data = {};
-    config.URBAN_DATA_FIELDS.forEach((field, index) => {
+    const layouts = [config.URBAN_DATA_FIELDS, config.URBAN_LEGACY_41_DATA_FIELDS, config.URBAN_LEGACY_DATA_FIELDS];
+    const validLengths = layouts.map(fields => fields.length);
+    if (values.at(-1) === '' && validLengths.includes(values.length - 1)) values.pop();
+    const fields = layouts.find(fields => values.length === fields.length);
+    if (!fields) {
+        throw new Error(`Geçersiz Urban paket uzunluğu: ${values.length}`);
+    }
+    const data = Object.fromEntries(config.URBAN_DATA_FIELDS.map(field => [field, null]));
+    fields.forEach((field, index) => {
         data[field] = values[index] !== undefined ? values[index] : null;
     });
-    return data;
+    return normalizeUrbanFlow(data);
 }
 
 // URBAN aracı verisini işle ve kaydet (ayrı pipeline — ana araçtan bağımsız)
-function processIncomingUrbanData(data) {
+function processIncomingUrbanData(data, receivedAt = Date.now(), tubitakOptions = {}) {
     state.urbanDataCounter++;
 
-    const now = new Date();
+    const now = new Date(receivedAt);
+    const previousReceivedAt = state.latestUrbanTelemetryData?.receivedAt;
     const dataWithTimestamp = {
-        ...data,
+        // Toplam akış flow adıyla taşınır; hesaplama, biriktirme veya sıfırlama yok.
+        ...normalizeUrbanFlow(data),
         date: now.toISOString().split('T')[0],
         time: now.toTimeString().split(' ')[0] + '.' + now.getMilliseconds().toString().padStart(3, '0'),
+        interval_ms: previousReceivedAt == null ? null : Math.max(0, receivedAt - previousReceivedAt),
         timestamp: now.getTime(),
         receivedAt: now.getTime(),
         dataCounter: state.urbanDataCounter
@@ -69,7 +82,7 @@ function processIncomingUrbanData(data) {
     testModeService.recordTestData(dataWithTimestamp, now);
 
     // TÜBİTAK kaydı yalnızca URBAN aracından alınır.
-    tubitak.recordTubitakData(dataWithTimestamp, now);
+    tubitak.recordTubitakData(dataWithTimestamp, now, tubitakOptions);
 
     state.urbanConnectionStatus.connected = true;
     state.urbanConnectionStatus.lastUpdate = now.toISOString();

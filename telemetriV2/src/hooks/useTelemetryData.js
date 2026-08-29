@@ -74,10 +74,12 @@ function initialState() {
   return {
     battery: { voltage: 0, current: 0, power: 0 },
     fuelCell: { voltage: 0, current: 0, power: 0 },
+    eys: { voltage: null, current: null, power: null },
+    fuelCellMetrics: { oran: null, flow: null },
     motor: { voltage: 0, current: 0, power: 0 },
     stats: emptyStats(),
-    temps: { t1: 0, t2: 0, t3: 0, tank: 0 },
-    batteryMeta: { soc: 0, ke: 0, maxTemperature: 0 },
+    temps: { max: 0, tank: 0 },
+    batteryMeta: { soc: 0, ke: 0, wh: 0, maxTemperature: 0 },
     fuelCellTemps: { inner: 0, outer: 0 },
     charging: { active: false, voltage: 0, current: 0, time: '' },
     vehicleControlErrorCodes: [0, 0, 0],
@@ -108,22 +110,24 @@ export function parseUrbanPayload(raw, previousPosition) {
   const heading = hasFix && previousPosition ? bearingBetween(previousPosition, position) : 0
   const maxTemperature = num(raw.max_temperature, Math.max(num(raw.t1), num(raw.t2), num(raw.t3)))
   const receivedAt = new Date(raw.receivedAt || raw.timestamp || Date.now())
+  // Eski sunucu/veri hâlâ iki alan gönderiyorsa anlık flow değil toplamı göster.
+  const totalFlow = Object.hasOwn(raw, 'total_flow') ? raw.total_flow : raw.flow
 
   return {
     battery: { voltage: num(raw.bv), current: num(raw.bc), power: num(raw.bw) },
     fuelCell: { voltage: num(raw.fv), current: num(raw.fa), power: num(raw.fw) },
+    eys: { voltage: num(raw.eysv, null), current: num(raw.eysc, null), power: num(raw.eysw, null) },
+    fuelCellMetrics: { oran: num(raw.oran, null), flow: num(totalFlow, null) },
     motor: {
       voltage: num(raw.mv ?? raw.jv),
       current: num(raw.mc ?? raw.jc),
       power: num(raw.mw ?? raw.jw),
     },
     temps: {
-      t1: num(raw.t1, maxTemperature),
-      t2: num(raw.t2, maxTemperature),
-      t3: num(raw.t3, maxTemperature),
+      max: maxTemperature,
       tank: num(raw.T_tank_C),
     },
-    batteryMeta: { soc: num(raw.soc), ke: num(raw.ke), maxTemperature },
+    batteryMeta: { soc: num(raw.soc), ke: num(raw.ke), wh: num(raw.bwh), maxTemperature },
     fuelCellTemps: { inner: num(raw.fit), outer: num(raw.fet) },
     charging: {
       active: isChargingValue(raw.ischarging),

@@ -13,8 +13,9 @@ const state = require('../state');
 const urbanTelemetryStore = require('../services/urbanTelemetryStore');
 const sse = require('../services/sse');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { getDailyFileName, isSafeFileName, setDownloadHeaders } = require('../utils/helpers');
+const { isSafeFileName, setDownloadHeaders } = require('../utils/helpers');
 const { csvToXlsxBuffer } = require('../utils/xlsx');
+const { combineUrbanCsvContents } = require('../utils/urbanCsv');
 
 const { URBAN_DATA_DIR: DATA_DIR, URBAN_CSV_HEADERS: CSV_HEADERS, SSE_STALE_THRESHOLD_MS } = config;
 const FILE_SUFFIX = urbanTelemetryStore.FILE_SUFFIX;
@@ -62,7 +63,7 @@ router.get('/api/urban-telemetry/count', requireAuth, (req, res) => {
     res.json({
         count: urbanTelemetryStore.getDailyAveragesCount(),
         pendingCount: urbanTelemetryStore.getPendingCount(),
-        todayFile: getDailyFileName(new Date(), FILE_SUFFIX),
+        todayFile: urbanTelemetryStore.getTodayFileName(),
         availableDays: urbanTelemetryStore.getAvailableDaysCount()
     });
 });
@@ -125,10 +126,10 @@ router.get('/api/urban-telemetry/download-xlsx/:fileName', requireAdmin, (req, r
 });
 
 // Bugünün verisini indir (bekleyen veriler dahil) (SADECE ADMIN)
-router.get('/api/urban-telemetry/download-today', requireAdmin, (req, res) => {
-    urbanTelemetryStore.flushDataToFile();
+router.get('/api/urban-telemetry/download-today', requireAdmin, async (req, res) => {
+    await urbanTelemetryStore.flushDataToFile();
 
-    const fileName = getDailyFileName(new Date(), FILE_SUFFIX);
+    const fileName = urbanTelemetryStore.getTodayFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
     if (!fs.existsSync(filePath)) {
@@ -140,10 +141,10 @@ router.get('/api/urban-telemetry/download-today', requireAdmin, (req, res) => {
 });
 
 // Bugünün verisini XLSX olarak indir (SADECE ADMIN)
-router.get('/api/urban-telemetry/download-today-xlsx', requireAdmin, (req, res) => {
-    urbanTelemetryStore.flushDataToFile();
+router.get('/api/urban-telemetry/download-today-xlsx', requireAdmin, async (req, res) => {
+    await urbanTelemetryStore.flushDataToFile();
 
-    const fileName = getDailyFileName(new Date(), FILE_SUFFIX);
+    const fileName = urbanTelemetryStore.getTodayFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
     if (!fs.existsSync(filePath)) {
@@ -168,6 +169,7 @@ router.delete('/api/urban-telemetry/delete/:fileName', requireAdmin, (req, res) 
     }
 
     fs.unlinkSync(filePath);
+    urbanTelemetryStore.invalidateFileCache();
     console.log(`🗑️ URBAN dosyası silindi: ${fileName}`);
     res.json({ success: true, message: `${fileName} silindi` });
 });
@@ -235,17 +237,14 @@ async function buildCombinedCsv(withBom) {
     const days = await urbanTelemetryStore.getAvailableDays();
     if (days.length === 0) return null;
 
-    let csv = (withBom ? '\uFEFF' : '') + CSV_HEADERS.join(';') + '\n';
+    const contents = [];
 
     for (const day of days) {
         const filePath = path.join(DATA_DIR, day.fileName);
         const content = await fsPromises.readFile(filePath, 'utf8');
-        const lines = content.split('\n').filter(line => line.trim());
-        lines.slice(1).forEach(line => {
-            if (line.trim()) csv += line + '\n';
-        });
+        contents.push(content);
     }
-    return csv;
+    return combineUrbanCsvContents(contents, CSV_HEADERS, withBom);
 }
 
 module.exports = router;

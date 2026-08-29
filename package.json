@@ -6,8 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "create-user": "node create-user.js",
+    "test:urban": "node --test tests/urban-*.test.cjs",
     "publisher": "node mqtt-publisher.js",
-    "urban-publisher": "node urban-publisher.js"
+    "urban-publisher": "node urban-publisher.js",
+    "urban-http-publisher": "node urban-http-publisher.js"
   },
   "keywords": [
     "telemetry",

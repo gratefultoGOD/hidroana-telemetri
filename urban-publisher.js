@@ -149,6 +149,11 @@ function sendTelemetryData() {
         fv: String(randomInRange(30, 50, 1)),          // Yakıt hücresi voltaj (V)
         fa: String(randomInRange(5, 25, 1)),           // Yakıt hücresi akım (A)
         fw: String(randomInRange(200, 800)),           // Yakıt hücresi watt (W)
+        eysv: String(randomInRange(48, 56, 2)),        // EYS voltaj (V)
+        eysc: String(randomInRange(5, 20, 2)),         // EYS akım (A)
+        eysw: String(randomInRange(250, 1000, 2)),     // EYS güç (W)
+        oran: String(randomInRange(40, 95, 2)),       // Doğrudan yüzde değeri
+        flow: (12.5 + simState.tick * 0.05).toFixed(2), // Araçtan hazır gelen toplamın test değeri
         fet: String(randomInRange(25, 45)),            // Yakıt hücresi dış sıcaklık (°C)
         fit: String(randomInRange(50, 75)),            // Yakıt hücresi iç sıcaklık (°C)
         T_tank_C: String(simState.tank.toFixed(1)),    // Hidrojen tank sıcaklığı (°C)
@@ -185,7 +190,7 @@ function sendTelemetryData() {
         throw new Error(`Eksik URBAN alanları: ${missingFields.join(', ')}`);
     }
 
-    // config.URBAN_DATA_FIELDS sırasına göre 35 alanlı yıldız ayrımlı string oluştur
+    // config.URBAN_DATA_FIELDS sırasına göre güncel yıldız ayrımlı string oluştur
     const message = '01_' + config.URBAN_DATA_FIELDS.map(f => telemetryData[f]).join('*');
 
     client.publish(TOPIC, message, { qos: 1 }, (error) => {
@@ -201,6 +206,7 @@ function sendTelemetryData() {
                 : '';
             console.log(
                 `📤 Hız=${telemetryData.h}km/h | GSM=${telemetryData.gs} | SOC=${telemetryData.soc}%`
+                + ` | FC/EYS=${telemetryData.fv}V/${telemetryData.eysv}V | Oran=${telemetryData.oran}% | Toplam Flow=${telemetryData.flow}`
                 + ` | Kelly=${controllerEnabled ? 'Açık' : 'Kapalı'}/${driveDirection}`
                 + `${chargeInfo}${errorInfo}${vehicleControlErrorInfo}`
             );

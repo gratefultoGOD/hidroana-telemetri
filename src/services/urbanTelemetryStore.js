@@ -10,15 +10,33 @@ const path = require('path');
 const config = require('../config');
 const state = require('../state');
 const { getDailyFileName } = require('../utils/helpers');
+const { URBAN_FILE_SUFFIX, resolveUrbanDailyFileName } = require('../utils/urbanCsv');
 
 const { URBAN_DATA_DIR: DATA_DIR, URBAN_CSV_HEADERS: CSV_HEADERS, URBAN_NUMERIC_FIELDS: NUMERIC_FIELDS, FLUSH_THRESHOLD, RECENT_DATA_WINDOW } = config;
-const FILE_SUFFIX = '_urban_verileri.csv';
+const FILE_SUFFIX = URBAN_FILE_SUFFIX;
 
 let pendingData = []; // Dosyaya yazılmayı bekleyen veriler
 
 // Dosya varlık cache'leri — senkron fs.existsSync çağrısını önler
 let _dailyCsvExists = false;
 let _dailyCsvFileName = null;
+let _resolvedBaseName = null;
+let _resolvedFileName = null;
+
+function getTodayFileName(now = new Date()) {
+    const baseFileName = getDailyFileName(now, FILE_SUFFIX);
+    if (_resolvedBaseName !== baseFileName) {
+        _resolvedFileName = resolveUrbanDailyFileName(DATA_DIR, baseFileName, CSV_HEADERS);
+        _resolvedBaseName = baseFileName;
+    }
+    return _resolvedFileName;
+}
+
+function invalidateFileCache() {
+    _dailyCsvExists = false;
+    _dailyCsvFileName = null;
+    _resolvedBaseName = null;
+}
 
 // Son 15 saniyenin verilerini bellekte tut (ortalama hesaplama için)
 let recentData = [];
@@ -26,7 +44,7 @@ let recentData = [];
 // Running Average değişkenleri
 let dailyAverages = {};
 let dailyAveragesCount = 0;
-let currentDailyFile = getDailyFileName(new Date(), FILE_SUFFIX);
+let currentDailyFile = getTodayFileName();
 NUMERIC_FIELDS.forEach(f => dailyAverages[f] = 0);
 
 // Available days count cache — asenkron güncellenir, event loop bloklamaz
@@ -76,7 +94,7 @@ function initDailyAverages() {
 
 // Gün değişimi kontrolü — gün değiştiyse running average sıfırlanır
 function checkDayRollover(now) {
-    const newDailyFile = getDailyFileName(now, FILE_SUFFIX);
+    const newDailyFile = getTodayFileName(now);
     if (newDailyFile !== currentDailyFile) {
         currentDailyFile = newDailyFile;
         dailyAveragesCount = 0;
@@ -107,18 +125,25 @@ function enqueueData(data) {
 }
 
 // Dosyaya veri yaz - ASENKRON (non-blocking)
-let isFlushingData = false; // Eşzamanlı yazma kontrolü
+let activeFlush = null; // İndirme sırasında devam eden yazmanın tamamlanması beklenebilir.
 
 async function flushDataToFile() {
+    while (activeFlush) await activeFlush;
     if (pendingData.length === 0) return;
-    if (isFlushingData) return; // Zaten yazılıyorsa bekle
+    const operation = writePendingData();
+    activeFlush = operation;
+    try {
+        await operation;
+    } finally {
+        if (activeFlush === operation) activeFlush = null;
+    }
+}
 
-    isFlushingData = true;
-
+async function writePendingData() {
     const dataToWrite = [...pendingData]; // Kopyasını al
     pendingData = []; // Hemen temizle (yeni veriler birikebilir)
 
-    const fileName = getDailyFileName(new Date(), FILE_SUFFIX);
+    const fileName = getTodayFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
     try {
@@ -154,8 +179,6 @@ async function flushDataToFile() {
     } catch (error) {
         // Hata durumunda verileri geri ekle
         pendingData = [...dataToWrite, ...pendingData];
-    } finally {
-        isFlushingData = false;
     }
 }
 
@@ -209,7 +232,7 @@ async function getAvailableDays() {
 
             files.push({
                 fileName: f,
-                date: f.replace(FILE_SUFFIX, ''),
+                date: f.replace(FILE_SUFFIX, '').replace(/_v\d+$/, ''),
                 dataCount: Math.max(0, lines.length - 1),
                 fileSize: stats.size,
                 lastModified: stats.mtime
@@ -225,7 +248,7 @@ async function getAvailableDays() {
 
 // Bugünün verilerini temizle — silinen kayıt sayısını döndürür
 function clearTodayData() {
-    const fileName = getDailyFileName(new Date(), FILE_SUFFIX);
+    const fileName = getTodayFileName();
     const filePath = path.join(DATA_DIR, fileName);
 
     let clearedCount = pendingData.length;
@@ -238,6 +261,7 @@ function clearTodayData() {
         clearedCount += Math.max(0, lines.length - 1);
         fs.unlinkSync(filePath);
     }
+    invalidateFileCache();
     return clearedCount;
 }
 
@@ -251,6 +275,8 @@ module.exports = {
     getAvailableDays,
     updateAvailableDaysCount,
     clearTodayData,
+    getTodayFileName,
+    invalidateFileCache,
     getPendingCount: () => pendingData.length,
     getDailyAveragesCount: () => dailyAveragesCount,
     getDailyAverages: () => dailyAverages,

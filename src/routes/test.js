@@ -33,22 +33,27 @@ router.post('/api/test/start', requireAdmin, (req, res) => {
 });
 
 // Test durdur (SADECE ADMIN)
-router.post('/api/test/stop', requireAdmin, (req, res) => {
+router.post('/api/test/stop', requireAdmin, async (req, res) => {
     if (!testMode.active) {
         return res.status(400).json({ error: 'Aktif test yok' });
     }
 
-    const { testName, realDuration, dataCount, vehicle } = testModeService.stopTest();
+    try {
+        const { testName, realDuration, dataCount, vehicle } = await testModeService.stopTest();
 
-    res.json({
-        success: true,
-        message: 'Test durduruldu',
-        testName: testName,
-        duration: formatDuration(realDuration),
-        durationMs: realDuration,
-        dataCount: dataCount,
-        vehicle
-    });
+        res.json({
+            success: true,
+            message: 'Test durduruldu',
+            testName: testName,
+            duration: formatDuration(realDuration),
+            durationMs: realDuration,
+            dataCount: dataCount,
+            vehicle
+        });
+    } catch (error) {
+        console.error('Test kaydı durdurulamadı:', error);
+        res.status(500).json({ error: 'Test verileri dosyaya kaydedilemedi; kayıt kapatılmadı. Tekrar durdurmayı deneyin.' });
+    }
 });
 
 // Test durumu

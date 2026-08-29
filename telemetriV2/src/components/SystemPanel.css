@@ -47,6 +47,7 @@
   align-content: center;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
 }
 
 .system-panel__content.has-side-metrics .system-panel__gauges {
@@ -139,6 +140,22 @@
   padding-top: 0.35rem;
   border-top: 1px solid var(--border);
   flex: 0 0 auto;
+}
+
+.system-panel__stats.has-footer-metrics {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  column-gap: clamp(0.5rem, 1.2vw, 1.2rem);
+}
+
+.system-panel__footer-metrics {
+  display: flex;
+  gap: clamp(0.65rem, 1.5vw, 1.5rem);
+  margin-left: auto;
+}
+
+.system-panel__footer-metrics .system-panel__stat {
+  align-items: flex-end;
 }
 
 .system-panel__stat {

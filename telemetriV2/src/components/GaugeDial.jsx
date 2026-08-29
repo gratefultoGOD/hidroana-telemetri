@@ -28,6 +28,9 @@ export default function GaugeDial({
   max = 100,
   unit = '',
   decimals = 1,
+  paired = false,
+  secondaryValue = null,
+  readoutDecimals = decimals,
   color = '#4f8cff',
   warningAt = 0.7,
   dangerAt = 0.9,
@@ -71,10 +74,11 @@ export default function GaugeDial({
   const needleBase1 = polarToCartesian(cx, cy, size * 0.045, valueAngle + 90)
   const needleBase2 = polarToCartesian(cx, cy, size * 0.045, valueAngle - 90)
 
-  const displayValue = Number.isFinite(value) ? value.toFixed(decimals) : '--'
+  const displayValue = Number.isFinite(value) ? value.toFixed(readoutDecimals) : '--'
+  const secondaryDisplayValue = Number.isFinite(secondaryValue) ? secondaryValue.toFixed(readoutDecimals) : '--'
 
   return (
-    <div className="gauge">
+    <div className={`gauge${paired ? ' gauge--paired' : ''}`}>
       <svg viewBox={`0 0 ${size} ${size * 0.9}`} className="gauge__svg">
         <path d={trackPath} className="gauge__track" strokeWidth={size * 0.055} fill="none" />
         <path d={warningPath} className="gauge__zone gauge__zone--warning" strokeWidth={size * 0.055} fill="none" />
@@ -108,11 +112,19 @@ export default function GaugeDial({
         <circle cx={cx} cy={cy} r={size * 0.05} className="gauge__hub" />
       </svg>
       <div className="gauge__readout">
-        <span className="gauge__value" style={{ color: activeColor }}>
+        <span className="gauge__value" style={{ color: activeColor }} title={paired ? 'Sol: Fuel Cell / Sağ: EYS · Kadran: Fuel Cell' : undefined}>
           {displayValue}
           <span className="gauge__unit">{unit}</span>
+          {paired && (
+            <>
+              <span className="gauge__separator"> / </span>
+              <span className="gauge__secondary">
+                {secondaryDisplayValue}<span className="gauge__unit">{unit}</span>
+              </span>
+            </>
+          )}
         </span>
-        <span className="gauge__label">{label}</span>
+        <span className="gauge__label">{label}{paired ? ' · FC / EYS' : ''}</span>
       </div>
     </div>
   )

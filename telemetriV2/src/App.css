@@ -347,7 +347,8 @@
 
   /* Kaydırılabilir düzende kadranlar genişliğe göre ölçeklenir */
   .gauge {
-    width: clamp(96px, 22vw, 150px);
+    --gauge-size: clamp(96px, 22vw, 150px);
+    width: var(--gauge-size);
   }
 
   .map-panel {
@@ -377,7 +378,8 @@
   }
 
   .gauge {
-    width: clamp(100px, 26vw, 150px);
+    --gauge-size: clamp(100px, 26vw, 150px);
+    width: var(--gauge-size);
   }
 
   .map-panel {

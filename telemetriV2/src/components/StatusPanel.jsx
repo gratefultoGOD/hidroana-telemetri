@@ -3,9 +3,7 @@ import './SystemPanel.css'
 import './StatusPanel.css'
 
 const SENSORS = [
-  { key: 't1', label: 'T1 · Batarya Paketi' },
-  { key: 't2', label: 'T2 · Batarya Paketi' },
-  { key: 't3', label: 'T3 · Batarya Paketi' },
+  { key: 'max', label: 'Batarya Maks. Sıcaklık' },
   { key: 'tank', label: 'Tank Sıcaklığı' },
 ]
 

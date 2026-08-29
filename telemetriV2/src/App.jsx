@@ -50,6 +50,7 @@ export default function App() {
   const batteryMetrics = [
     { label: 'SOC', value: data.batteryMeta.soc, unit: '%', decimals: 0 },
     { label: 'KE', value: data.batteryMeta.ke, unit: 'kWh', decimals: 1 },
+    { label: 'Wh', value: data.batteryMeta.wh, unit: 'Wh', decimals: 2 },
   ]
   const fuelCellMetrics = [
     { label: 'İç Sıcaklık', value: data.fuelCellTemps.inner, unit: '°C', decimals: 0 },
@@ -145,9 +146,14 @@ export default function App() {
             title="Yakıt Hücresi"
             icon="⚗"
             data={data.fuelCell}
+            comparisonData={data.eys}
             ranges={RANGES.fuelCell}
             stats={data.stats.fuelCell}
             sideMetrics={fuelCellMetrics}
+            footerMetrics={[
+              { label: 'Oran', value: data.fuelCellMetrics.oran, unit: '%', decimals: 2 },
+              { label: 'Toplam Flow', value: data.fuelCellMetrics.flow, decimals: 2 },
+            ]}
           />
         </div>
         <div className="app__cell app__cell--map">

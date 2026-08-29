@@ -16,6 +16,7 @@ const { TEST_DIR, TEST_CSV_HEADERS, URBAN_TEST_CSV_HEADERS, FLUSH_THRESHOLD } = 
 // Test modu durumu
 const testMode = {
     active: false,
+    stopping: false,      // Son satırlar yazılırken yeni veri kabul edilmez.
     startTime: null,
     testName: null,
     vehicle: null,        // 'proto' | 'urban' — test başlarken aktif araç sabitlenir
@@ -40,14 +41,32 @@ function startTest() {
     return { testName: testMode.testName, startTime: now.toISOString(), vehicle };
 }
 
-// Test durdur — bekleyenleri yazar, süre ve veri sayısını döndürür
-function stopTest() {
-    if (testMode.pendingTestData.length > 0) {
-        flushTestDataToFile();
-    }
+// Eşzamanlı durdurma istekleri aynı yazma işleminin tamamlanmasını bekler.
+let stoppingTest = null;
 
+// Test durdur — devam eden yazmayı ve bekleyen son satırları tamamlar.
+function stopTest() {
+    if (stoppingTest) return stoppingTest;
+    testMode.stopping = true;
+    stoppingTest = finishTest().finally(() => {
+        testMode.stopping = false;
+        stoppingTest = null;
+    });
+    return stoppingTest;
+}
+
+async function finishTest() {
+    // Süre ve dosya kimliği durdurma anına aittir; disk beklemesi süreye eklenmez.
     const duration = Date.now() - testMode.startTime;
     const testName = testMode.testName;
+    const realDuration = duration - testMode.pausedElapsed;
+    const vehicle = testMode.vehicle;
+
+    // active, dosya adı ve kuyruk yazma bitmeden sıfırlanmamalı. Bu sırada
+    // yeni test/araç değişikliği de mevcut active kontrolüyle engellenir.
+    if (!await flushTestDataToFile()) {
+        throw new Error('Test verileri dosyaya kaydedilemedi; kayıt kapatılmadı. Tekrar durdurmayı deneyin.');
+    }
 
     // Test dosyasındaki veri sayısını al
     const filePath = path.join(TEST_DIR, testName);
@@ -57,10 +76,6 @@ function stopTest() {
         const lines = content.split('\n').filter(line => line.trim());
         dataCount = Math.max(0, lines.length - 1);
     }
-
-    // Gerçek süre = toplam süre - duraklatılmış süre
-    const realDuration = duration - testMode.pausedElapsed;
-    const vehicle = testMode.vehicle;
 
     testMode.active = false;
     testMode.startTime = null;
@@ -96,7 +111,7 @@ function resumeTest() {
 
 // Gelen telemetri verisini test kaydına ekle (aktif ve duraklatılmamışsa)
 function recordTestData(dataWithTimestamp, now) {
-    if (!testMode.active || testMode.paused || !testMode.startTime) return;
+    if (!testMode.active || testMode.stopping || testMode.paused || !testMode.startTime) return;
 
     // Gerçek geçen süre = toplam süre - duraklatılmış süre
     const elapsedMs = (now.getTime() - testMode.startTime) - testMode.pausedElapsed;
@@ -112,23 +127,33 @@ function recordTestData(dataWithTimestamp, now) {
 }
 
 // Test verilerini dosyaya yaz - ASENKRON (non-blocking)
-let isFlushingTestData = false; // Eşzamanlı yazma kontrolü
+let activeTestFlush = null;
 
 async function flushTestDataToFile() {
-    if (!testMode.active || testMode.pendingTestData.length === 0) return;
-    if (isFlushingTestData) return;
+    // Kuyruk boş olsa bile, diske alınmış ama henüz tamamlanmamış parti beklenir.
+    while (activeTestFlush) await activeTestFlush;
+    if (!testMode.active || testMode.pendingTestData.length === 0) return true;
 
-    isFlushingTestData = true;
+    const operation = writePendingTestData();
+    activeTestFlush = operation;
+    try {
+        return await operation;
+    } finally {
+        if (activeTestFlush === operation) activeTestFlush = null;
+    }
+}
 
+async function writePendingTestData() {
     const dataToWrite = [...testMode.pendingTestData];
     testMode.pendingTestData = [];
 
-    const filePath = path.join(TEST_DIR, testMode.testName);
-    const csvHeaders = testMode.vehicle === 'urban' ? URBAN_TEST_CSV_HEADERS : TEST_CSV_HEADERS;
+    const { testName, vehicle } = testMode;
+    const filePath = path.join(TEST_DIR, testName);
+    const csvHeaders = vehicle === 'urban' ? URBAN_TEST_CSV_HEADERS : TEST_CSV_HEADERS;
 
     try {
         // Dosya varlık cache'i — senkron existsSync yerine
-        let fileExists = _testFileExists[testMode.testName];
+        let fileExists = _testFileExists[testName];
         if (!fileExists) {
             try {
                 await fsPromises.access(filePath);
@@ -150,15 +175,15 @@ async function flushTestDataToFile() {
 
         // ASENKRON dosya yazma
         await fsPromises.appendFile(filePath, csvContent, 'utf8');
-        _testFileExists[testMode.testName] = true;
-        const counter = testMode.vehicle === 'urban' ? state.urbanDataCounter : state.dataCounter;
+        _testFileExists[testName] = true;
+        const counter = vehicle === 'urban' ? state.urbanDataCounter : state.dataCounter;
         if (counter % 10 === 0) {
-            console.log(`${dataToWrite.length} test verisi kaydedildi: ${testMode.testName}`);
+            console.log(`${dataToWrite.length} test verisi kaydedildi: ${testName}`);
         }
+        return true;
     } catch (error) {
         testMode.pendingTestData = [...dataToWrite, ...testMode.pendingTestData];
-    } finally {
-        isFlushingTestData = false;
+        return false;
     }
 }
 

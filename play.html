@@ -1005,9 +1005,9 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:#ffa726">🔥 FC Voltaj</span>
+                                    <span class="chart-title" style="color:#ffa726" data-proto="🔥 FC Voltaj" data-urban="🔥 FC / EYS Voltaj">🔥 FC Voltaj</span>
                                     <span class="chart-val" style="color:#ffa726"><span id="cv-fv">--</span> <span
-                                            style="font-size:10px;font-weight:400">V</span></span>
+                                            style="font-size:10px;font-weight:400">V</span><span data-vehicle-only="urban" style="color:#67e8f9;display:none;"> / <span id="cv-eysv">--</span> <span style="font-size:10px;font-weight:400">V</span></span></span>
                                 </div>
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
@@ -1016,9 +1016,9 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:#ff5722">🔥 FC Akım</span>
+                                    <span class="chart-title" style="color:#ff5722" data-proto="🔥 FC Akım" data-urban="🔥 FC / EYS Akım">🔥 FC Akım</span>
                                     <span class="chart-val" style="color:#ff5722"><span id="cv-fa">--</span> <span
-                                            style="font-size:10px;font-weight:400">A</span></span>
+                                            style="font-size:10px;font-weight:400">A</span><span data-vehicle-only="urban" style="color:#67e8f9;display:none;"> / <span id="cv-eysc">--</span> <span style="font-size:10px;font-weight:400">A</span></span></span>
                                 </div>
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
@@ -1029,9 +1029,9 @@
                         <div class="chart-card draggable-item">
                             <div class="chart-card-header">
                                 <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
-                                    <span class="chart-title" style="color:var(--fuel-color)">⚡ FC Güç</span>
+                                    <span class="chart-title" style="color:var(--fuel-color)" data-proto="⚡ FC Güç" data-urban="⚡ FC / EYS Güç">⚡ FC Güç</span>
                                     <span class="chart-val" style="color:var(--fuel-color);"><span id="cv-fw">--</span>
-                                        <span style="font-size:10px;font-weight:400;">W</span></span>
+                                        <span style="font-size:10px;font-weight:400;">W</span><span data-vehicle-only="urban" style="color:#67e8f9;display:none;"> / <span id="cv-eysw">--</span> <span style="font-size:10px;font-weight:400">W</span></span></span>
                                 </div>
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
@@ -1052,6 +1052,28 @@
                                 <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
                             </div>
                             <div class="chart-canvas-wrap"><canvas id="chartFcTemp"></canvas></div>
+                        </div>
+
+                        <!-- Urban Oran ve toplam akışı taşıyan flow alanı. -->
+                        <div class="chart-card draggable-item" data-vehicle-only="urban" style="display:none;">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#facc15">Oran</span>
+                                    <span class="chart-val" style="color:#facc15"><span id="cv-oran">--</span> %</span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartOran"></canvas></div>
+                        </div>
+                        <div class="chart-card draggable-item" data-vehicle-only="urban" style="display:none;">
+                            <div class="chart-card-header">
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;">
+                                    <span class="chart-title" style="color:#67e8f9">Toplam Flow</span>
+                                    <span class="chart-val" style="color:#67e8f9"><span id="cv-urban-flow">--</span></span>
+                                </div>
+                                <span class="play-toggle-icon" onclick="playToggleCard(this)" title="Aç/Kapat">▼</span>
+                            </div>
+                            <div class="chart-canvas-wrap"><canvas id="chartUrbanFlow"></canvas></div>
                         </div>
 
                         <!-- JM Voltaj & Akım -->
@@ -1484,13 +1506,16 @@
 
         // Eski URBAN test dosyaları da oynatılabilsin: yeni alanlar yoksa önceki
         // jv/jc/jw ve t1/t2/t3 değerlerinden uyumlu karşılıkları üret.
+        // total_flow başlıklı eski kayıtta, anlık flow yerine toplamı kullan.
         function normalizeUrbanRows(rows) {
             return rows.map(row => {
+                const { total_flow, ...current } = row;
                 const oldTemps = [row.t1, row.t2, row.t3]
                     .map(Number)
                     .filter(Number.isFinite);
                 return {
-                    ...row,
+                    ...current,
+                    flow: Object.hasOwn(row, 'total_flow') ? total_flow : row.flow,
                     mv: row.mv !== undefined && row.mv !== '' ? row.mv : row.jv,
                     mc: row.mc !== undefined && row.mc !== '' ? row.mc : row.jc,
                     mw: row.mw !== undefined && row.mw !== '' ? row.mw : row.jw,
@@ -1514,6 +1539,8 @@
             { id: 'chartFv', label: 'FC Voltaj (V)', color: '#ffa726', fields: ['fv'] },
             { id: 'chartFa', label: 'FC Akım (A)', color: '#ff5722', fields: ['fa'] },
             { id: 'chartFw', label: 'FC Güç (W)', color: '#ffa726', fields: ['fw'] },
+            { id: 'chartOran', label: 'Oran (%)', color: '#facc15', fields: ['oran'], vehicle: 'urban' },
+            { id: 'chartUrbanFlow', label: 'Toplam Flow', color: '#67e8f9', fields: ['flow'], vehicle: 'urban' },
             {
                 id: 'chartFcTemp', label: 'FC Sıcaklık (°C)', color: '#ff7043', fields: ['fet', 'fit'],
                 dual: true, dualColors: ['#ff7043', '#ffb74d'], dualLabels: ['FC Dış (°C)', 'FC İç (°C)']
@@ -1554,6 +1581,22 @@
 
         function configureChartDefsForVehicle(isUrban) {
             const byId = id => chartDefs.find(def => def.id === id);
+            [
+                ['chartFv', 'fv', 'eysv', 'Voltaj (V)'],
+                ['chartFa', 'fa', 'eysc', 'Akım (A)'],
+                ['chartFw', 'fw', 'eysw', 'Güç (W)'],
+            ].forEach(([id, fuelCellField, eysField, label]) => {
+                const def = byId(id);
+                def.fields = isUrban ? [fuelCellField, eysField] : [fuelCellField];
+                def.dual = isUrban;
+                if (isUrban) {
+                    def.dualColors = [def.color, '#67e8f9'];
+                    def.dualLabels = [`FC ${label}`, `EYS ${label}`];
+                } else {
+                    delete def.dualColors;
+                    delete def.dualLabels;
+                }
+            });
             const motorFields = [
                 ['chartJv', 'jv', 'mv'],
                 ['chartJc', 'jc', 'mc'],
@@ -1700,7 +1743,8 @@
                 if (!canvas) return;
                 const card = canvas.closest('.chart-card');
                 if (!card) return;
-                const hasData = def.fields.some(f => dataHasField(f));
+                const hasData = (!def.vehicle || def.vehicle === currentVehicle)
+                    && def.fields.some(f => dataHasField(f));
                 def._skip = !hasData;
                 card.style.display = hasData ? '' : 'none';
             });
@@ -2049,6 +2093,8 @@
             setCv('cv-bwh-val', row.bwh);
             setCv('cv-fv', row.fv); setCv('cv-fa', row.fa);
             setCv('cv-fw', row.fw); setCv('cv-fet', row.fet); setCv('cv-fit', row.fit);
+            setCv('cv-eysv', row.eysv); setCv('cv-eysc', row.eysc); setCv('cv-eysw', row.eysw);
+            setCv('cv-oran', row.oran); setCv('cv-urban-flow', row.flow);
             const isUrban = currentVehicle === 'urban';
             setCv('cv-jv', isUrban ? row.mv : row.jv); setCv('cv-jc', isUrban ? row.mc : row.jc);
             setCv('cv-jw', isUrban ? row.mw : row.jw); setCv('cv-jwh', row.jwh);

@@ -40,6 +40,7 @@ function startMQTT() {
     });
 
     mqttClient.on('message', (topic, message) => {
+        const receivedAt = Date.now();
         try {
             if (topic === config.MQTT_TOPIC) {
                 const rawMessage = message.toString().trim();
@@ -48,7 +49,7 @@ function startMQTT() {
                 // ayarlar sayfasından seçilen aktif araca göre belirlenir
                 if (getActiveVehicle() === 'urban') {
                     const data = parseUrbanStarSeparatedData(rawMessage);
-                    processIncomingUrbanData(data);
+                    processIncomingUrbanData(data, receivedAt);
                 } else {
                     const data = parseStarSeparatedData(rawMessage);
                     processIncomingData(data);
@@ -113,7 +114,7 @@ function stopMQTT() {
 function startHTTP() {
     httpModeActive = true;
     console.log('HTTP modu aktif - Araçtan veri bekleniyor...');
-    console.log('Endpoint: GET /api/telemetry?h=...&x=...&y=...');
+    console.log('Endpoint: GET /data?key=...&h=...&x=...&y=...');
 }
 
 function stopHTTP() {

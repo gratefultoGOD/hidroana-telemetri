@@ -20,7 +20,7 @@ function ChargingBanner({ charging }) {
   )
 }
 
-export default function SystemPanel({ title, icon, data, ranges, stats, sideMetrics = [], charging = null }) {
+export default function SystemPanel({ title, icon, data, ranges, stats, sideMetrics = [], charging = null, comparisonData = null, footerMetrics = [] }) {
   return (
     <section className="system-panel">
       <header className="system-panel__header">
@@ -38,6 +38,9 @@ export default function SystemPanel({ title, icon, data, ranges, stats, sideMetr
             max={ranges.voltage.max}
             unit={ranges.voltage.unit}
             decimals={ranges.voltage.decimals}
+            paired={comparisonData !== null}
+            secondaryValue={comparisonData?.voltage}
+            readoutDecimals={comparisonData !== null ? 2 : ranges.voltage.decimals}
           />
           <GaugeDial
             label="Akım"
@@ -46,6 +49,9 @@ export default function SystemPanel({ title, icon, data, ranges, stats, sideMetr
             max={ranges.current.max}
             unit={ranges.current.unit}
             decimals={ranges.current.decimals}
+            paired={comparisonData !== null}
+            secondaryValue={comparisonData?.current}
+            readoutDecimals={comparisonData !== null ? 2 : ranges.current.decimals}
           />
           <GaugeDial
             label="Güç"
@@ -54,6 +60,9 @@ export default function SystemPanel({ title, icon, data, ranges, stats, sideMetr
             max={ranges.power.max}
             unit={ranges.power.unit}
             decimals={ranges.power.decimals}
+            paired={comparisonData !== null}
+            secondaryValue={comparisonData?.power}
+            readoutDecimals={comparisonData !== null ? 2 : ranges.power.decimals}
           />
         </div>
 
@@ -73,7 +82,7 @@ export default function SystemPanel({ title, icon, data, ranges, stats, sideMetr
       </div>
 
       {stats && (
-        <div className="system-panel__stats">
+        <div className={`system-panel__stats ${footerMetrics.length ? 'has-footer-metrics' : ''}`}>
           <span className="system-panel__stat">
             <span className="system-panel__stat-label">Min Voltaj</span>
             <span className="system-panel__stat-value">
@@ -88,6 +97,19 @@ export default function SystemPanel({ title, icon, data, ranges, stats, sideMetr
               <em>{ranges.current.unit}</em>
             </span>
           </span>
+          {footerMetrics.length > 0 && (
+            <div className="system-panel__footer-metrics">
+              {footerMetrics.map((metric) => (
+                <span className="system-panel__stat" key={metric.label}>
+                  <span className="system-panel__stat-label">{metric.label}</span>
+                  <span className="system-panel__stat-value">
+                    {formatMetric(metric)}
+                    {metric.unit && <em>{metric.unit}</em>}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
