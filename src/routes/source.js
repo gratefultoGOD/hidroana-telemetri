@@ -7,7 +7,7 @@ const config = require('../config');
 const state = require('../state');
 const dataSource = require('../services/dataSource');
 const { processIncomingData, processIncomingUrbanData } = require('../services/dataPipeline');
-const { parseUrbanHttpQuery } = require('../services/urbanPayload');
+const { validateUrbanHttpQuery } = require('../services/urbanPayload');
 const { getActiveVehicle } = require('../services/systemSettings');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -41,6 +41,17 @@ dataRouter.get('/data', (req, res) => {
         return res.status(400).send('INVALID_S');
     }
 
+    let urbanData = null;
+    if (activeVehicle === 'urban') {
+        const validation = validateUrbanHttpQuery(q);
+        if (!validation.valid) {
+            const details = validation.errors.map(error => `${error.field}:${error.reason}`).join(', ');
+            console.log(`⚠️ [URBAN] Geçersiz HTTP verisi işlenmedi: ${details}`);
+            return res.status(400).send('INVALID_DATA');
+        }
+        urbanData = validation.data;
+    }
+
     // ÖNCE CEVABI GÖNDER - minimum latency için kritik
     res.removeHeader('X-Powered-By');
     // Supercapacitor durumuna göre yanıt
@@ -61,10 +72,8 @@ dataRouter.get('/data', (req, res) => {
     // aktif araca göre belirlenir — endpoint/key aynı kalır
     setImmediate(() => {
         if (activeVehicle === 'urban') {
-            const data = parseUrbanHttpQuery(q);
-
-            processIncomingUrbanData(data, receivedAt, { source: 'HTTP', startNewFile: q.s === '1' });
-            console.log(`⚡ [URBAN] /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);
+            processIncomingUrbanData(urbanData, receivedAt, { source: 'HTTP', startNewFile: q.s === '1' });
+            console.log(`⚡ [URBAN] /data response: ${durationMs.toFixed(2)}ms | Hız=${urbanData.h}`);
             return;
         }
 

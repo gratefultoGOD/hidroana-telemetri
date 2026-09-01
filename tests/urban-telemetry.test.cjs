@@ -7,7 +7,7 @@ const { createRequire } = require('node:module');
 const express = require('express');
 const config = require('../src/config');
 const { getDailyFileName } = require('../src/utils/helpers');
-const { parseUrbanHttpQuery, buildUrbanHttpQuery } = require('../src/services/urbanPayload');
+const { parseUrbanHttpQuery, validateUrbanHttpQuery, buildUrbanHttpQuery } = require('../src/services/urbanPayload');
 const { URBAN_FILE_SUFFIX, resolveUrbanDailyFileName, combineUrbanCsvContents } = require('../src/utils/urbanCsv');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -51,6 +51,7 @@ function sampleData() {
         gsmspeed: '45.6', gs: '23', fv: '38.74', fa: '10.25', fw: '397.09',
         eysv: '52.21', eysc: '7.58', eysw: '395.75', oran: '65.25', flow: '12.50',
         bwh: '123.45', max_temperature: '41.5', ischarging: '1', charge_time: '01:20:00',
+        enable: '1', fwd_rev: '2',
     };
 }
 
@@ -138,6 +139,40 @@ test('HTTP kısa adları MQTT ile aynı 40 değeri üretir; toplam flow alanınd
     const fromMqtt = makePipeline().parseUrbanStarSeparatedData('01_' + config.URBAN_DATA_FIELDS.map(field => data[field]).join('*'));
     assert.deepEqual(fromHttp, data);
     assert.deepEqual(fromHttp, fromMqtt);
+});
+
+test('Urban HTTP yalnızca eksiksiz ve tipleri geçerli 40 alanı kabul eder', () => {
+    const complete = buildUrbanHttpQuery(sampleData(), 'test-key');
+    assert.deepEqual(validateUrbanHttpQuery(Object.fromEntries(complete)), {
+        valid: true,
+        data: sampleData(),
+        errors: [],
+    });
+
+    for (const field of config.URBAN_DATA_FIELDS) {
+        const query = new URLSearchParams(complete);
+        query.delete(config.URBAN_HTTP_FIELD_NAMES[field] || field);
+        const result = validateUrbanHttpQuery(Object.fromEntries(query));
+        assert.equal(result.valid, false, `${field} eksikken istek reddedilmeli`);
+        assert.ok(result.errors.some(error => error.field === field), field);
+    }
+
+    const invalidValues = [
+        ['h', 'NaN'], ['fv', '38,5'], ['gq', '33'], ['isc', 'yes'],
+        ['en', '2'], ['fr', '3'], ['rpm', '2400.5'], ['gaz', '45.5'], ['kec', '1.5'],
+    ];
+    for (const [name, value] of invalidValues) {
+        const query = new URLSearchParams(complete);
+        query.set(name, value);
+        assert.equal(validateUrbanHttpQuery(Object.fromEntries(query)).valid, false, `${name}=${value}`);
+    }
+
+    const notCharging = buildUrbanHttpQuery({ ...sampleData(), ischarging: '0', charge_time: '' }, 'test-key');
+    assert.equal(validateUrbanHttpQuery(Object.fromEntries(notCharging)).valid, true);
+    const duplicate = Object.fromEntries(complete);
+    duplicate.h = ['45', '46'];
+    assert.equal(validateUrbanHttpQuery(duplicate).valid, false);
+    assert.equal(validateUrbanHttpQuery({ ...Object.fromEntries(complete), total_flow: '99' }).valid, false);
 });
 
 test('HTTP eski uzun adları, sıfır değerleri ve metin URL kodlamasını korur', () => {
@@ -540,6 +575,13 @@ test('Gerçek /data isteği Urban kısa adlarını işler; Proto adları değiş
     const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
     t.after(() => new Promise(resolve => server.close(resolve)));
     const url = `http://127.0.0.1:${server.address().port}/data`;
+    const incomplete = buildUrbanHttpQuery(sampleData(), 'test-key');
+    incomplete.delete('eysv');
+    const rejected = await fetch(`${url}?${incomplete}`);
+    assert.equal(rejected.status, 400);
+    assert.equal(await rejected.text(), 'INVALID_DATA');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(processed.length, 0);
     const received = new Promise(resolve => { resolvePacket = resolve; });
     const startedAt = Date.now();
     const response = await fetch(`${url}?${buildUrbanHttpQuery(sampleData(), 'test-key')}`);

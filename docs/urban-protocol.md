@@ -50,6 +50,8 @@ http://SUNUCU:3000/data?key=API_ANAHTARI&h=45.0&gs=44.6&x=41.015100&y=28.979500&
 
 Ondalık ayracı nokta olmalıdır. `isc=1` şarj oluyor, `isc=0` şarj olmuyor; önceki `charging` / `not_charging` metinleri de desteklenir. `ct` ekranda gösterilecek süredir; örneğin `01:20:00`. URL oluştururken `URLSearchParams` kullanırsanız `:` otomatik `%3A` olur; değeri önce elle kodlayıp sonra bir daha kodlamayın.
 
+Urban HTTP isteklerinde güncel 40 telemetri alanının tamamı bulunmalıdır. `key` kimlik doğrulama, `s` ise kayıt kontrol alanıdır ve bu 40 alana dahil değildir. Eksik, boş veya sayısal tipi geçersiz bir telemetri alanı varsa sunucu `400 INVALID_DATA` döndürür; paket ekrana gönderilmez ve günlük, test veya TÜBİTAK kaydına yazılmaz. `ct` alanı her istekte bulunmalıdır, ancak araç şarj olmuyorsa değeri boş olabilir. GSM sinyali `gq` 0–32, `en` 0/1, `fr` 0/1/2 ve `gaz` tamsayı 0–100 olmalıdır. Güncel toplam akış mutlaka `flow` adıyla gönderilmelidir; eski `total_flow` tek başına geçerli bir güncel HTTP alanı sayılmaz.
+
 ```js
 const query = new URLSearchParams({
   key: 'API_ANAHTARI',
@@ -79,7 +81,7 @@ Kısa URL adları MQTT alan sırasını değiştirmez. `eysv`, `eysc`, `eysw` do
 h*gsmspeed*x*y*gs*fv*fa*fw*eysv*eysc*eysw*oran*flow*fet*fit*T_tank_C*bv*bc*bw*bwh*max_temperature*soc*ke*ischarging*charge_voltage*charge_current*charge_time*mv*mc*mw*enable*fwd_rev*rpm*throttle*controller_temperature*controller_speed*error_code*errorcode1*errorcode2*errorcode3
 ```
 
-Güncel gönderici **40 alan** göndermelidir. Eski 35 alanlı paketler desteklenir; eksik EYS/Oran/Flow boş kalır. Eski 41 alanlı paketler de okuma uyumluluğu için desteklenir: son alandaki `total_flow`, yeni `flow` değerine çevrilir; eski anlık `flow` kullanılmaz. Eski HTTP isteğinde `total_flow` varsa aynı kural geçerlidir. Çıktıda ikinci bir alan tutulmaz. 35, 40 veya 41 alan içermeyen paketler sütun kaymasını önlemek için reddedilir. MQTT'de `charge_time` URL-kodlanmaz; doğrudan `01:20:00` gönderilir.
+Güncel gönderici **40 alan** göndermelidir. Eski 35 alanlı paketler desteklenir; eksik EYS/Oran/Flow boş kalır. Eski 41 alanlı MQTT paketleri de okuma uyumluluğu için desteklenir: son alandaki `total_flow`, yeni `flow` değerine çevrilir; eski anlık `flow` kullanılmaz. Bu uyumluluk yalnızca MQTT/eskiden kaydedilmiş veri içindir; Urban HTTP endpoint'i güncel ve eksiksiz 40 alanı zorunlu tutar. Çıktıda ikinci bir alan tutulmaz. 35, 40 veya 41 alan içermeyen MQTT paketleri sütun kaymasını önlemek için reddedilir. MQTT'de `charge_time` URL-kodlanmaz; doğrudan `01:20:00` gönderilir.
 
 ## CSV ve test oynatma
 
