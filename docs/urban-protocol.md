@@ -117,7 +117,7 @@ fetch('/stablemode').then(response => response.json()).then(console.log);       
 fetch('/stablemode?turn=0').then(response => response.json()).then(console.log); // Kapat
 ```
 
-Mod açıkken son gerçek ve eksiksiz Urban HTTP paketinden sonra 1500 ms boyunca yeni gerçek veri gelmezse son paket temel alınarak küçük, yumuşak ve deterministik değişimler içeren sahte paketler üretilir. Sahte paketler aynı `processIncomingUrbanData` hattından geçtiği için normal Urban günlük CSV, aktifse test kaydı, TÜBİTAK kaydı, sayaçlar, ortalamalar ve SSE ekran güncellemesi devam eder. `s=1` taklit edilmez; sahte TÜBİTAK satırları mevcut dosyaya devam eder. Gerçek HTTP verisi geri geldiği anda sahte üretim durur. Stabil mod kapatıldığında gecikmenin süresi ne olursa olsun sahte veri üretilmez.
+Mod açıkken son gerçek ve eksiksiz Urban HTTP paketinden sonra 1500 ms boyunca yeni gerçek veri gelmezse son paket temel alınarak sahte paketler üretilir. Bu paketlerde yalnızca batarya gücü (`bw`), batarya maksimum sıcaklığı (`max_temperature`) ve tank sıcaklığı (`T_tank_C`) küçük ve yumuşak değişimlerle güncellenir; Fuel Cell/EYS, GSM, hızlar, konum, akış ve Kelly motor sürücü verileri dahil diğer tüm alanlar son gerçek değerlerinde sabit tutulur. Sahte paketler aynı `processIncomingUrbanData` hattından geçtiği için normal Urban günlük CSV, aktifse test kaydı, TÜBİTAK kaydı, sayaçlar, ortalamalar ve SSE ekran güncellemesi devam eder. `s=1` taklit edilmez; sahte TÜBİTAK satırları mevcut dosyaya devam eder. Gerçek HTTP verisi geri geldiği anda sahte üretim durur. Stabil mod kapatıldığında gecikmenin süresi ne olursa olsun sahte veri üretilmez.
 
 Gerçek brokera veya kayıt dizinlerine dokunmayan otomatik testler:
 

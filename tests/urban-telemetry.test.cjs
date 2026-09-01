@@ -203,10 +203,11 @@ test('Urban stabil modu 1500 ms kesintide gerçekçi tam paket üretir; gerçek 
     assert.equal(generated[0].receivedAt, 2500);
     assert.deepEqual(generated[0].options, { source: 'HTTP', startNewFile: false, synthetic: true });
     assert.ok(config.URBAN_DATA_FIELDS.every(field => Object.hasOwn(generated[0].data, field)));
-    assert.equal(generated[0].data.error_code, real.error_code);
-    assert.equal(generated[0].data.ischarging, real.ischarging);
-    assert.ok(Number(generated[0].data.flow) >= Number(real.flow));
-    assert.ok(config.URBAN_DATA_FIELDS.some(field => generated[0].data[field] !== real[field]));
+    const variableFields = new Set(['bw', 'max_temperature', 'T_tank_C']);
+    for (const field of config.URBAN_DATA_FIELDS) {
+        if (!variableFields.has(field)) assert.equal(generated[0].data[field], real[field], `${field} sabit kalmalı`);
+    }
+    assert.notEqual(generated[0].data.bw, real.bw);
     assert.equal(service.getStableModeStatus(2500).generating, true);
 
     service.observeRealUrbanHttpData({ ...real, h: '49.0' }, 2700);
