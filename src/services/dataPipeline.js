@@ -12,6 +12,7 @@ const tubitak = require('./tubitak');
 const { findBestFlowMatch } = require('./flow');
 const { broadcastToClients, broadcastToUrbanClients } = require('./sse');
 const { normalizeUrbanFlow } = require('./urbanPayload');
+const urbanStableMode = require('./urbanStableMode');
 
 // Yıldız ile ayrılmış ham veriyi JSON'a dönüştür
 function parseStarSeparatedData(rawMessage) {
@@ -52,6 +53,11 @@ function parseUrbanStarSeparatedData(rawMessage) {
 
 // URBAN aracı verisini işle ve kaydet (ayrı pipeline — ana araçtan bağımsız)
 function processIncomingUrbanData(data, receivedAt = Date.now(), tubitakOptions = {}) {
+    const { synthetic = false, ...recordOptions } = tubitakOptions;
+    if (!synthetic && recordOptions.source === 'HTTP') {
+        urbanStableMode.observeRealUrbanHttpData(data, receivedAt);
+    }
+
     state.urbanDataCounter++;
 
     const now = new Date(receivedAt);
@@ -82,7 +88,7 @@ function processIncomingUrbanData(data, receivedAt = Date.now(), tubitakOptions 
     testModeService.recordTestData(dataWithTimestamp, now);
 
     // TÜBİTAK kaydı yalnızca URBAN aracından alınır.
-    tubitak.recordTubitakData(dataWithTimestamp, now, tubitakOptions);
+    tubitak.recordTubitakData(dataWithTimestamp, now, recordOptions);
 
     state.urbanConnectionStatus.connected = true;
     state.urbanConnectionStatus.lastUpdate = now.toISOString();
@@ -97,6 +103,8 @@ function processIncomingUrbanData(data, receivedAt = Date.now(), tubitakOptions 
         console.log(`📥 [URBAN] Veri alındı (#${state.urbanDataCounter}): Hız=${speed} km/h, SOC=${soc}% | Bekleyen: ${urbanTelemetryStore.getPendingCount()}${testInfo}`);
     }
 }
+
+urbanStableMode.configureProcessor(processIncomingUrbanData);
 
 // Veriyi işle ve kaydet
 function processIncomingData(data) {

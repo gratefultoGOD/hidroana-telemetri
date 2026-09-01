@@ -8,6 +8,7 @@ const state = require('../state');
 const dataSource = require('../services/dataSource');
 const { processIncomingData, processIncomingUrbanData } = require('../services/dataPipeline');
 const { validateUrbanHttpQuery } = require('../services/urbanPayload');
+const urbanStableMode = require('../services/urbanStableMode');
 const { getActiveVehicle } = require('../services/systemSettings');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
@@ -50,6 +51,8 @@ dataRouter.get('/data', (req, res) => {
             return res.status(400).send('INVALID_DATA');
         }
         urbanData = validation.data;
+        // Watchdog gerçek paketi HTTP yanıtı/setImmediate beklemeden görsün.
+        urbanStableMode.observeRealUrbanHttpData(urbanData, receivedAt);
     }
 
     // ÖNCE CEVABI GÖNDER - minimum latency için kritik
@@ -161,6 +164,23 @@ router.get('/capacitor', requireAdmin, (req, res) => {
     }
     // Sadece turn parametresi yoksa mevcut durumu döndür
     return res.status(200).json(state.supercapacitor ? 1 : 0);
+});
+
+// URBAN HTTP stabil modu (SADECE ADMIN, arayüz kontrolü yok)
+// turn=1 açar, turn=0 kapatır, parametresiz istek mevcut durumu döndürür.
+router.get('/stablemode', requireAdmin, (req, res) => {
+    const { turn } = req.query;
+
+    if (turn !== undefined && turn !== '0' && turn !== '1') {
+        return res.status(400).json({ error: "Geçersiz turn değeri. '0' veya '1' olmalı." });
+    }
+
+    if (turn === '1') urbanStableMode.setStableMode(true);
+    if (turn === '0') urbanStableMode.setStableMode(false);
+
+    const status = urbanStableMode.getStableModeStatus();
+    console.log(`🔎 [URBAN STABLE] Durum: ${status.enabled ? 'AÇIK' : 'KAPALI'}${status.generating ? ' | sahte veri üretiliyor' : ''}`);
+    return res.status(200).json(status);
 });
 
 module.exports = { router, dataRouter };

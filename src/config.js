@@ -118,6 +118,12 @@ module.exports = {
     // TÜBİTAK MQTT: bu süreden uzun boşlukta yeni dosya; HTTP dosyası s ile yönetilir
     TUBITAK_GAP_MS: 60000,
 
+    // URBAN HTTP stabil modu: gerçek veri kesilince son veriden sahte akış üretme
+    URBAN_STABLE_TIMEOUT_MS: 1500,
+    URBAN_STABLE_CHECK_INTERVAL_MS: 100,
+    URBAN_STABLE_MIN_INTERVAL_MS: 250,
+    URBAN_STABLE_MAX_INTERVAL_MS: 1000,
+
     // Session
     SESSION_SECRET: process.env.SESSION_SECRET
         || 'hidroana-telemetri-secret-key-2024-' + Math.random().toString(36),

@@ -41,6 +41,7 @@ function makePipeline(overrides = {}) {
         './tubitak': { recordTubitakData: noop },
         './flow': { findBestFlowMatch: () => null },
         './sse': { broadcastToClients: noop, broadcastToUrbanClients: noop },
+        './urbanStableMode': { configureProcessor: noop, observeRealUrbanHttpData: noop },
         ...overrides,
     }, { console: quietConsole });
 }
@@ -181,6 +182,79 @@ test('Urban HTTP yalnızca 40 alanın tamamının bulunmasını zorunlu tutar; i
     delete onlyObsoleteFlow.flow;
     onlyObsoleteFlow.total_flow = '99';
     assert.equal(validateUrbanHttpQuery(onlyObsoleteFlow).valid, false);
+});
+
+test('Urban stabil modu 1500 ms kesintide gerçekçi tam paket üretir; gerçek veri dönünce bekler', () => {
+    const stableState = { activeVehicle: 'urban', connectionStatus: { source: 'HTTP' } };
+    const generated = [];
+    const service = loadModule('src/services/urbanStableMode.js', {
+        '../config': config,
+        '../state': stableState,
+    }, { console: quietConsole });
+    service.configureProcessor((data, receivedAt, options) => generated.push({ data, receivedAt, options }));
+
+    const real = { ...sampleData(), h: '48.0', gsmspeed: '47.5', rpm: '2400', throttle: '45' };
+    service.observeRealUrbanHttpData(real, 1000);
+    service.setStableMode(true, { runTimer: false });
+
+    assert.equal(service.checkStableMode(2499), false);
+    assert.equal(service.checkStableMode(2500), true);
+    assert.equal(generated.length, 1);
+    assert.equal(generated[0].receivedAt, 2500);
+    assert.deepEqual(generated[0].options, { source: 'HTTP', startNewFile: false, synthetic: true });
+    assert.ok(config.URBAN_DATA_FIELDS.every(field => Object.hasOwn(generated[0].data, field)));
+    assert.equal(generated[0].data.error_code, real.error_code);
+    assert.equal(generated[0].data.ischarging, real.ischarging);
+    assert.ok(Number(generated[0].data.flow) >= Number(real.flow));
+    assert.ok(config.URBAN_DATA_FIELDS.some(field => generated[0].data[field] !== real[field]));
+    assert.equal(service.getStableModeStatus(2500).generating, true);
+
+    service.observeRealUrbanHttpData({ ...real, h: '49.0' }, 2700);
+    assert.equal(service.getStableModeStatus(2700).generating, false);
+    assert.equal(service.checkStableMode(4199), false);
+    service.setStableMode(false, { runTimer: false });
+    assert.equal(service.checkStableMode(6000), false);
+});
+
+test('Stabil sahte paketi günlük, test, TÜBİTAK ve SSE dahil aynı Urban pipeline hattından geçer', () => {
+    const pipelineState = makeState();
+    pipelineState.connectionStatus = { source: 'HTTP' };
+    const dailyRows = [];
+    const testRows = [];
+    const tubitakRows = [];
+    const sseRows = [];
+    const stableService = loadModule('src/services/urbanStableMode.js', {
+        '../config': config,
+        '../state': pipelineState,
+    }, { console: quietConsole });
+    const pipeline = loadModule('src/services/dataPipeline.js', {
+        '../state': pipelineState,
+        './telemetryStore': {},
+        './urbanTelemetryStore': {
+            checkDayRollover: noop,
+            updateRunningAverages: noop,
+            enqueueData: data => dailyRows.push(data),
+        },
+        './testMode': { recordTestData: data => testRows.push(data), testMode: { active: true } },
+        './tubitak': { recordTubitakData: (data, now, options) => tubitakRows.push({ data, now, options }) },
+        './flow': { findBestFlowMatch: () => null },
+        './sse': { broadcastToClients: noop, broadcastToUrbanClients: data => sseRows.push(data) },
+        './urbanStableMode': stableService,
+    }, { console: quietConsole });
+
+    pipeline.processIncomingUrbanData({ ...sampleData(), h: '48.0' }, 1000, { source: 'HTTP', startNewFile: true });
+    stableService.setStableMode(true, { runTimer: false });
+    assert.equal(stableService.checkStableMode(2500), true);
+
+    assert.equal(pipelineState.urbanDataCounter, 2);
+    assert.equal(dailyRows.length, 2);
+    assert.equal(testRows.length, 2);
+    assert.equal(tubitakRows.length, 2);
+    assert.equal(sseRows.length, 2);
+    assert.deepEqual(tubitakRows[1].options, { source: 'HTTP', startNewFile: false });
+    assert.equal(sseRows[1].interval_ms, 1500);
+    assert.ok(config.URBAN_DATA_FIELDS.every(field => Object.hasOwn(sseRows[1], field)));
+    stableService.setStableMode(false, { runTimer: false });
 });
 
 test('HTTP eski uzun adları, sıfır değerleri ve metin URL kodlamasını korur', () => {
@@ -618,6 +692,51 @@ test('Gerçek /data isteği Urban kısa adlarını işler; Proto adları değiş
     assert.equal(processed[2].data.fa, '7.5');
     assert.equal(Object.hasOwn(processed[2].data, 'eysv'), false);
     assert.equal(processed[2].options, undefined);
+});
+
+test('GET /stablemode yalnızca endpoint ve konsol üzerinden açılır, kapanır ve durum döndürür', async t => {
+    let enabled = false;
+    const stableService = {
+        observeRealUrbanHttpData: noop,
+        setStableMode(value) { enabled = value; },
+        getStableModeStatus() {
+            return {
+                enabled,
+                generating: false,
+                timeoutMs: 1500,
+                generatedCount: 0,
+                lastRealReceivedAt: null,
+                lastRealAgeMs: null,
+                syntheticIntervalMs: 1000,
+            };
+        },
+    };
+    const allow = (req, res, next) => next();
+    const { router } = loadModule('src/routes/source.js', {
+        '../config': { ...config, API_KEY: 'test-key' },
+        '../state': { supercapacitor: false },
+        '../services/dataSource': { getDataSource: () => 'HTTP' },
+        '../services/dataPipeline': { processIncomingUrbanData: noop, processIncomingData: noop },
+        '../services/urbanPayload': { validateUrbanHttpQuery: () => ({ valid: true, data: sampleData(), errors: [] }) },
+        '../services/urbanStableMode': stableService,
+        '../services/systemSettings': { getActiveVehicle: () => 'urban' },
+        '../middleware/auth': { requireAuth: allow, requireAdmin: allow },
+    }, { console: quietConsole });
+    const app = express();
+    app.use(router);
+    const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const url = `http://127.0.0.1:${server.address().port}/stablemode`;
+
+    let response = await fetch(`${url}?turn=1`);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).enabled, true);
+    response = await fetch(url);
+    assert.equal((await response.json()).enabled, true);
+    response = await fetch(`${url}?turn=0`);
+    assert.equal((await response.json()).enabled, false);
+    response = await fetch(`${url}?turn=2`);
+    assert.equal(response.status, 400);
 });
 
 function makeTubitakRecorder(directory, fileSystem = fs) {

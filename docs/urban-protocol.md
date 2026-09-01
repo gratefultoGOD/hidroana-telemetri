@@ -105,6 +105,20 @@ npm run urban-publisher
 
 HTTP publisher varsayılan olarak yerel `http://127.0.0.1:3000/data` adresine gönderir. İlk başarılı istekte `s=1`, sonraki isteklerde `s=0` gönderir. `URBAN_HTTP_URL`, `TELEMETRY_API_KEY`, `SEND_INTERVAL` ortam değişkenleri desteklenir. MQTT publisher proje yapılandırmasındaki brokera gönderir; çalışan araçla aynı anda sahte veri göndermeyin.
 
+### Urban HTTP stabil modu
+
+Stabil mod varsayılan olarak kapalıdır, yalnızca Urban + HTTP akışında çalışır ve arayüzde herhangi bir kontrol/durum göstermez. Giriş yapmış admin kullanıcı `GET /stablemode?turn=1` ile modu açabilir, `GET /stablemode?turn=0` ile kapatabilir; parametresiz `GET /stablemode` mevcut durumu JSON olarak döndürür. Her çağrı durumu sunucu konsoluna da yazar. Mod sunucu yeniden başladığında kapalı başlar.
+
+Urban sayfasında admin olarak oturum açtıktan sonra tarayıcı konsolundan kullanım:
+
+```js
+fetch('/stablemode?turn=1').then(response => response.json()).then(console.log); // Aç
+fetch('/stablemode').then(response => response.json()).then(console.log);        // Durum
+fetch('/stablemode?turn=0').then(response => response.json()).then(console.log); // Kapat
+```
+
+Mod açıkken son gerçek ve eksiksiz Urban HTTP paketinden sonra 1500 ms boyunca yeni gerçek veri gelmezse son paket temel alınarak küçük, yumuşak ve deterministik değişimler içeren sahte paketler üretilir. Sahte paketler aynı `processIncomingUrbanData` hattından geçtiği için normal Urban günlük CSV, aktifse test kaydı, TÜBİTAK kaydı, sayaçlar, ortalamalar ve SSE ekran güncellemesi devam eder. `s=1` taklit edilmez; sahte TÜBİTAK satırları mevcut dosyaya devam eder. Gerçek HTTP verisi geri geldiği anda sahte üretim durur. Stabil mod kapatıldığında gecikmenin süresi ne olursa olsun sahte veri üretilmez.
+
 Gerçek brokera veya kayıt dizinlerine dokunmayan otomatik testler:
 
 ```sh
