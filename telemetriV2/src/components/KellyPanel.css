@@ -1,0 +1,108 @@
+.kelly-panel {
+  flex: 1 1 auto;
+}
+
+.kelly-panel__list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.kelly-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: clamp(0.22rem, 0.62vh, 0.42rem) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.kelly-row > span,
+.kelly-throttle__head > span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.kelly-row strong,
+.kelly-throttle__head strong {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.kelly-row strong em {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.kelly-row[data-tone='success'] strong { color: var(--success); }
+.kelly-row[data-tone='muted'] strong { color: #94a3b8; }
+.kelly-row[data-tone='warning'] strong { color: var(--warning); }
+.kelly-row[data-tone='danger'] strong { color: var(--danger); }
+
+.kelly-throttle {
+  padding: 0.42rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.kelly-throttle__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.27rem;
+}
+
+.kelly-throttle__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--throttle-track);
+}
+
+.kelly-throttle__track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #22c55e;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.kelly-throttle[data-tone='warning'] .kelly-throttle__track span { background: var(--warning); }
+.kelly-throttle[data-tone='danger'] .kelly-throttle__track span { background: var(--danger); }
+
+.kelly-error {
+  padding-top: 0.05rem;
+}
+
+.kelly-error .kelly-row {
+  border-bottom: none;
+}
+
+.kelly-error__messages {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.kelly-error p {
+  margin: 0.05rem 0 0;
+  color: var(--success);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.kelly-error[data-has-error='true'] p,
+.kelly-error[data-has-error='true'] .kelly-row strong {
+  color: var(--danger);
+}
+
+.kelly-error small {
+  display: block;
+  margin-top: 0.22rem;
+  color: var(--warning);
+  font-size: 0.62rem;
+  line-height: 1.25;
+}

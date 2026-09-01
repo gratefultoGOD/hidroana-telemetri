@@ -3,6 +3,9 @@ users.json
 .env
 *.log
 
+# Sunucuya özel çalışma zamanı ayarları
+vehicle_settings.json
+
 # Node modules
 node_modules/
 

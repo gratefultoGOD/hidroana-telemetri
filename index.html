@@ -36,6 +36,7 @@
             <span class="coordinate-container" id="coordinate-label">--</span>
             <div class="user-info" id="userInfo">
                 <span id="username"></span>
+                <button class="export-btn" onclick="window.location.href='/settings'" title="Araç ve protokol ayarları">⚙️ Ayarlar</button>
                 <button class="logout-btn" onclick="logout()">Çıkış</button>
             </div>
             <!-- Dark / Light Mode Toggle -->
@@ -584,6 +585,27 @@
             font-size: 12px;
         }
 
+        .vehicle-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .vehicle-badge--proto {
+            background: rgba(102, 126, 234, 0.18);
+            color: #a5b1ff;
+        }
+
+        .vehicle-badge--urban {
+            background: rgba(40, 167, 69, 0.18);
+            color: #6bdb8a;
+        }
+
         .day-actions {
             display: flex;
             gap: 8px;
@@ -1063,7 +1085,7 @@
                     listEl.innerHTML = data.files.map(file => `
                         <div class="day-item">
                             <div class="day-info">
-                                <span class="day-date"> ${file.fileName.replace('.csv', '')}</span>
+                                <span class="day-date"> ${file.fileName.replace('.csv', '')}<span class="vehicle-badge vehicle-badge--${file.vehicle}">${file.vehicle === 'urban' ? 'Urban' : 'Proto'}</span></span>
                                 <span class="day-stats">${file.dataCount} kayıt • ${formatFileSize(file.fileSize)}</span>
                             </div>
                             <div class="day-actions">

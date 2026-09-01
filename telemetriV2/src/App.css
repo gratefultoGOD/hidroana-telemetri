@@ -1,0 +1,388 @@
+.app {
+  /* Masaüstünde tüm pano kaydırma olmadan viewport'a sığar */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem clamp(0.6rem, 1.4vw, 1.4rem);
+  gap: 0.55rem;
+  max-width: 1900px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.app::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 12% 5%, var(--ambient-primary), transparent 28%),
+    radial-gradient(circle at 90% 90%, var(--ambient-secondary), transparent 30%);
+  content: '';
+  pointer-events: none;
+}
+
+.app__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.app__theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 1.85rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.app__theme-btn:hover {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+
+.app__header {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app__header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.app__collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.app__collapse-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text);
+}
+
+.app__header-details {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  overflow: hidden;
+  max-height: 40rem;
+  opacity: 1;
+  margin-top: 0.6rem;
+  transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease;
+}
+
+.app__header-details.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.app__header-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.app__title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.app__title-mark {
+  font-size: 1.3rem;
+}
+
+.app__title h1 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text);
+}
+
+.app__title p {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.app__status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.app__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.app__status-dot.is-live {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12), 0 0 12px rgba(34, 197, 94, 0.55);
+}
+
+.app__last-data {
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border);
+}
+
+.app__last-data strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 5.5rem;
+}
+
+.app__settings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel, transparent);
+  color: var(--text);
+  font-size: 0.8rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+
+.app__settings-btn:hover {
+  border-color: var(--text-muted);
+}
+
+.app__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(370px, 1.3fr) minmax(0, 1.55fr) minmax(225px, 270px);
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    'speed battery status'
+    'map fuelcell status'
+    'map motor status';
+  gap: 0.55rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.app__right-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.app__right-rail .status-panel {
+  flex: 0 0 auto;
+}
+
+.charging-effect {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.15), transparent 45%);
+  pointer-events: none;
+  animation: charging-screen-flash 1.8s ease-out forwards;
+}
+
+.charging-effect__ring {
+  position: absolute;
+  width: 9rem;
+  height: 9rem;
+  border: 2px solid rgba(74, 222, 128, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.45), inset 0 0 30px rgba(34, 197, 94, 0.2);
+  animation: charging-ring 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.charging-effect__bolt {
+  z-index: 1;
+  display: grid;
+  width: 5rem;
+  height: 5rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #052e16;
+  font-size: 3.4rem;
+  font-weight: 900;
+  box-shadow: 0 0 50px rgba(74, 222, 128, 0.85);
+  animation: charging-bolt-pop 1.3s ease-out forwards;
+}
+
+.charging-effect > span {
+  position: absolute;
+  top: calc(50% + 4.3rem);
+  color: #bbf7d0;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+}
+
+@keyframes charging-screen-flash {
+  0% { opacity: 0; }
+  18%, 65% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes charging-ring {
+  0% { opacity: 0; transform: scale(0.35); }
+  45% { opacity: 1; }
+  100% { opacity: 0; transform: scale(5); }
+}
+
+@keyframes charging-bolt-pop {
+  0% { opacity: 0; transform: scale(0.4) rotate(-12deg); }
+  35% { opacity: 1; transform: scale(1.08) rotate(0); }
+  100% { opacity: 0; transform: scale(0.94); }
+}
+
+.app__cell {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.app__cell > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.app__cell--status {
+  grid-area: status;
+}
+
+.app__cell--battery {
+  grid-area: battery;
+}
+
+.app__cell--fuelcell {
+  grid-area: fuelcell;
+}
+
+.app__cell--motor {
+  grid-area: motor;
+}
+
+.app__cell--map {
+  grid-area: map;
+}
+
+.app__cell--speed {
+  grid-area: speed;
+}
+
+.app__footer {
+  flex: 0 0 auto;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+/* ── Tablet ve altı: sabit-yükseklik düzeninden çık, normal kaydırmaya dön ── */
+@media (max-width: 1100px) {
+  .app {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding: 1rem clamp(0.75rem, 2vw, 1.5rem) 1.5rem;
+    gap: 1rem;
+  }
+
+  .app__grid {
+    grid-template-columns: minmax(0, 1fr) 200px;
+    grid-template-rows: none;
+    grid-template-areas:
+      'battery status'
+      'fuelcell status'
+      'motor status'
+      'speed speed'
+      'map map';
+    gap: 0.85rem;
+  }
+
+  .app__right-rail .status-panel,
+  .app__right-rail .kelly-panel {
+    flex: 1 1 auto;
+  }
+
+  /* Kaydırılabilir düzende kadranlar genişliğe göre ölçeklenir */
+  .gauge {
+    --gauge-size: clamp(96px, 22vw, 150px);
+    width: var(--gauge-size);
+  }
+
+  .map-panel {
+    min-height: 320px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .charging-effect,
+  .charging-effect__ring,
+  .charging-effect__bolt,
+  .charging-banner {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .app__grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'battery'
+      'fuelcell'
+      'motor'
+      'speed'
+      'map'
+      'status';
+  }
+
+  .gauge {
+    --gauge-size: clamp(100px, 26vw, 150px);
+    width: var(--gauge-size);
+  }
+
+  .map-panel {
+    min-height: 280px;
+  }
+}
