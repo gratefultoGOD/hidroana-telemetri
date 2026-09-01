@@ -141,7 +141,7 @@ test('HTTP kısa adları MQTT ile aynı 40 değeri üretir; toplam flow alanınd
     assert.deepEqual(fromHttp, fromMqtt);
 });
 
-test('Urban HTTP yalnızca eksiksiz ve tipleri geçerli 40 alanı kabul eder', () => {
+test('Urban HTTP yalnızca 40 alanın tamamının bulunmasını zorunlu tutar; içeriği doğrulamaz', () => {
     const complete = buildUrbanHttpQuery(sampleData(), 'test-key');
     assert.deepEqual(validateUrbanHttpQuery(Object.fromEntries(complete)), {
         valid: true,
@@ -164,15 +164,23 @@ test('Urban HTTP yalnızca eksiksiz ve tipleri geçerli 40 alanı kabul eder', (
     for (const [name, value] of invalidValues) {
         const query = new URLSearchParams(complete);
         query.set(name, value);
-        assert.equal(validateUrbanHttpQuery(Object.fromEntries(query)).valid, false, `${name}=${value}`);
+        assert.equal(validateUrbanHttpQuery(Object.fromEntries(query)).valid, true, `${name}=${value}`);
     }
 
-    const notCharging = buildUrbanHttpQuery({ ...sampleData(), ischarging: '0', charge_time: '' }, 'test-key');
-    assert.equal(validateUrbanHttpQuery(Object.fromEntries(notCharging)).valid, true);
-    const duplicate = Object.fromEntries(complete);
-    duplicate.h = ['45', '46'];
-    assert.equal(validateUrbanHttpQuery(duplicate).valid, false);
-    assert.equal(validateUrbanHttpQuery({ ...Object.fromEntries(complete), total_flow: '99' }).valid, false);
+    for (const field of config.URBAN_DATA_FIELDS) {
+        const query = new URLSearchParams(complete);
+        query.set(config.URBAN_HTTP_FIELD_NAMES[field] || field, '');
+        assert.equal(validateUrbanHttpQuery(Object.fromEntries(query)).valid, true, `${field} boş olabilir`);
+    }
+
+    const withObsoleteExtra = validateUrbanHttpQuery({ ...Object.fromEntries(complete), total_flow: '99' });
+    assert.equal(withObsoleteExtra.valid, true);
+    assert.equal(withObsoleteExtra.data.flow, sampleData().flow);
+
+    const onlyObsoleteFlow = Object.fromEntries(complete);
+    delete onlyObsoleteFlow.flow;
+    onlyObsoleteFlow.total_flow = '99';
+    assert.equal(validateUrbanHttpQuery(onlyObsoleteFlow).valid, false);
 });
 
 test('HTTP eski uzun adları, sıfır değerleri ve metin URL kodlamasını korur', () => {
@@ -582,25 +590,34 @@ test('Gerçek /data isteği Urban kısa adlarını işler; Proto adları değiş
     assert.equal(await rejected.text(), 'INVALID_DATA');
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(processed.length, 0);
+
+    const invalidContent = { ...sampleData(), h: 'NaN', fv: '', gs: '999', ischarging: 'beklenmeyen' };
+    const invalidContentReceived = new Promise(resolve => { resolvePacket = resolve; });
+    const accepted = await fetch(`${url}?${buildUrbanHttpQuery(invalidContent, 'test-key')}`);
+    assert.equal(accepted.status, 200);
+    await accepted.text();
+    await invalidContentReceived;
+    assert.deepEqual(processed[0].data, invalidContent);
+
     const received = new Promise(resolve => { resolvePacket = resolve; });
     const startedAt = Date.now();
     const response = await fetch(`${url}?${buildUrbanHttpQuery(sampleData(), 'test-key')}`);
     assert.equal(response.status, 200);
     await response.text();
     await received;
-    assert.deepEqual(processed[0].data, sampleData());
-    assert.ok(processed[0].receivedAt >= startedAt);
-    assert.deepEqual(processed[0].options, { source: 'HTTP', startNewFile: false });
+    assert.deepEqual(processed[1].data, sampleData());
+    assert.ok(processed[1].receivedAt >= startedAt);
+    assert.deepEqual(processed[1].options, { source: 'HTTP', startNewFile: false });
     vehicle = 'proto';
     const protoReceived = new Promise(resolve => { resolvePacket = resolve; });
     const protoResponse = await fetch(`${url}?key=test-key&gs=22&gsmspeed=45.6&fa=7.5&fc=999&s=1`);
     await protoResponse.text();
     await protoReceived;
-    assert.equal(processed[1].data.gs, '22');
-    assert.equal(processed[1].data.gsmspeed, '45.6');
-    assert.equal(processed[1].data.fa, '7.5');
-    assert.equal(Object.hasOwn(processed[1].data, 'eysv'), false);
-    assert.equal(processed[1].options, undefined);
+    assert.equal(processed[2].data.gs, '22');
+    assert.equal(processed[2].data.gsmspeed, '45.6');
+    assert.equal(processed[2].data.fa, '7.5');
+    assert.equal(Object.hasOwn(processed[2].data, 'eysv'), false);
+    assert.equal(processed[2].options, undefined);
 });
 
 function makeTubitakRecorder(directory, fileSystem = fs) {

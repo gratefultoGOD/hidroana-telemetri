@@ -50,7 +50,7 @@ http://SUNUCU:3000/data?key=API_ANAHTARI&h=45.0&gs=44.6&x=41.015100&y=28.979500&
 
 Ondalık ayracı nokta olmalıdır. `isc=1` şarj oluyor, `isc=0` şarj olmuyor; önceki `charging` / `not_charging` metinleri de desteklenir. `ct` ekranda gösterilecek süredir; örneğin `01:20:00`. URL oluştururken `URLSearchParams` kullanırsanız `:` otomatik `%3A` olur; değeri önce elle kodlayıp sonra bir daha kodlamayın.
 
-Urban HTTP isteklerinde güncel 40 telemetri alanının tamamı bulunmalıdır. `key` kimlik doğrulama, `s` ise kayıt kontrol alanıdır ve bu 40 alana dahil değildir. Eksik, boş veya sayısal tipi geçersiz bir telemetri alanı varsa sunucu `400 INVALID_DATA` döndürür; paket ekrana gönderilmez ve günlük, test veya TÜBİTAK kaydına yazılmaz. `ct` alanı her istekte bulunmalıdır, ancak araç şarj olmuyorsa değeri boş olabilir. GSM sinyali `gq` 0–32, `en` 0/1, `fr` 0/1/2 ve `gaz` tamsayı 0–100 olmalıdır. Güncel toplam akış mutlaka `flow` adıyla gönderilmelidir; eski `total_flow` tek başına geçerli bir güncel HTTP alanı sayılmaz.
+Urban HTTP isteklerinde güncel 40 telemetri alanının tamamı bulunmalıdır. `key` kimlik doğrulama, `s` ise kayıt kontrol alanıdır ve bu 40 alana dahil değildir. Sunucu yalnızca alanların bulunup bulunmadığını kontrol eder; değerlerin boş, metin, sayı formatı hatalı veya beklenen aralığın dışında olması paketin alınmasını engellemez. Herhangi bir alan eksikse sunucu `400 INVALID_DATA` döndürür; paket ekrana gönderilmez ve günlük veya TÜBİTAK kaydına yazılmaz. Güncel toplam akışın `flow` alanı bulunmalıdır; eski `total_flow` bu zorunlu alanın yerine geçmez.
 
 ```js
 const query = new URLSearchParams({
