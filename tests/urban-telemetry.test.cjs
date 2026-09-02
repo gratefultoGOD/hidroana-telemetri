@@ -435,6 +435,7 @@ test('Gerçek Urban günlük/test kayıtları yeni alanları yazar; TÜBİTAK al
     }
     const official = csvRows(fs.readFileSync(path.join(directory, tubitak.tubitakSession.fileName), 'utf8'));
     assert.equal(official.headers.length, 6);
+    assert.deepEqual(official.rows.map(row => row.hiz_kmh), [sampleData().controller_speed, sampleData().controller_speed]);
     assert.equal(official.rows[1].T_bat_C, sampleData().max_temperature);
     assert.equal(official.rows[1].T_tank_C, sampleData().T_tank_C);
     assert.equal(official.rows[1].zaman_ms, '1250');
@@ -752,11 +753,29 @@ function readTubitakRows(directory, fileName) {
     return csvRows(fs.readFileSync(path.join(directory, fileName), 'utf8')).rows;
 }
 
+test('TÜBİTAK hızı yalnızca Kelly controller_speed alanından gelir; sıfır ve ham değer korunur', t => {
+    const recorder = makeTubitakRecorder(temporaryDirectory(t));
+    for (const [value, expected] of [
+        ['42.7', '42.7'], [0, '0'], ['0.0', '0.0'], ['invalid', 'invalid'], ['inf', 'inf'],
+        ['', ''], [null, ''], [undefined, ''],
+    ]) {
+        const data = { ...sampleData(), h: '80.0', gsmspeed: '81.0', controller_speed: value };
+        const before = { ...data };
+        assert.deepEqual(recorder.buildTubitakRow(data, 1250).split(';'), [
+            '1250', expected, data.max_temperature, data.T_tank_C, data.bv, data.ke,
+        ]);
+        assert.deepEqual(data, before);
+    }
+    const withoutKelly = { ...sampleData(), h: '80.0', gsmspeed: '81.0' };
+    delete withoutKelly.controller_speed;
+    assert.equal(recorder.buildTubitakRow(withoutKelly, 0).split(';')[1], '');
+});
+
 test('TÜBİTAK HTTP s=1 paketini yeni dosyanın ilk satırına hemen yazar; s=0 devam eder', async t => {
     const directory = temporaryDirectory(t);
     const recorder = makeTubitakRecorder(directory);
     const start = new Date(2026, 7, 28, 12, 0, 0, 123);
-    const data = { ...sampleData(), h: '10' };
+    const data = { ...sampleData(), controller_speed: '10' };
     const firstWrite = recorder.recordTubitakData(data, start, { source: 'HTTP', startNewFile: true });
     const firstName = recorder.tubitakSession.fileName;
     // Await/sonraki paket olmadan ilk veri dosyadadır; yalnızca başlık açılmaz.
@@ -765,13 +784,13 @@ test('TÜBİTAK HTTP s=1 paketini yeni dosyanın ilk satırına hemen yazar; s=0
         T_tank_C: data.T_tank_C, V_bat_C: data.bv, kalan_enerji_Wh: data.ke,
     }]);
     await firstWrite;
-    await recorder.recordTubitakData({ ...data, h: '11' }, new Date(start.getTime() + 1250), { source: 'HTTP' });
+    await recorder.recordTubitakData({ ...data, controller_speed: '11' }, new Date(start.getTime() + 1250), { source: 'HTTP' });
     // 60 saniyelik eski otomatik ayırma HTTP s=0 için uygulanmaz.
-    await recorder.recordTubitakData({ ...data, h: '12' }, new Date(start.getTime() + 125000), { source: 'HTTP' });
+    await recorder.recordTubitakData({ ...data, controller_speed: '12' }, new Date(start.getTime() + 125000), { source: 'HTTP' });
     assert.equal(recorder.tubitakSession.fileName, firstName);
     assert.deepEqual(readTubitakRows(directory, firstName).map(row => [row.zaman_ms, row.hiz_kmh]),
         [['0', '10'], ['1250', '11'], ['125000', '12']]);
-    await recorder.recordTubitakData({ ...data, h: '20' }, new Date(start.getTime() + 126000), { source: 'HTTP', startNewFile: true });
+    await recorder.recordTubitakData({ ...data, controller_speed: '20' }, new Date(start.getTime() + 126000), { source: 'HTTP', startNewFile: true });
     const secondName = recorder.tubitakSession.fileName;
     assert.notEqual(secondName, firstName);
     assert.deepEqual(readTubitakRows(directory, secondName).map(row => [row.zaman_ms, row.hiz_kmh]), [['0', '20']]);
@@ -798,8 +817,8 @@ test('TÜBİTAK aynı milisaniyede her s=1 için ayrı dosya açar; önceki dosy
     const recorder = makeTubitakRecorder(directory);
     const now = new Date(2026, 7, 28, 12, 0, 0, 456);
     const names = [];
-    for (const h of ['10', '20', '30']) {
-        await recorder.recordTubitakData({ ...sampleData(), h }, now, { source: 'HTTP', startNewFile: true });
+    for (const controller_speed of ['10', '20', '30']) {
+        await recorder.recordTubitakData({ ...sampleData(), controller_speed }, now, { source: 'HTTP', startNewFile: true });
         names.push(recorder.tubitakSession.fileName);
     }
     assert.equal(new Set(names).size, 3);
@@ -811,11 +830,11 @@ test('TÜBİTAK s=1 eski dosyanın eşik altında bekleyen satırlarını kaybet
     const directory = temporaryDirectory(t);
     const recorder = makeTubitakRecorder(directory);
     const start = Date.now();
-    await recorder.recordTubitakData({ ...sampleData(), h: '10' }, new Date(start));
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '10' }, new Date(start));
     const oldName = recorder.tubitakSession.fileName;
-    await recorder.recordTubitakData({ ...sampleData(), h: '11' }, new Date(start + 100));
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '11' }, new Date(start + 100));
     assert.equal(recorder.tubitakSession.pending.length, 1);
-    await recorder.recordTubitakData({ ...sampleData(), h: '20' }, new Date(start + 200), { source: 'HTTP', startNewFile: true });
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '20' }, new Date(start + 200), { source: 'HTTP', startNewFile: true });
     const newName = recorder.tubitakSession.fileName;
     assert.deepEqual(readTubitakRows(directory, oldName).map(row => row.hiz_kmh), ['10', '11']);
     assert.deepEqual(readTubitakRows(directory, newName).map(row => row.hiz_kmh), ['20']);
@@ -835,13 +854,13 @@ test('TÜBİTAK eski dosya yazılırken s=1/s=0 gelirse satırlar doğru dosyala
     } } };
     const recorder = makeTubitakRecorder(directory, delayedFs);
     const start = Date.now();
-    await recorder.recordTubitakData({ ...sampleData(), h: '10' }, new Date(start), { source: 'HTTP', startNewFile: true });
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '10' }, new Date(start), { source: 'HTTP', startNewFile: true });
     const oldName = recorder.tubitakSession.fileName;
-    const oldWrite = recorder.recordTubitakData({ ...sampleData(), h: '11' }, new Date(start + 10), { source: 'HTTP' });
+    const oldWrite = recorder.recordTubitakData({ ...sampleData(), controller_speed: '11' }, new Date(start + 10), { source: 'HTTP' });
     await entered;
-    const newWrite = recorder.recordTubitakData({ ...sampleData(), h: '20' }, new Date(start + 20), { source: 'HTTP', startNewFile: true });
+    const newWrite = recorder.recordTubitakData({ ...sampleData(), controller_speed: '20' }, new Date(start + 20), { source: 'HTTP', startNewFile: true });
     const newName = recorder.tubitakSession.fileName;
-    const nextWrite = recorder.recordTubitakData({ ...sampleData(), h: '21' }, new Date(start + 30), { source: 'HTTP' });
+    const nextWrite = recorder.recordTubitakData({ ...sampleData(), controller_speed: '21' }, new Date(start + 30), { source: 'HTTP' });
     releaseWrite();
     await Promise.all([oldWrite, newWrite, nextWrite, recorder.flushTubitakData(true)]);
     assert.deepEqual(readTubitakRows(directory, oldName).map(row => [row.zaman_ms, row.hiz_kmh]), [['0', '10'], ['10', '11']]);
@@ -861,11 +880,11 @@ test('TÜBİTAK yazma hatası sonrası satırı özgün dosyasına tekrar yazar'
     } } };
     const recorder = makeTubitakRecorder(directory, failingFs);
     const start = Date.now();
-    await recorder.recordTubitakData({ ...sampleData(), h: '10' }, new Date(start), { source: 'HTTP', startNewFile: true });
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '10' }, new Date(start), { source: 'HTTP', startNewFile: true });
     const oldName = recorder.tubitakSession.fileName;
-    assert.equal(await recorder.recordTubitakData({ ...sampleData(), h: '11' }, new Date(start + 10), { source: 'HTTP' }), false);
+    assert.equal(await recorder.recordTubitakData({ ...sampleData(), controller_speed: '11' }, new Date(start + 10), { source: 'HTTP' }), false);
     assert.equal(recorder.tubitakSession.pending[0].fileName, oldName);
-    await recorder.recordTubitakData({ ...sampleData(), h: '20' }, new Date(start + 20), { source: 'HTTP', startNewFile: true });
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '20' }, new Date(start + 20), { source: 'HTTP', startNewFile: true });
     assert.deepEqual(readTubitakRows(directory, oldName).map(row => row.hiz_kmh), ['10', '11']);
     assert.deepEqual(readTubitakRows(directory, recorder.tubitakSession.fileName).map(row => row.hiz_kmh), ['20']);
 });
@@ -874,14 +893,14 @@ test('TÜBİTAK HTTP s=0 ilk dosyayı oluşturur; yeniden başlatmada son açıl
     const directory = temporaryDirectory(t);
     const firstProcess = makeTubitakRecorder(directory);
     const start = new Date(2026, 7, 28, 12, 0, 0, 123).getTime();
-    await firstProcess.recordTubitakData({ ...sampleData(), h: '10' }, new Date(start), { source: 'HTTP' });
+    await firstProcess.recordTubitakData({ ...sampleData(), controller_speed: '10' }, new Date(start), { source: 'HTTP' });
     const oldName = firstProcess.tubitakSession.fileName;
-    await firstProcess.recordTubitakData({ ...sampleData(), h: '20' }, new Date(start + 1000), { source: 'HTTP', startNewFile: true });
+    await firstProcess.recordTubitakData({ ...sampleData(), controller_speed: '20' }, new Date(start + 1000), { source: 'HTTP', startNewFile: true });
     const latestName = firstProcess.tubitakSession.fileName;
     // Eski kaydın mtime'ı daha yeni olsa bile s=0 son AÇILAN dosyayı seçer.
     fs.utimesSync(path.join(directory, oldName), new Date(), new Date(Date.now() + 60000));
     const restarted = makeTubitakRecorder(directory);
-    await restarted.recordTubitakData({ ...sampleData(), h: '21' }, new Date(start + 125000), { source: 'HTTP' });
+    await restarted.recordTubitakData({ ...sampleData(), controller_speed: '21' }, new Date(start + 125000), { source: 'HTTP' });
     assert.equal(restarted.tubitakSession.fileName, latestName);
     assert.deepEqual(readTubitakRows(directory, latestName).map(row => [row.zaman_ms, row.hiz_kmh]), [['0', '20'], ['124000', '21']]);
     assert.equal(restarted.getTubitakFiles().length, 2);
@@ -898,10 +917,10 @@ test('TÜBİTAK s=0 eski dosya adını destekler ve geçersiz başlıklı dosyay
     const directory = temporaryDirectory(t);
     const recorder = makeTubitakRecorder(directory);
     const legacyName = 'tubitak_28-08-2026_12-00-00.csv';
-    const firstRow = recorder.buildTubitakRow({ ...sampleData(), h: '10' }, 0);
+    const firstRow = recorder.buildTubitakRow({ ...sampleData(), controller_speed: '10' }, 0);
     fs.writeFileSync(path.join(directory, legacyName), '\uFEFF' + config.TUBITAK_HEADERS + '\n' + firstRow + '\n');
     fs.writeFileSync(path.join(directory, 'tubitak_28-08-2026_12-00-01_000.csv'), 'yanlis;baslik\n');
-    await recorder.recordTubitakData({ ...sampleData(), h: '11' }, new Date(2026, 7, 28, 12, 0, 1, 250), { source: 'HTTP' });
+    await recorder.recordTubitakData({ ...sampleData(), controller_speed: '11' }, new Date(2026, 7, 28, 12, 0, 1, 250), { source: 'HTTP' });
     assert.equal(recorder.tubitakSession.fileName, legacyName);
     assert.deepEqual(readTubitakRows(directory, legacyName).map(row => [row.zaman_ms, row.hiz_kmh]), [['0', '10'], ['1250', '11']]);
 });
@@ -922,8 +941,8 @@ test('Urban HTTP s=1 → s=0 → s=1 isteği gerçek pipeline ve TÜBİTAK dosya
     app.use(dataRouter);
     const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
     t.after(() => new Promise(resolve => server.close(resolve)));
-    async function send(s, h, key = 'test-key') {
-        const query = buildUrbanHttpQuery({ ...sampleData(), h }, key);
+    async function send(s, controller_speed, key = 'test-key') {
+        const query = buildUrbanHttpQuery({ ...sampleData(), controller_speed }, key);
         if (s !== undefined) query.set('s', s);
         const processed = new Promise(resolve => { delivered = resolve; });
         const response = await fetch(`http://127.0.0.1:${server.address().port}/data?${query}`);

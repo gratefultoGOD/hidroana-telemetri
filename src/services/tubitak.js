@@ -84,8 +84,8 @@ function restoreLatestTubitakSession() {
 }
 
 function buildTubitakRow(data, elapsedMs) {
-    // hiz_kmh
-    const hiz = data.h != null ? data.h : '';
+    // hiz_kmh: Kelly'nin hesapladığı hız (HTTP: kcs); normal/GPS hızına dönülmez.
+    const hiz = data.controller_speed != null ? data.controller_speed : '';
     // T_bat_C: yeni URBAN string'indeki batarya paketi maksimum sıcaklığı
     const tBat = data.max_temperature != null ? data.max_temperature : '';
     // T_tank_C: URBAN tank sıcaklığı
