@@ -13,6 +13,7 @@ const { getActiveVehicle } = require('../services/systemSettings');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
+const PROTO_HTTP_FIELDS = [...config.DATA_FIELDS, 'gp', 'kz', 'id'];
 
 // ============================================
 // OPTİMİZE EDİLMİŞ /data ENDPOINT
@@ -80,38 +81,10 @@ dataRouter.get('/data', (req, res) => {
             return;
         }
 
-        const data = {
-            h: q.h || null,
-            x: q.x || null,
-            y: q.y || null,
-            gp: q.gp || null,
-            gs: q.gs || null,
-            fv: q.fv || null,
-            fa: q.fa || null,
-            fw: q.fw || null,
-            fet: q.fet || null,
-            fit: q.fit || null,
-            kz: q.kz || null,
-            bv: q.bv || null,
-            bc: q.bc || null,
-            bw: q.bw || null,
-            bwh: q.bwh || null,
-            t1: q.t1 || null,
-            t2: q.t2 || null,
-            t3: q.t3 || null,
-            soc: q.soc || null,
-            ke: q.ke || null,
-            jv: q.jv || null,
-            jc: q.jc || null,
-            jw: q.jw || null,
-            jwh: q.jwh || null,
-            mt: q.mt || null,
-            id: q.id || null,
-            gx: q.gx || null,
-            gy: q.gy || null,
-            gz: q.gz || null,
-            gsmspeed: q.gsmspeed || null
-        };
+        const data = {};
+        for (const field of PROTO_HTTP_FIELDS) {
+            data[field] = q[field] || null;
+        }
 
         processIncomingData(data);
         console.log(`⚡ /data response: ${durationMs.toFixed(2)}ms | Hız=${data.h}`);

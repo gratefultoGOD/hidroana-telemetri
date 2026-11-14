@@ -642,7 +642,7 @@ test('MQTT publisher gerçek brokera bağlanmadan 40 alanlı toplam flow stringi
     assert.equal(parsed.error_code, '0');
 });
 
-test('Gerçek /data isteği Urban kısa adlarını işler; Proto adları değişmez', async t => {
+test('Gerçek /data isteği Urban kısa adlarını ve Proto MQTT alanlarının tamamını işler', async t => {
     let vehicle = 'urban';
     let resolvePacket;
     const processed = [];
@@ -685,15 +685,29 @@ test('Gerçek /data isteği Urban kısa adlarını işler; Proto adları değiş
     assert.ok(processed[1].receivedAt >= startedAt);
     assert.deepEqual(processed[1].options, { source: 'HTTP', startNewFile: false });
     vehicle = 'proto';
+    const protoData = {
+        ...Object.fromEntries(PROTO_FIELDS.map((field, index) => [field, String(index + 1)])),
+        gs: '22', gsmspeed: '45.6', fa: '7.5', gp: '1', kz: '10000', id: 'proto-1',
+        watt: '0', flow: '1.25', totalflow: '10.75', direksiyon_angle: '-2.5',
+    };
+    const protoQuery = new URLSearchParams({ ...protoData, key: 'test-key', fc: '999', eysv: '42', s: '1' });
     const protoReceived = new Promise(resolve => { resolvePacket = resolve; });
-    const protoResponse = await fetch(`${url}?key=test-key&gs=22&gsmspeed=45.6&fa=7.5&fc=999&s=1`);
-    await protoResponse.text();
+    const protoResponse = await fetch(`${url}?${protoQuery}`);
+    assert.equal(protoResponse.status, 200);
+    assert.equal(await protoResponse.text(), '');
     await protoReceived;
-    assert.equal(processed[2].data.gs, '22');
-    assert.equal(processed[2].data.gsmspeed, '45.6');
-    assert.equal(processed[2].data.fa, '7.5');
-    assert.equal(Object.hasOwn(processed[2].data, 'eysv'), false);
+    assert.deepEqual(processed[2].data, protoData);
     assert.equal(processed[2].options, undefined);
+
+    const sparseReceived = new Promise(resolve => { resolvePacket = resolve; });
+    const sparseResponse = await fetch(`${url}?key=test-key&h=25&soc=78`);
+    assert.equal(sparseResponse.status, 200);
+    await sparseResponse.text();
+    await sparseReceived;
+    assert.equal(processed[3].data.h, '25');
+    assert.equal(processed[3].data.soc, '78');
+    assert.equal(processed[3].data.watt, null);
+    assert.equal(processed[3].data.id, null);
 });
 
 test('GET /stablemode yalnızca endpoint ve konsol üzerinden açılır, kapanır ve durum döndürür', async t => {
