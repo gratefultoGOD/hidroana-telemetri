@@ -1,14 +1,11 @@
-import { formatTestDuration, testFileUrl, testRequest } from './test-api.mjs'
-import { element, fillSelect, labeledField, openTestDialog } from './test-dialogs.mjs'
+import { formatTestDateTime, formatTestDuration, testFileUrl, testRequest } from './test-api.mjs'
+import { element, fillSelect, labeledField, openTestDialog, openTestEditDialog } from './test-dialogs.mjs'
 
 const FILTERS = [
   ['year', 'Yıl'], ['vehicleName', 'Araç'], ['motor', 'Motor'],
   ['powerSource', 'Güç kaynağı'], ['purpose', 'Test amacı'], ['track', 'Pist']
 ]
 
-const dateTime = new Intl.DateTimeFormat('tr-TR', {
-  timeZone: 'Europe/Istanbul', dateStyle: 'short', timeStyle: 'medium'
-})
 const numberFormat = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 4 })
 const order = new Intl.Collator('tr')
 const lower = text => text.toLocaleLowerCase('tr-TR')
@@ -65,7 +62,7 @@ export function mountTestFilters(container, onFilter) {
 }
 
 function fileDetails(file) {
-  const started = file.startTime ? dateTime.format(new Date(file.startTime)) : [file.date, file.time].filter(Boolean).join(' ')
+  const started = file.startTime ? formatTestDateTime(file.startTime) : [file.date, file.time].filter(Boolean).join(' ')
   const weight = kg => kg == null ? null : `${numberFormat.format(kg)} kg`
   const size = file.fileSize < 1024 ? `${file.fileSize} B` : `${numberFormat.format(file.fileSize / 1024)} KB`
   const details = element('details', null, 'test-card__details')
@@ -74,7 +71,7 @@ function fileDetails(file) {
     ['Arşiv yılı', file.year], ['Başlangıç', started], ['Araç', file.vehicleName], ['Motor', file.motor],
     ['Güç kaynağı', file.powerSource], ['Test amacı', file.purpose], ['Pist', file.track],
     ['Araç kilosu', weight(file.vehicleWeightKg)], ['Pilot', file.pilotName], ['Pilot kilosu', weight(file.pilotWeightKg)],
-    ['Bitiş', file.endTime && dateTime.format(new Date(file.endTime))],
+    ['Bitiş', file.endTime && formatTestDateTime(file.endTime)],
     ['Test süresi', file.durationMs == null ? null : formatTestDuration(file.durationMs, true)], ['Dosya boyutu', size]
   ]
   for (const [label, value] of entries) {
@@ -95,7 +92,7 @@ function fileDetails(file) {
     const list = element('ul')
     for (const pause of file.pauses) {
       const row = element('li')
-      const times = `${dateTime.format(new Date(pause.startTime))} → ${dateTime.format(new Date(pause.endTime))}`
+      const times = `${formatTestDateTime(pause.startTime)} → ${formatTestDateTime(pause.endTime)}`
       row.append(element('p', `${times} · ${formatTestDuration(pause.durationMs, true)}`, 'test-ui-muted'),
         element('p', pause.note || '—'))
       list.append(row)
@@ -108,7 +105,7 @@ function fileDetails(file) {
   return details
 }
 
-function recordCard(file, rename, remove) {
+function recordCard(file, { edit, rename, remove, expanded }) {
   const title = file.fileName.replace(/\.csv$/, '')
   const card = element('article', null, 'test-card')
   const info = [file.vehicleName, file.powerSource, file.purpose, file.track, `${file.dataCount} telemetri kaydı`].filter(Boolean)
@@ -118,35 +115,56 @@ function recordCard(file, rename, remove) {
     link.href = testFileUrl(action, file)
     actions.append(link)
   }
-  for (const [label, action] of [['Yeniden adlandır', () => rename(file, title)], ['Sil', () => remove(file, title)]]) {
+  for (const [label, action] of [['Düzenle', () => edit(file)], ['Yeniden adlandır', () => rename(file, title)], ['Sil', () => remove(file, title)]]) {
     const button = element('button', label, 'test-ui-button')
     button.type = 'button'
     button.addEventListener('click', action)
     actions.append(button)
   }
   actions.lastElementChild.classList.add('test-ui-button--danger')
-  card.append(element('h4', title), element('p', info.join(' · '), 'test-ui-muted'), actions, fileDetails(file))
+  const details = fileDetails(file)
+  details.open = expanded
+  card.append(element('h4', title), element('p', info.join(' · '), 'test-ui-muted'), actions, details)
   return card
 }
 
 export function openTestRecords() {
   const { body, dialog } = openTestDialog('Test kayıtları', 'test-dialog--records')
+  const filterPanel = element('details', null, 'test-record-filters')
   const filters = element('div', null, 'test-filters')
+  filterPanel.append(element('summary', 'Filtreler', 'test-ui-button'), filters)
+  filterPanel.hidden = true
   const message = element('p', null, 'test-ui-muted')
   message.setAttribute('role', 'status')
   const list = element('div', null, 'test-record-list')
-  body.append(filters, message, list)
+  body.append(filterPanel, message, list)
+  let expandedFile = ''
 
-  async function load() {
+  async function load(savedFile) {
     message.textContent = 'Yükleniyor…'
     try {
       const { files } = await testRequest('/api/test/files')
       if (!dialog.open) return
-      filters.hidden = !files.length
+      filterPanel.hidden = !files.length
+      expandedFile = savedFile ? testFileUrl('details', savedFile) : ''
       setFiles(files)
+      expandedFile = ''
+      if (savedFile) message.textContent = `Test ayrıntıları kaydedildi. ${message.textContent}`.trim()
     } catch (error) {
       message.textContent = error.message
     }
+  }
+
+  function edit(file) {
+    void openTestEditDialog(file, async changes => {
+      try {
+        const saved = await testRequest(testFileUrl('details', file), 'PATCH', { ...changes, revision: file.revision })
+        await load(saved)
+      } catch (error) {
+        if (error.status === 404 || error.status === 409) await load()
+        throw error
+      }
+    })
   }
 
   async function rename(file, title) {
@@ -176,10 +194,12 @@ export function openTestRecords() {
     for (const [year, group] of groupTestRecords(files)) {
       const section = element('section', null, 'test-record-year')
       section.append(element('h3', year))
-      for (const file of group) section.append(recordCard(file, rename, remove))
+      for (const file of group) {
+        const expanded = testFileUrl('details', file) === expandedFile
+        section.append(recordCard(file, { edit, rename, remove, expanded }))
+      }
       list.append(section)
     }
   })
-  filters.hidden = true
   void load()
 }

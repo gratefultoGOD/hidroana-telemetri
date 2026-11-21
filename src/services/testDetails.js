@@ -38,6 +38,12 @@ function testArchiveYear(at) {
     return Math.max(FIRST_ARCHIVE_YEAR, Number(testDateAndTime(at).date.slice(0, 4)));
 }
 
+function testFileName(date, { vehicle, motor, pilotName }) {
+    const pilot = pilotName.replace(/[<>:"/\\|?*]/g, ' ').replace(/\.{2,}/g, '.')
+        .replace(/\s+/g, ' ').trim().replace(/\.+$/, '').trimEnd();
+    return `${date} - ${VEHICLE_NAMES[vehicle]} - ${motor || 'Motor'} - ${pilot || 'Pilot'}.csv`;
+}
+
 function readTestNote(value = '') {
     if (typeof value !== 'string' || value.length > MAX_NOTE_LENGTH) {
         throw new Error(`Not en fazla ${MAX_NOTE_LENGTH} karakter olabilir.`);
@@ -45,31 +51,35 @@ function readTestNote(value = '') {
     return value.trim();
 }
 
-function readWeight(value, label) {
+function readWeight(value, label, allowIncomplete) {
+    if (allowIncomplete && (value == null || value === '')) return null;
     const weight = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN;
     if (!Number.isFinite(weight) || weight <= 0) throw new Error(`${label} kilogram olarak girilmeli.`);
     return weight;
 }
 
-function readTestDetails(input = {}) {
-    const { vehicle, motor, powerSource, purpose, track } = input ?? {};
+function readTestDetails(input = {}, { allowIncomplete = false } = {}) {
+    const { vehicle, motor = '', powerSource = '', purpose = '', track = '' } = input ?? {};
     if (typeof vehicle !== 'string' || !Object.hasOwn(VEHICLE_NAMES, vehicle)) throw new Error('Araç seçin.');
-    if (!TEST_OPTIONS.motors.includes(motor)) throw new Error('Motor seçin.');
-    if (!TEST_OPTIONS.powerSources.includes(powerSource)) throw new Error('Güç kaynağını seçin.');
-    if (!TEST_OPTIONS.purposes.some(option => option.value === purpose && (!option.motor || option.motor === motor))) {
+    const shouldValidate = value => value !== '' || !allowIncomplete;
+    if (shouldValidate(motor) && !TEST_OPTIONS.motors.includes(motor)) throw new Error('Motor seçin.');
+    if (shouldValidate(powerSource) && !TEST_OPTIONS.powerSources.includes(powerSource)) throw new Error('Güç kaynağını seçin.');
+    if (shouldValidate(purpose) && !TEST_OPTIONS.purposes.some(option => option.value === purpose && (!option.motor || option.motor === motor))) {
         throw new Error('Seçili motora uygun bir test amacı seçin.');
     }
-    if (!TEST_OPTIONS.tracks.includes(track)) throw new Error('Pist seçin.');
-    const pilotName = typeof input.pilotName === 'string' ? input.pilotName.trim() : '';
-    if (!pilotName || pilotName.length > MAX_PILOT_NAME_LENGTH || /[\x00-\x1f]/.test(pilotName)) {
+    if (shouldValidate(track) && !TEST_OPTIONS.tracks.includes(track)) throw new Error('Pist seçin.');
+    const name = input.pilotName ?? '';
+    const pilotName = typeof name === 'string' ? name.trim() : '';
+    if (typeof name !== 'string' || (!pilotName && !allowIncomplete) ||
+        pilotName.length > MAX_PILOT_NAME_LENGTH || /[\x00-\x1f]/.test(pilotName)) {
         throw new Error(`Pilot adını girin. En fazla ${MAX_PILOT_NAME_LENGTH} karakter kullanabilirsiniz.`);
     }
     return {
         vehicle, motor, powerSource, purpose, track, pilotName,
-        vehicleWeightKg: readWeight(input.vehicleWeightKg, 'Araç kilosu'),
-        pilotWeightKg: readWeight(input.pilotWeightKg, 'Pilot kilosu'),
+        vehicleWeightKg: readWeight(input.vehicleWeightKg, 'Araç kilosu', allowIncomplete),
+        pilotWeightKg: readWeight(input.pilotWeightKg, 'Pilot kilosu', allowIncomplete),
         beforeNotes: readTestNote(input.beforeNotes)
     };
 }
 
-module.exports = { TEST_OPTIONS, VEHICLE_NAMES, testDateAndTime, testArchiveYear, readTestDetails, readTestNote };
+module.exports = { TEST_OPTIONS, VEHICLE_NAMES, testDateAndTime, testArchiveYear, testFileName, readTestDetails, readTestNote };

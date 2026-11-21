@@ -719,6 +719,102 @@ test('2027 test arşivi test ayrıntılarını ve duraklamaları CSV/Excel çık
     assert.equal(fs.existsSync(path.join(directory, '2027', 'Yeni isim.csv')), false);
 });
 
+test('Tamamlanmış ve eski testler düzenlenir, oynatma verileri korunur', async t => {
+    const directory = temporaryDirectory(t);
+    const recorder = makeTestRecorder(directory);
+    const baseUrl = await createTestApi(t, directory, recorder);
+    const request = (route, method = 'GET', body, userRole = 'admin') => fetch(`${baseUrl}/api/test/${route}`, {
+        method, headers: { 'Content-Type': 'application/json', 'x-test-role': userRole }, body: JSON.stringify(body)
+    });
+    const list = async () => (await (await request('files')).json()).files;
+    const target = file => encodeURIComponent(file.fileName) + (file.archiveYear ? `?year=${file.archiveYear}` : '');
+    const priorCsv = 'test_time;date;time;h\n00:00:01.100;2026-03-04;12:13:15.060;18\n';
+    const keyValue = 't:2025-03-04;s:11:12:13.100;h:18;MV:51.2\nt:2025-03-04;s:11:12:14.115;h:22;MV:53.4\n';
+    fs.writeFileSync(path.join(directory, 'Eski Test.csv'), priorCsv);
+    fs.writeFileSync(path.join(directory, 'Eski Biçim.csv'), keyValue);
+
+    const original = {
+        vehicle: 'urban', motor: '1048', pilotName: 'İlk Pilot', purpose: 'Farklı dişli oranları',
+        powerSource: 'Hibrit', track: 'Otopark', vehicleWeightKg: 117, pilotWeightKg: 65, beforeNotes: 'İlk not'
+    };
+    const started = recorder.startTest(original);
+    recorder.recordTestData({ h: '10', x: '41.025' }, new Date(), 'urban');
+    recorder.pauseTest();
+    recorder.setPauseNote('İlk duraklama');
+    recorder.resumeTest();
+    recorder.recordTestData({ h: '12', x: '41.026' }, new Date(), 'urban');
+    await recorder.stopTest();
+
+    const endpoint = `details/${target({ fileName: started.testName, archiveYear: started.archiveYear })}`;
+    const before = (await list()).find(file => file.fileName === started.testName);
+    const playback = await (await request(`content/${target(before)}`)).text();
+    const changes = {
+        ...original, vehicle: 'proto', motor: '0548', pilotName: 'İkinci Pilot', purpose: 'Pilot seçimi',
+        beforeNotes: 'Düzeltme; "kontrol"\nikinci satır', afterNotes: 'Test sonuçları',
+        pauseNotes: ['Güncel duraklama notu'], revision: before.revision
+    };
+    assert.equal((await request(endpoint, 'PATCH', changes, 'user')).status, 403);
+    assert.equal((await request(endpoint, 'PATCH', { ...changes, purpose: 'Farklı dişli oranları' })).status, 400);
+    const response = await request(endpoint, 'PATCH', changes);
+    assert.equal(response.status, 200);
+    const edited = await response.json();
+    assert.equal(edited.fileName, `${before.date} - Gece - 0548 - İkinci Pilot.csv`);
+    assert.equal(edited.archiveYear, before.archiveYear);
+    assert.equal((await request(`content/${target(before)}`)).status, 404);
+    assert.equal(await (await request(`content/${target(edited)}`)).text(), playback);
+
+    const [files, csvResponse, xlsxResponse] = await Promise.all([
+        list(), request(`download/${target(edited)}`), request(`download-xlsx/${target(edited)}`)
+    ]);
+    const archived = files.find(file => file.fileName === edited.fileName);
+    assert.equal(archived.vehicle, 'urban');
+    assert.equal(archived.vehicleName, 'Gece');
+    assert.equal(archived.testVehicle, 'proto');
+    assert.equal(archived.startTime, before.startTime);
+    assert.equal(archived.endTime, before.endTime);
+    assert.equal(archived.durationMs, before.durationMs);
+    assert.deepEqual(archived.pauses, [{ ...before.pauses[0], note: changes.pauseNotes[0] }]);
+    assert.equal(archived.beforeNotes, changes.beforeNotes);
+    assert.equal(archived.afterNotes, changes.afterNotes);
+    const { events } = parseTestCsv(await csvResponse.text());
+    assert.deepEqual(events.map(event => event.record_type), ['test_start', 'pause', 'test_end', 'after_note']);
+    assert.equal(events[1].pause_note, changes.pauseNotes[0]);
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(await xlsxResponse.arrayBuffer());
+    const [headers, start] = XLSX.utils.sheet_to_json(workbook.Sheets['Test Verisi'], { header: 1 });
+    assert.equal(start[headers.indexOf('motor')], '0548');
+    assert.equal(start[headers.indexOf('before_notes')], changes.beforeNotes);
+
+    const previous = files.find(file => file.fileName === 'Eski Test.csv');
+    const legacyChanges = { revision: previous.revision, vehicle: 'proto', pilotName: 'Eski Pilot', pauseNotes: [] };
+    const concurrent = await Promise.all([
+        request(`details/${target(previous)}`, 'PATCH', { ...legacyChanges, afterNotes: 'Sonuç A' }),
+        request(`details/${target(previous)}`, 'PATCH', { ...legacyChanges, afterNotes: 'Sonuç B' })
+    ]);
+    assert.deepEqual(concurrent.map(result => result.status).sort(), [200, 409]);
+    assert.equal(await (await request(`content/${target(previous)}`)).text(), priorCsv);
+    const updatedPrevious = (await list()).find(file => file.fileName === previous.fileName);
+    assert.equal(updatedPrevious.year, 2026);
+    assert.equal(updatedPrevious.pilotName, legacyChanges.pilotName);
+    assert.equal(updatedPrevious.vehicleWeightKg, null);
+    assert.match(updatedPrevious.afterNotes, /^Sonuç [AB]$/);
+    assert.notEqual(updatedPrevious.revision, previous.revision);
+
+    const older = files.find(file => file.fileName === 'Eski Biçim.csv');
+    assert.equal((await request(`details/${target(older)}`, 'PATCH', {
+        revision: older.revision, vehicle: 'urban', track: 'S8 yolu', pauseNotes: []
+    })).status, 200);
+    const converted = parseTestCsv(await (await request(`content/${target(older)}`)).text());
+    assert.deepEqual(converted.headers, ['date', 'time', 'h', 'mv']);
+    assert.deepEqual(converted.telemetry, parseTestCsv(keyValue).telemetry);
+    assert.deepEqual(converted.events, []);
+    const updatedOlder = (await list()).find(file => file.fileName === older.fileName);
+    assert.equal(updatedOlder.year, 2025);
+    assert.equal(updatedOlder.track, 'S8 yolu');
+    assert.equal(updatedOlder.dataCount, 2);
+    assert.equal(fs.readdirSync(directory).some(file => file.endsWith('.tmp')), false);
+});
+
 test('HTTP publisher kısa adlar ve EYS/Oran/Flow ile eksiksiz paket oluşturur', () => {
     const publisher = loadModule('urban-http-publisher.js', { './src/config': { ...config, API_KEY: 'test-key' } }, { process: { env: {} } });
     const data = publisher.buildTelemetryData();

@@ -1490,6 +1490,7 @@
                             const label = `${record.fileName.replace(/\.csv$/, '')} (${record.dataCount} satır)`;
                             const option = new Option(label, testFileUrl('content', record));
                             option.dataset.vehicle = record.vehicle;
+                            option.dataset.vehicleName = record.vehicleName;
                             group.append(option);
                         }
                         options.push(group);
@@ -1784,8 +1785,9 @@
             // Rozet
             const badge = document.getElementById('vehicleBadge');
             if (badge) {
+                const vehicleName = document.querySelector('#fileSelect option:checked')?.dataset.vehicleName;
                 badge.hidden = false;
-                badge.textContent = isUrban ? '🚙 Dorlion V2' : '🏎️ Gece';
+                badge.textContent = vehicleName || (isUrban ? 'Dorlion V2' : 'Gece');
                 badge.className = 'vehicle-badge ' + (isUrban ? 'vehicle-badge--urban' : 'vehicle-badge--proto');
             }
         }
@@ -1978,7 +1980,7 @@
             // Init charts
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('chartsGroup').style.display = 'block';
-            applyVehicleUI(currentVehicle);   // Araç etiketleri + rozet (Joulmetre/Motor)
+            applyVehicleUI(currentVehicle);
             applyChartVisibility();           // Araca göre grafikleri göster/gizle
             initCharts();
 

@@ -6,7 +6,7 @@ const state = require('../state');
 const { timestampedFileName, formatDuration } = require('../utils/helpers');
 const { csvRow } = require('../utils/csv');
 const { getActiveVehicle } = require('./systemSettings');
-const { VEHICLE_NAMES, testDateAndTime, testArchiveYear } = require('./testDetails');
+const { VEHICLE_NAMES, testDateAndTime, testArchiveYear, testFileName } = require('./testDetails');
 const {
     TEST_EVENT_HEADERS, testFilePath, availableTestName, testStartRecord,
     listTestPaths, readTestRecord, detectTestVehicle
@@ -46,13 +46,9 @@ function startTest(details) {
     const now = new Date();
     const vehicle = details?.vehicle ?? getActiveVehicle();
     const archiveYear = details ? testArchiveYear(now) : null;
-    let suggestedName = timestampedFileName(`test_${vehicle}`, now);
-    if (details) {
-        const { date } = testDateAndTime(now);
-        const pilot = details.pilotName.replace(/[<>:"/\\|?*]/g, ' ').replace(/\.{2,}/g, '.')
-            .replace(/\s+/g, ' ').trim().replace(/\.+$/, '').trimEnd();
-        suggestedName = `${date} - ${VEHICLE_NAMES[vehicle]} - ${details.motor} - ${pilot || 'Pilot'}.csv`;
-    }
+    const suggestedName = details
+        ? testFileName(testDateAndTime(now).date, details)
+        : timestampedFileName(`test_${vehicle}`, now);
     const directory = path.dirname(testFilePath(TEST_DIR, suggestedName, archiveYear));
     fs.mkdirSync(directory, { recursive: true });
     const testName = availableTestName(directory, suggestedName);

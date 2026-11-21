@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
+const { TEST_CSV_HEADERS, URBAN_TEST_CSV_HEADERS } = require('../config');
 const { csvRow, parseCsvRows } = require('../utils/csv');
 const { isSafeFileName } = require('../utils/helpers');
-const { VEHICLE_NAMES, testDateAndTime } = require('./testDetails');
+const { VEHICLE_NAMES, testDateAndTime, testFileName } = require('./testDetails');
 
 const YEAR_FOLDER = /^[1-9]\d{3}$/;
 const DETAIL_FIELDS = {
@@ -15,6 +17,10 @@ const TEST_EVENT_HEADERS = [
     'event_started_at', 'event_ended_at', 'event_duration_ms', 'pause_note'
 ];
 const TEST_TEXT_COLUMNS = ['motor', 'pilot_name', 'before_notes', 'after_notes', 'pause_note'];
+const LEGACY_COLUMNS = new Map([
+    ...[...TEST_CSV_HEADERS, ...URBAN_TEST_CSV_HEADERS].map(header => [header.toLowerCase(), header]),
+    ['t', 'date'], ['s', 'time']
+]);
 
 function isTestFileName(fileName) {
     return isSafeFileName(fileName) && !/[<>:"|?*\x00-\x1f]/.test(fileName);
@@ -24,10 +30,10 @@ function testFilePath(root, fileName, archiveYear) {
     return path.join(root, archiveYear ? String(archiveYear) : '', fileName);
 }
 
-function availableTestName(directory, suggestedName) {
+function availableTestName(directory, suggestedName, isReserved = () => false) {
     const base = suggestedName.slice(0, -4);
     let fileName = suggestedName;
-    for (let suffix = 2; fs.existsSync(path.join(directory, fileName)); suffix++) {
+    for (let suffix = 2; isReserved(fileName) || fs.existsSync(path.join(directory, fileName)); suffix++) {
         fileName = `${base} - ${suffix}.csv`;
     }
     return fileName;
@@ -36,7 +42,7 @@ function availableTestName(directory, suggestedName) {
 function testStartRecord(details, archiveYear, now) {
     return {
         record_type: 'test_start', archive_year: archiveYear, vehicle_name: VEHICLE_NAMES[details.vehicle],
-        event_started_at: now.toISOString(),
+        event_started_at: now?.toISOString(),
         ...Object.fromEntries(Object.entries(DETAIL_FIELDS).map(([key, column]) => [column, details[key]]))
     };
 }
@@ -66,9 +72,31 @@ function detectTestVehicle(headers, fileName = '') {
     return fileName.startsWith('test_urban_') ? 'urban' : 'proto';
 }
 
+function decodeLegacyTelemetry(source) {
+    const columns = new Set();
+    const decoded = source.map(row => {
+        const values = new Map();
+        for (const part of row) {
+            const separator = part.indexOf(':');
+            if (separator <= 0) continue;
+            const key = part.slice(0, separator).trim().toLowerCase();
+            const column = LEGACY_COLUMNS.get(key) ?? key;
+            columns.add(column);
+            values.set(column, part.slice(separator + 1).trim());
+        }
+        return values;
+    });
+    const headers = [...columns];
+    return { headers, rows: decoded.map(row => headers.map(column => row.get(column) ?? '')) };
+}
+
 function parseTestCsv(content) {
-    const [rawHeaders = [], ...rows] = parseCsvRows(content);
-    const headers = rawHeaders.map(header => header.trim());
+    const source = parseCsvRows(content);
+    const [first = [], ...rest] = source;
+    const legacy = first.some(field => field.startsWith('t:')) && first.some(field => field.startsWith('s:'));
+    const { headers, rows } = legacy ? decodeLegacyTelemetry(source) : {
+        headers: first.map(header => header.trim()), rows: rest
+    };
     const eventIndex = headers.indexOf('record_type');
     const telemetry = [];
     const events = [];
@@ -77,12 +105,13 @@ function parseTestCsv(content) {
         if (!type || type === 'telemetry') telemetry.push(row);
         else events.push(Object.fromEntries(headers.slice(eventIndex).map((header, index) => [header, row[index + eventIndex]])));
     }
-    return { headers, eventIndex, telemetry, events };
+    return { headers, eventIndex, rows, telemetry, events };
 }
 
 function testPlaybackCsv(content) {
     // Oynatıcı zaman çizelgesi sadece telemetri satırlarından oluşur.
-    if (!content.split('\n', 1)[0].includes(';record_type;')) return content;
+    const header = content.replace(/^\uFEFF/, '').split(/\r?\n/, 1)[0];
+    if (!header.split(';').some(column => column.trim() === 'record_type')) return content;
     const { headers, eventIndex, telemetry } = parseTestCsv(content);
     return '\uFEFF' + csvRow(headers.slice(0, eventIndex)) + telemetry.map(row => csvRow(row.slice(0, eventIndex))).join('');
 }
@@ -95,35 +124,45 @@ function legacyDate(fileName, date, lastModified) {
     return local ? `${local[3]}-${local[2]}-${local[1]}` : testDateAndTime(lastModified).date;
 }
 
-async function readTestRecord({ filePath, fileName, archiveYear }, includeDetails) {
-    const [stats, content] = await Promise.all([fs.promises.stat(filePath), fs.promises.readFile(filePath, 'utf8')]);
-    const { headers, telemetry, events } = parseTestCsv(content);
+async function readTestFile(filePath) {
+    const file = await fs.promises.open(filePath, 'r');
+    try {
+        const stats = await file.stat();
+        return { stats, content: await file.readFile('utf8') };
+    } finally {
+        await file.close();
+    }
+}
+
+function testRevision(stats) {
+    return `${stats.ino}:${stats.size}:${stats.mtimeMs}:${stats.ctimeMs}`;
+}
+
+function describeTestRecord({ fileName, archiveYear }, stats, { headers, telemetry, events }, includeDetails) {
     const start = events.find(event => event.record_type === 'test_start');
     const end = events.find(event => event.record_type === 'test_end');
     const startTime = start?.event_started_at || null;
     const endTime = end?.event_ended_at || null;
-    const firstDate = headers.find(field => field.startsWith('t:'))?.slice(2).trim();
-    const firstTime = headers.find(field => field.startsWith('s:'))?.slice(2).trim();
-    const keyValueFormat = Boolean(firstDate && firstTime);
-    const vehicleHeaders = keyValueFormat ? headers.map(field => field.split(':', 1)[0]) : headers;
-    const vehicle = detectTestVehicle(vehicleHeaders, fileName);
+    const vehicle = detectTestVehicle(headers, fileName);
+    const testVehicle = Object.keys(VEHICLE_NAMES).find(key => VEHICLE_NAMES[key] === start?.vehicle_name) ?? vehicle;
     const dateTime = startTime ? testDateAndTime(new Date(startTime)) : {
-        date: legacyDate(fileName, firstDate || telemetry[0]?.[headers.indexOf('date')]?.trim(), stats.mtime),
-        time: firstTime || telemetry[0]?.[headers.indexOf('time')]?.trim() || ''
+        date: legacyDate(fileName, telemetry[0]?.[headers.indexOf('date')]?.trim(), stats.mtime),
+        time: telemetry[0]?.[headers.indexOf('time')]?.trim() || ''
     };
     const record = {
         fileName, archiveYear, year: archiveYear ?? (Number(start?.archive_year) || Number(dateTime.date.slice(0, 4))),
         vehicle, vehicleName: start?.vehicle_name || VEHICLE_NAMES[vehicle], ...dateTime,
         motor: start?.motor, powerSource: start?.power_source, purpose: start?.test_purpose,
         track: start?.track, pilotName: start?.pilot_name,
-        dataCount: telemetry.length + Number(keyValueFormat), fileSize: stats.size, lastModified: stats.mtime,
+        dataCount: telemetry.length, fileSize: stats.size, lastModified: stats.mtime,
         startTime, endTime, durationMs: end ? Number(end.event_duration_ms) : null
     };
     if (includeDetails) {
         const lastNote = events.findLast(event => event.record_type === 'after_note');
         Object.assign(record, {
-            vehicleWeightKg: start ? Number(start.vehicle_weight_kg) : null,
-            pilotWeightKg: start ? Number(start.pilot_weight_kg) : null,
+            testVehicle, revision: testRevision(stats),
+            vehicleWeightKg: start?.vehicle_weight_kg ? Number(start.vehicle_weight_kg) : null,
+            pilotWeightKg: start?.pilot_weight_kg ? Number(start.pilot_weight_kg) : null,
             beforeNotes: start?.before_notes || '',
             afterNotes: lastNote?.after_notes || '',
             pauses: events.filter(event => event.record_type === 'pause').map(event => ({
@@ -133,6 +172,85 @@ async function readTestRecord({ filePath, fileName, archiveYear }, includeDetail
         });
     }
     return record;
+}
+
+async function readTestRecord(entry, includeDetails) {
+    const { stats, content } = await readTestFile(entry.filePath);
+    return describeTestRecord(entry, stats, parseTestCsv(content), includeDetails);
+}
+
+function editTestCsv(parsed, start, afterNotes, pauseNotes) {
+    const { headers: original, eventIndex, rows } = parsed;
+    const headers = [...original, ...TEST_EVENT_HEADERS.filter(column => !original.includes(column))];
+    const rowWith = (values, row = []) => csvRow(headers.map((column, index) =>
+        Object.hasOwn(values, column) ? values[column] : row[index]));
+
+    let pauseIndex = 0;
+    let hasStart = false;
+    const output = ['\uFEFF' + csvRow(headers)];
+    for (const row of rows) {
+        const type = row[eventIndex];
+        if (type === 'after_note') continue;
+        if (type === 'test_start') {
+            output.push(rowWith(start, row));
+            hasStart = true;
+        } else if (type === 'pause') {
+            output.push(rowWith({ pause_note: pauseNotes[pauseIndex++] }, row));
+        } else {
+            output.push(rowWith({}, row));
+        }
+    }
+    if (!hasStart) output.splice(1, 0, rowWith(start));
+    if (afterNotes) output.push(rowWith({ record_type: 'after_note', after_notes: afterNotes }));
+    return output.join('');
+}
+
+function editedTestName(record, details, directory, isReserved) {
+    if (!record.startTime) return record.fileName;
+    const oldName = testFileName(record.date, {
+        vehicle: record.testVehicle, motor: record.motor, pilotName: record.pilotName ?? ''
+    });
+    const oldStem = oldName.slice(0, -4);
+    const newName = testFileName(record.date, details);
+    if (newName === oldName || !record.fileName.startsWith(oldStem) ||
+        !/^(?: - \d+)?\.csv$/.test(record.fileName.slice(oldStem.length))) return record.fileName;
+    return availableTestName(directory, newName, isReserved);
+}
+
+async function updateTestRecord(entry, { details, afterNotes, pauseNotes, revision }, isReserved) {
+    const { filePath } = entry;
+    const { stats, content } = await readTestFile(filePath);
+    if (testRevision(stats) !== revision) return null;
+    const parsed = parseTestCsv(content);
+    const record = describeTestRecord(entry, stats, parsed, true);
+    if (pauseNotes.length !== record.pauses.length) return null;
+
+    const start = testStartRecord(details, record.year, record.startTime ? new Date(record.startTime) : undefined);
+    const updated = editTestCsv(parsed, start, afterNotes, pauseNotes);
+    const directory = path.dirname(filePath);
+    const temporary = path.join(directory, `.test-edit-${randomUUID()}.tmp`);
+    try {
+        await fs.promises.writeFile(temporary, updated, { flag: 'wx', mode: stats.mode & 0o777 });
+        // Tarih alanı olmayan eski kayıtlar, dosya tarihine göre gruplanır.
+        await fs.promises.utimes(temporary, stats.atime, stats.mtime);
+        const current = fs.statSync(filePath, { throwIfNoEntry: false });
+        if (!current || testRevision(current) !== revision) return null;
+
+        const fileName = editedTestName(record, details, directory, isReserved);
+        const destination = path.join(directory, fileName);
+        fs.renameSync(temporary, destination);
+        if (destination !== filePath) {
+            try {
+                fs.unlinkSync(filePath);
+            } catch (error) {
+                fs.unlinkSync(destination);
+                throw error;
+            }
+        }
+        return { fileName, archiveYear: entry.archiveYear };
+    } finally {
+        await fs.promises.unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
+    }
 }
 
 function appendTestAfterNote(filePath, note) {
@@ -160,5 +278,6 @@ function appendTestAfterNote(filePath, note) {
 
 module.exports = {
     YEAR_FOLDER, TEST_EVENT_HEADERS, TEST_TEXT_COLUMNS, isTestFileName, testFilePath, availableTestName,
-    testStartRecord, listTestPaths, detectTestVehicle, parseTestCsv, testPlaybackCsv, readTestRecord, appendTestAfterNote
+    testStartRecord, listTestPaths, detectTestVehicle, parseTestCsv, testPlaybackCsv, readTestRecord,
+    updateTestRecord, appendTestAfterNote
 };

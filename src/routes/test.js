@@ -6,7 +6,7 @@ const { TEST_DIR } = require('../config');
 const testModeService = require('../services/testMode');
 const { TEST_OPTIONS, readTestDetails, readTestNote } = require('../services/testDetails');
 const {
-    YEAR_FOLDER, TEST_TEXT_COLUMNS, isTestFileName, testFilePath, testPlaybackCsv, appendTestAfterNote
+    YEAR_FOLDER, TEST_TEXT_COLUMNS, isTestFileName, testFilePath, testPlaybackCsv, appendTestAfterNote, updateTestRecord
 } = require('../services/testArchive');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { formatDuration, setDownloadHeaders } = require('../utils/helpers');
@@ -108,7 +108,7 @@ function requireTestFile(req, res, next) {
     if (!fs.statSync(filePath, { throwIfNoEntry: false })?.isFile()) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
-    req.testFile = { fileName, filePath };
+    req.testFile = { fileName, filePath, archiveYear };
     next();
 }
 
@@ -157,14 +157,42 @@ router.post('/api/test/after-note/:fileName', requireAdmin, requireTestFile, (re
     }
 });
 
+router.patch('/api/test/details/:fileName', requireAdmin, requireTestFile, async (req, res) => {
+    const { revision, pauseNotes } = req.body ?? {};
+    if (typeof revision !== 'string' || !Array.isArray(pauseNotes)) {
+        return res.status(400).json({ error: 'Test ayrıntılarını tekrar açın.' });
+    }
+    let changes;
+    try {
+        changes = {
+            revision,
+            details: readTestDetails(req.body, { allowIncomplete: true }),
+            afterNotes: readTestNote(req.body.afterNotes),
+            pauseNotes: pauseNotes.map(note => readTestNote(note))
+        };
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    try {
+        const isReserved = fileName => testModeService.isActiveTestFile(fileName, req.testFile.archiveYear);
+        const record = await updateTestRecord(req.testFile, changes, isReserved);
+        if (!record) return res.status(409).json({ error: 'Kayıt değişti. Test ayrıntılarını tekrar açıp düzenleyin.' });
+        res.json({ success: true, ...record });
+    } catch (error) {
+        if (error.code === 'ENOENT') return res.status(404).json({ error: 'Test kaydı bulunamadı.' });
+        console.error('Test ayrıntıları kaydedilemedi:', error);
+        res.status(500).json({ error: 'Test ayrıntıları kaydedilemedi.' });
+    }
+});
+
 router.patch('/api/test/rename/:fileName', requireAdmin, requireTestFile, (req, res) => {
-    const { fileName, filePath } = req.testFile;
+    const { fileName, filePath, archiveYear } = req.testFile;
     const requestedName = typeof req.body?.newName === 'string' ? req.body.newName.trim() : '';
     if (!requestedName) return res.status(400).json({ error: 'Yeni dosya adı gerekli' });
     const newName = requestedName.endsWith('.csv') ? requestedName : requestedName + '.csv';
     if (!isTestFileName(newName)) return res.status(400).json({ error: 'Dosya adında geçersiz karakterler var' });
     const newPath = path.join(path.dirname(filePath), newName);
-    if (newName !== fileName && fs.existsSync(newPath)) {
+    if (newName !== fileName && (testModeService.isActiveTestFile(newName, archiveYear) || fs.existsSync(newPath))) {
         return res.status(409).json({ error: 'Bu isimde bir dosya zaten mevcut' });
     }
     try {
