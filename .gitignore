@@ -3,6 +3,9 @@ users.json
 .env
 *.log
 
+# Sunucuya özel çalışma zamanı ayarları
+vehicle_settings.json
+
 # Node modules
 node_modules/
 
@@ -16,4 +19,4 @@ Thumbs.db
 
 # Telemetri verileri (her sunucuda farklı)
 telemetry_data/*.csv
-test_data/*.csv
+test_data/**/*.csv

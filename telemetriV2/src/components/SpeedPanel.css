@@ -1,0 +1,106 @@
+.speed-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.speed-panel__body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.55rem, 1.8vw, 1.25rem);
+  flex: 1;
+  min-height: 0;
+}
+
+.speed-panel__gps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.speed-panel__gps-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.speed-panel__gps-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.speed-panel__gps-value em {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 400;
+  margin-left: 0.15rem;
+  color: var(--text-muted);
+}
+
+.speed-panel__body .signal-meter {
+  padding-left: 1rem;
+  border-left: 1px solid var(--border);
+}
+
+.speed-panel__timing {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 8.7rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.speed-panel__timing[data-active='true'] {
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: inset 3px 0 #22c55e;
+}
+
+.speed-panel__timing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.speed-panel__timing-row strong {
+  color: var(--text);
+  font-size: 0.73rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 480px) {
+  .speed-panel__body {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .speed-panel__gps {
+    align-items: center;
+    margin-top: -0.5rem;
+  }
+
+  .speed-panel__body .signal-meter {
+    margin-top: 0.3rem;
+    padding-top: 0.5rem;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: none;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .speed-panel__timing {
+    width: 100%;
+  }
+}

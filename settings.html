@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidroana Telemetri - Ayarlar</title>
+    <link rel="icon" type="image/x-icon" href="/logo.ico">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            flex-direction: column;
+        }
+
+        .settings-container {
+            background: white;
+            border-radius: 8px;
+            padding: 45px 40px;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .settings-header {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .settings-header h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .settings-header p {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 26px;
+        }
+
+        .form-group>label {
+            display: block;
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .option-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .option-card {
+            border: 2px solid #ced4da;
+            border-radius: 6px;
+            padding: 14px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .option-card:hover {
+            border-color: #a5b1ff;
+        }
+
+        .option-card.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.08);
+        }
+
+        .option-card .option-icon {
+            font-size: 22px;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .option-card .option-label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .option-card .option-sub {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 13px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+            font-family: inherit;
+        }
+
+        .save-btn:hover {
+            background: #5568d3;
+        }
+
+        .save-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            color: #7f8c8d;
+            font-size: 13px;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: #495057;
+        }
+
+        .error-message,
+        .success-message {
+            padding: 12px 14px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: none;
+            border-radius: 4px;
+        }
+
+        .error-message {
+            background: #fee;
+            border-left: 3px solid #dc3545;
+            color: #721c24;
+        }
+
+        .success-message {
+            background: #eefbf1;
+            border-left: 3px solid #28a745;
+            color: #1e7e34;
+        }
+
+        .error-message.show,
+        .success-message.show {
+            display: block;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 3px solid #6c757d;
+            padding: 12px 14px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #6c757d;
+            line-height: 1.5;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="settings-container">
+        <div class="settings-header">
+            <h1>Sistem Ayarları</h1>
+            <p>Aktif aracı ve veri kanalını seçin</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form id="settingsForm">
+            <div class="form-group">
+                <label>Araç</label>
+                <div class="option-grid" id="vehicleGrid">
+                    <div class="option-card" data-value="proto" onclick="selectOption('vehicle', 'proto')">
+                        <span class="option-icon">🏎️</span>
+                        <span class="option-label">Proto</span>
+                        <div class="option-sub">Ana araç</div>
+                    </div>
+                    <div class="option-card" data-value="urban" onclick="selectOption('vehicle', 'urban')">
+                        <span class="option-icon">🚗</span>
+                        <span class="option-label">Urban</span>
+                        <div class="option-sub">Urban araç</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Protokol</label>
+                <div class="option-grid" id="channelGrid">
+                    <div class="option-card" data-value="MQTT" onclick="selectOption('channel', 'MQTT')">
+                        <span class="option-icon">📡</span>
+                        <span class="option-label">MQTT</span>
+                        <div class="option-sub">'data' topic</div>
+                    </div>
+                    <div class="option-card" data-value="HTTP" onclick="selectOption('channel', 'HTTP')">
+                        <span class="option-icon">🌐</span>
+                        <span class="option-label">HTTP</span>
+                        <div class="option-sub">/data endpoint</div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="save-btn" id="saveBtn">Kaydet</button>
+        </form>
+
+        <a href="/" class="back-link" id="backLink" style="display:none;">← Vazgeç, geri dön</a>
+
+        <div class="info-box">
+            Bu ayarlar tüm sisteme uygulanır: sunucu, gelen veriyi seçtiğiniz araç formatında ve
+            seçtiğiniz kanaldan (MQTT veya HTTP) kabul etmeye başlar. Tercihiniz bu tarayıcıda
+            hatırlanır, bir daha sorulmaz — istediğiniz zaman sayfa başlıklarındaki
+            ⚙️ Ayarlar düğmesinden değiştirebilirsiniz.
+        </div>
+    </div>
+
+    <script>
+        const state = { vehicle: null, channel: null };
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const saveBtn = document.getElementById('saveBtn');
+
+        function selectOption(group, value) {
+            state[group] = value;
+            const gridId = group === 'vehicle' ? 'vehicleGrid' : 'channelGrid';
+            document.querySelectorAll(`#${gridId} .option-card`).forEach(card => {
+                card.classList.toggle('selected', card.dataset.value === value);
+            });
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            setTimeout(() => errorMessage.classList.remove('show'), 5000);
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.add('show');
+        }
+
+        // Mevcut sunucu ayarlarını yükle ve formu doldur
+        fetch('/api/settings')
+            .then(res => res.json())
+            .then(data => {
+                if (data.vehicle) {
+                    selectOption('vehicle', data.vehicle);
+                    document.getElementById('backLink').style.display = 'block';
+                    document.getElementById('backLink').href = data.vehicle === 'urban' ? '/urban' : '/';
+                }
+                if (data.channel) selectOption('channel', data.channel);
+            })
+            .catch(() => { /* varsayılan boş form kalır */ });
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!state.vehicle || !state.channel) {
+                showError('Lütfen bir araç ve bir protokol seçin');
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Kaydediliyor...';
+
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vehicle: state.vehicle, channel: state.channel })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('Ayarlar kaydedildi, yönlendiriliyorsunuz...');
+                    setTimeout(() => { window.location.href = data.redirect || '/'; }, 500);
+                } else {
+                    showError(data.error || 'Ayarlar kaydedilemedi');
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Kaydet';
+                }
+            } catch (error) {
+                showError('Sunucuya bağlanılamadı');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Kaydet';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -50,18 +50,8 @@ function _hideClownEasterEgg() {
     clown.classList.add('clown-hide');
 }
 
-function pullCordTheme() {
-    const cb = document.getElementById('themeCheckbox');
-    if (cb) {
-        cb.checked = !cb.checked;
-        toggleTheme(cb.checked);
-
-        const cord = document.querySelector('.pull-cord-container');
-        if (cord) {
-            cord.classList.add('pulled');
-            setTimeout(() => cord.classList.remove('pulled'), 400);
-        }
-    }
+function toggleDashboardTheme() {
+    toggleTheme(document.documentElement.dataset.theme !== 'light');
 
     // Easter egg sayacı
     _easterEggClickCount++;
@@ -80,29 +70,16 @@ function pullCordTheme() {
 }
 
 function applyTheme(isLight) {
-    const body = document.body;
-    const icon = document.getElementById('themeIcon');
-    const label = document.getElementById('themeLabel');
-    const checkbox = document.getElementById('themeCheckbox');
-
-    if (isLight) {
-        body.classList.add('light-mode');
-        if (icon) icon.textContent = '☀️';
-        if (label) label.textContent = 'Açık';
-        if (checkbox) checkbox.checked = true;
-    } else {
-        body.classList.remove('light-mode');
-        if (icon) icon.textContent = '🌙';
-        if (label) label.textContent = 'Koyu';
-        if (checkbox) checkbox.checked = false;
-    }
+    document.documentElement.dataset.theme = isLight ? 'light' : 'dark';
+    setElementText('themeIcon', isLight ? '☾' : '☀');
+    setElementText('themeLabel', isLight ? 'Karanlık' : 'Aydınlık');
 
     // Chart.js global defaults'u temaya göre ayarla
     updateChartTheme(isLight);
 }
 
 function updateChartTheme(isLight) {
-    const textColor = isLight ? '#333' : '#e8eaf6';
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
     const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
 
     if (typeof Chart !== 'undefined') {
@@ -113,7 +90,6 @@ function updateChartTheme(isLight) {
 
         // Mevcut tüm chart'ları yeniden çiz
         const allCharts = [
-            typeof speedometerChart !== 'undefined' ? speedometerChart : null,
             typeof fvChart !== 'undefined' ? fvChart : null,
             typeof faChart !== 'undefined' ? faChart : null,
             typeof fwChart !== 'undefined' ? fwChart : null,
@@ -188,7 +164,6 @@ let map, marker;
 let currentBearing = 0;
 
 // Chart instances
-let speedometerChart;
 let fvChart, faChart, fwChart, ftempChart;
 let bwChart, bvChart, bcChart, batteryTempChart;
 let jvChart, jcChart, jwChart;
@@ -309,6 +284,7 @@ function initMap() {
     });
 
     marker = L.marker([50.528366, 18.0975], { icon: customIcon }).addTo(map);
+    new ResizeObserver(() => map.invalidateSize({ pan: false })).observe(mapEl);
     //    var track = omnivore.kml('./path.kml');
 
 
@@ -325,36 +301,72 @@ function initMap() {
 
 }
 
-// Initialize speedometer
-function initSpeedometer() {
-    const canvas = document.getElementById('speedometer');
-    if (!canvas) {
-        console.error('Speedometer canvas not found');
-        return;
-    }
-    const ctx = canvas.getContext('2d');
+const dashboardGaugeRanges = {
+    h: { max: 60, unit: 'km/h', decimals: 1, warningAt: 0.75, dangerAt: 0.92 },
+    bv: { max: 400, unit: 'V', decimals: 1 },
+    bc: { min: -40, max: 40, unit: 'A', decimals: 1 },
+    bw: { min: -5000, max: 5000, unit: 'W', decimals: 0 },
+    fv: { max: 60, unit: 'V', decimals: 1 },
+    fa: { max: 40, unit: 'A', decimals: 1 },
+    fw: { max: 1500, unit: 'W', decimals: 1 },
+    jv: { max: 100, unit: 'V', decimals: 1 },
+    jc: { min: -60, max: 60, unit: 'A', decimals: 1 },
+    jw: { min: -3000, max: 3000, unit: 'W', decimals: 0 }
+};
+const dashboardGauges = new Map();
 
-    speedometerChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [0, 180],
-                backgroundColor: ['#667eea', '#e0e0e0'],
-                borderWidth: 0,
-                circumference: 180,
-                rotation: 270
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '75%',
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
+function initDashboardGauges(createGaugeScale, getGaugeReading) {
+    for (const gauge of document.querySelectorAll('[data-gauge]')) {
+        const { gauge: field, label } = gauge.dataset;
+        const { min = 0, max, unit, decimals, warningAt, dangerAt } = dashboardGaugeRanges[field];
+        const scale = createGaugeScale({ warningAt, dangerAt });
+        const { size, cx, cy, trackPath, warningPath, dangerPath, ticks } = scale;
+        const strokeWidth = size * 0.055;
+
+        gauge.title = `${label} · ${min}–${max} ${unit}`;
+        gauge.innerHTML = `
+            <svg viewBox="0 0 ${size} ${size * 0.9}" class="gauge__svg" aria-hidden="true">
+                <g fill="none" stroke-width="${strokeWidth}">
+                    <path class="gauge__track" d="${trackPath}"/>
+                    <path class="gauge__zone gauge__zone--warning" d="${warningPath}"/>
+                    <path class="gauge__zone gauge__zone--danger" d="${dangerPath}"/>
+                    <path class="gauge__fill" stroke="currentColor" stroke-linecap="round"/>
+                </g>
+                ${ticks.map(({ x1, y1, x2, y2 }) =>
+                    `<line class="gauge__tick" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
+                ).join('')}
+                <line class="gauge__needle" stroke="currentColor"/>
+                <line class="gauge__needle" stroke="currentColor"/>
+                <circle class="gauge__hub" cx="${cx}" cy="${cy}" r="${size * 0.05}"/>
+            </svg>
+            <div class="gauge__readout">
+                <span class="gauge__value"><span data-gauge-value>--</span><span class="gauge__unit">${unit}</span></span>
+                <span class="gauge__label">${label}</span>
+            </div>`;
+
+        const fill = gauge.querySelector('.gauge__fill');
+        const [needleLeft, needleRight] = gauge.querySelectorAll('.gauge__needle');
+        const readout = gauge.querySelector('[data-gauge-value]');
+        let previousValue;
+        const update = value => {
+            if (value === previousValue) return;
+            previousValue = value;
+            const { activeColor, valuePath, needleTip, needleBase1, needleBase2 } =
+                getGaugeReading(scale, value, { min, max, color: 'var(--accent)' });
+            gauge.style.color = activeColor;
+            fill.setAttribute('d', valuePath);
+            for (const [needle, base] of [[needleLeft, needleBase1], [needleRight, needleBase2]]) {
+                needle.setAttribute('x1', base.x);
+                needle.setAttribute('y1', base.y);
+                needle.setAttribute('x2', needleTip.x);
+                needle.setAttribute('y2', needleTip.y);
             }
-        }
-    });
+            readout.textContent = Number.isFinite(value) ? value.toFixed(decimals) : '--';
+        };
+
+        update(null);
+        dashboardGauges.set(field, update);
+    }
 }
 
 // Chart configuration helper
@@ -936,12 +948,10 @@ function updateConnectionStatus(connected) {
     if (!dot || !text) return;
 
     if (connected) {
-        dot.style.background = '#43e97b';
         text.textContent = 'Bağlı';
         statusEl.classList.add('connected');
         statusEl.classList.remove('disconnected');
     } else {
-        dot.style.background = '#ff4444';
         text.textContent = 'Bağlantı Yok';
         statusEl.classList.remove('connected');
         statusEl.classList.add('disconnected');
@@ -951,64 +961,15 @@ function updateConnectionStatus(connected) {
 // Update GSM signal indicator
 function updateGSMSignal(value, gsmspeed) {
     const gsmEl = document.getElementById('gsmSignal');
-    setElementText('gsmSpeedValue', `GSM Speed: ${(gsmspeed || 0).toFixed(1)} km/h`);
+    setElementText('gsmSpeedValue', `${(gsmspeed || 0).toFixed(1)} km/h`);
     const gsmValue = document.getElementById('gsmValue');
-    const gsmSpeedValue = document.getElementById('gsmSpeedValue');
     if (!gsmEl || !gsmValue) return;
 
     const bars = gsmEl.querySelectorAll('.bar');
     const signal = parseInt(value) || 0;
     gsmValue.textContent = signal;
-
-    // Update bar colors based on signal strength
-    /*
-    bars.forEach((bar, index) => {
-        if (signal >= (index + 1) * 3.75) {
-            bar.style.fill = '#43e97b';
-        } else {
-            bar.style.fill = '#e0e0e0';
-        }
-    });*/
-
-    /*
-        bars.forEach((bar, index) => {
-            if (signal < 10) {
-                bar.style.fill = ''
-            }
-    
-        });
-    */
-    if (signal >= 20 && signal <= 30) {
-        // 4 diş
-        bars[0].style.fill = '#43e97b';
-        bars[1].style.fill = '#43e97b';
-        bars[2].style.fill = '#43e97b';
-        bars[3].style.fill = '#43e97b';
-    } else if (signal >= 15 && signal <= 19) {
-        // 3 diş
-        bars[0].style.fill = '#43e97b';
-        bars[1].style.fill = '#43e97b';
-        bars[2].style.fill = '#43e97b';
-        bars[3].style.fill = '#e0e0e0';
-    } else if (signal >= 10 && signal <= 14) {
-        // 2 diş
-        bars[0].style.fill = '#43e97b';
-        bars[1].style.fill = '#43e97b';
-        bars[2].style.fill = '#e0e0e0';
-        bars[3].style.fill = '#e0e0e0';
-    } else if (signal >= 1 && signal <= 9) {
-        // 1 diş
-        bars[0].style.fill = '#43e97b';
-        bars[1].style.fill = '#e0e0e0';
-        bars[2].style.fill = '#e0e0e0';
-        bars[3].style.fill = '#e0e0e0';
-    } else {
-        // signal === 0 veya geçersiz değer
-        bars[0].style.fill = '#e0e0e0';
-        bars[1].style.fill = '#e0e0e0';
-        bars[2].style.fill = '#e0e0e0';
-        bars[3].style.fill = '#e0e0e0';
-    }
+    const thresholds = [1, 10, 15, 20];
+    bars.forEach((bar, index) => bar.classList.toggle('is-active', signal >= thresholds[index] && signal <= 30));
 }
 // Calculate bearing between two points
 function calculateBearing(lat1, lon1, lat2, lon2) {
@@ -1162,28 +1123,23 @@ function processRealTimeData(data) {
     // Update GSM signal
     updateGSMSignal(telemetry.gs, telemetry.gsmspeed);
 
-    // Update speedometer
-    const speed = Math.min(telemetry.h, 60);
-    if (speedometerChart) {
-        speedometerChart.data.datasets[0].data = [speed, 60 - speed];
-        speedometerChart.data.datasets[0].backgroundColor = [
-            speed > 60 ? '#ff4444' : speed > 45 ? '#ffaa00' : '#667eea',
-            '#e0e0e0'
-        ];
-        speedometerChart.update('none');
+    for (const [field, update] of dashboardGauges) {
+        update(telemetry[field]);
     }
-    setElementText('speedValue', `${telemetry.h.toFixed(1)} km/h`);
 
     // Update stat cards
     setElementText('socValue', `${telemetry.soc.toFixed(0)}%`);
-    setElementStyle('socFill', 'width', `${Math.min(telemetry.soc, 100)}%`);
+    setElementStyle('socFill', 'width', `${Math.max(0, Math.min(telemetry.soc, 100))}%`);
     setElementStyle('socFill', 'background', telemetry.soc > 50 ? '#43e97b' : telemetry.soc > 20 ? '#feca57' : '#ff4444');
 
     setElementText('keValue', `${telemetry.ke.toFixed(1)} kWh`);
-    setElementText('bwValue', `${telemetry.bw.toFixed(0)} W`);
     setElementText('bwhValue', `${telemetry.bwh.toFixed(1)} Wh`);
-    setElementText('jwValue', `${telemetry.jw.toFixed(0)} W`);
     setElementText('jwhValue', `${telemetry.jwh.toFixed(1)} Wh`);
+    setElementText('fuelOuterTemp', `${telemetry.fet.toFixed(1)} °C`);
+    setElementText('fuelInnerTemp', `${telemetry.fit.toFixed(1)} °C`);
+    setElementText('batteryTemp1', `${telemetry.t1.toFixed(1)} °C`);
+    setElementText('batteryTemp2', `${telemetry.t2.toFixed(1)} °C`);
+    setElementText('batteryTemp3', `${telemetry.t3.toFixed(1)} °C`);
 
     // Update new data box values
     setElementText('valMT', data.mt !== undefined ? `${telemetry.mt} m` : '-- m');
@@ -1200,20 +1156,7 @@ function processRealTimeData(data) {
     // Not: pitch, roll, yaw, driver_pot, direksiyon_angle sadece CSV'ye kaydedilir, ekranda gösterilmez.
 
     // Gerçek Flow — flow topic'i ile eşleştirilen anlık ve toplam değerler
-    const realFlowCard = document.getElementById('realFlowCard');
-    if (data.hasRealFlow) {
-        if (realFlowCard) realFlowCard.style.display = '';
-        // Anlık flow
-        const instVal = data.realInstantFlow !== null && data.realInstantFlow !== undefined
-            ? `Anlık: ${parseFloat(data.realInstantFlow)} L/dk`
-            : 'Anlık: --';
-        setElementText('valRealInstantFlow', instVal);
-        // Toplam flow
-        const totVal = data.realTotalFlow !== null && data.realTotalFlow !== undefined
-            ? `Toplam: ${parseFloat(data.realTotalFlow)} L`
-            : 'Toplam: --';
-        setElementText('valRealTotalFlow', totVal);
-    }
+    handleFlowOnlyUpdate(data);
 
     // Update chart header current values
     setElementText('fvCurrent', `[${telemetry.fv.toFixed(1)} V]`);
@@ -1385,6 +1328,7 @@ function toggleCard(element) {
     }
 
     card.classList.toggle('collapsed');
+    element.setAttribute('aria-expanded', String(!isCollapsing));
     element.textContent = card.classList.contains('collapsed') ? '+' : '−';
 
     // Resize charts after animation
@@ -1397,7 +1341,7 @@ function toggleCard(element) {
 
 // Resize all charts
 function resizeAllCharts() {
-    const charts = [speedometerChart, fvChart, faChart, fwChart, ftempChart,
+    const charts = [fvChart, faChart, fwChart, ftempChart,
         bwChart, bvChart, bcChart, batteryTempChart,
         jvChart, jcChart, jwChart];
     charts.forEach(chart => {
@@ -1408,75 +1352,20 @@ function resizeAllCharts() {
 
 // Toggle filter functionality - multiple categories can be active
 function toggleFilter(category, button) {
-    const speedCards = document.querySelectorAll('.speed-related');
-    const fuelCards = document.querySelectorAll('.fuel-related');
-    const batteryCards = document.querySelectorAll('.battery-related');
-    const jouleCards = document.querySelectorAll('.joule-related');
-
-    const categoryButtons = {
-        speed: document.querySelector('[data-category="speed"]'),
-        fuel: document.querySelector('[data-category="fuel"]'),
-        battery: document.querySelector('[data-category="battery"]'),
-        joule: document.querySelector('[data-category="joule"]')
-    };
-
-    const allButton = document.querySelector('[data-category="all"]');
-
-    if (category === 'all') {
-        // Tümü butonuna tıklandığında
-        const isActive = button.classList.contains('active');
-
-        if (isActive) {
-            // Tümü aktifse, tüm kategorileri kapat
-            button.classList.remove('active');
-            Object.values(categoryButtons).forEach(btn => {
-                if (btn) btn.classList.remove('active');
-            });
-            [speedCards, fuelCards, batteryCards, jouleCards].forEach(cards => {
-                cards.forEach(card => card.style.display = 'none');
-            });
-        } else {
-            // Tümü pasifse, tüm kategorileri aç
-            button.classList.add('active');
-            Object.values(categoryButtons).forEach(btn => {
-                if (btn) btn.classList.add('active');
-            });
-            [speedCards, fuelCards, batteryCards, jouleCards].forEach(cards => {
-                cards.forEach(card => card.style.display = '');
-            });
-        }
-    } else {
-        // Kategori butonuna tıklandığında toggle yap
-        const isActive = button.classList.contains('active');
-
-        const cardMap = {
-            speed: speedCards,
-            fuel: fuelCards,
-            battery: batteryCards,
-            joule: jouleCards
-        };
-
-        if (isActive) {
-            // Kategoriyi kapat
-            button.classList.remove('active');
-            cardMap[category].forEach(card => card.style.display = 'none');
-        } else {
-            // Kategoriyi aç
-            button.classList.add('active');
-            cardMap[category].forEach(card => card.style.display = '');
-        }
-
-        // Tümü butonunun durumunu güncelle
-        const allActive = Object.values(categoryButtons).every(btn => btn && btn.classList.contains('active'));
-        const anyActive = Object.values(categoryButtons).some(btn => btn && btn.classList.contains('active'));
-
-        if (allActive) {
-            allButton.classList.add('active');
-        } else {
-            allButton.classList.remove('active');
-        }
+    const categories = [...document.querySelectorAll('[data-category]:not([data-category="all"])')];
+    const show = !button.classList.contains('active');
+    for (const categoryButton of categories) {
+        const name = categoryButton.dataset.category;
+        if (category !== 'all' && category !== name) continue;
+        categoryButton.classList.toggle('active', show);
+        categoryButton.setAttribute('aria-pressed', String(show));
+        document.querySelectorAll(`.${name}-related`).forEach(card => { card.hidden = !show; });
     }
 
+    const allButton = document.querySelector('[data-category="all"]');
+    const allActive = categories.every(categoryButton => categoryButton.classList.contains('active'));
+    allButton.classList.toggle('active', allActive);
+    allButton.setAttribute('aria-pressed', String(allActive));
     setTimeout(resizeAllCharts, 100);
 }
 
@@ -1493,8 +1382,6 @@ let _dnd_ghost = null;
 let _dnd_dragged = null;
 let _dnd_offsetX = 0;
 let _dnd_offsetY = 0;
-let _dnd_originParent = null;
-let _dnd_originNext = null;
 
 function initDragAndDrop() {
     const allCards = document.querySelectorAll('.stat-card, .chart-container, .map-section');
@@ -1509,8 +1396,7 @@ function initDragAndDrop() {
 }
 
 function _dnd_onPointerDown(e) {
-    // Tıklanan şey toggle ikon ise sürükleme başlatma
-    if (e.target.classList.contains('toggle-icon') || e.target.closest('.toggle-icon')) return;
+    if (e.target.closest('button, a')) return;
     // Sadece sol tık veya touch
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
@@ -1521,8 +1407,6 @@ function _dnd_onPointerDown(e) {
     this.setPointerCapture(e.pointerId);
 
     _dnd_dragged = card;
-    _dnd_originParent = card.parentElement;
-    _dnd_originNext = card.nextElementSibling;
 
     const rect = card.getBoundingClientRect();
     _dnd_offsetX = e.clientX - rect.left;
@@ -1530,6 +1414,7 @@ function _dnd_onPointerDown(e) {
 
     // Ghost (hayalet kart) oluştur
     _dnd_ghost = card.cloneNode(true);
+    _dnd_ghost.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
     _dnd_ghost.style.cssText = `
         position: fixed;
         width: ${rect.width}px;
@@ -1571,7 +1456,7 @@ function _dnd_onPointerMove(e) {
     // Tüm vurgu sınıflarını temizle
     document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
 
-    const container = underEl && underEl.closest('.left-charts, .center-section, .right-charts');
+    const container = underEl?.closest('[data-card-column]');
     if (container) container.classList.add('drag-over');
 }
 
@@ -1591,53 +1476,20 @@ function _dnd_onPointerUp(e) {
     _dnd_dragged.classList.remove('dragging');
     _dnd_dragged.style.opacity = '';
 
-    // Hangi konteynere bırakıldı?
-    _dnd_ghost = null;
-    const tmpGhost = document.createElement('div');
-    tmpGhost.style.cssText = 'position:fixed;width:1px;height:1px;pointer-events:none;';
-    document.body.appendChild(tmpGhost);
-
-    let underEl;
-    try {
-        underEl = document.elementFromPoint(e.clientX, e.clientY);
-    } catch (_) { underEl = null; }
-    tmpGhost.remove();
-
-    const container = underEl && underEl.closest('.left-charts, .center-section, .right-charts');
-
-    if (container) {
-        // En yakın kartı bul ve önüne yerleştir
+    const underEl = document.elementFromPoint(e.clientX, e.clientY);
+    const container = underEl?.closest('[data-card-column]');
+    if (container && e.type !== 'pointercancel') {
         const after = _dnd_getDropTarget(container, e.clientY);
-        if (after === null) {
-            container.appendChild(_dnd_dragged);
-        } else {
-            container.insertBefore(_dnd_dragged, after);
-        }
+        container.insertBefore(_dnd_dragged, after);
         setTimeout(resizeAllCharts, 100);
-    } else {
-        // Geçerli bir hedef yok — orijinal yerine geri koy
-        if (_dnd_originNext) {
-            _dnd_originParent.insertBefore(_dnd_dragged, _dnd_originNext);
-        } else {
-            _dnd_originParent.appendChild(_dnd_dragged);
-        }
     }
 
     _dnd_dragged = null;
-    _dnd_originParent = null;
-    _dnd_originNext = null;
 }
 
 function _dnd_getDropTarget(container, clientY) {
-    const cards = [...container.children].filter(el =>
-        (el.classList.contains('stat-card') ||
-            el.classList.contains('chart-container') ||
-            el.classList.contains('map-section') ||
-            el.classList.contains('stats-row')) &&
-        el !== _dnd_dragged
-    );
-
-    for (const card of cards) {
+    for (const card of container.children) {
+        if (card === _dnd_dragged || card.hidden) continue;
         const box = card.getBoundingClientRect();
         if (clientY < box.top + box.height / 2) return card;
     }
@@ -1732,27 +1584,18 @@ let columnResizeState = {
 };
 
 function initColumnResize() {
-    const mainContent = document.querySelector('.main-content');
-    const leftCharts = document.querySelector('.left-charts');
-    const centerSection = document.querySelector('.center-section');
-    const rightCharts = document.querySelector('.right-charts');
-
-    if (!leftCharts || !centerSection || !rightCharts) return;
-
-    const leftHandle = document.createElement('div');
-    leftHandle.className = 'column-resize-handle';
-    leftHandle.innerHTML = '<div class="resize-indicator"></div>';
-    mainContent.insertBefore(leftHandle, centerSection);
-
-    const rightHandle = document.createElement('div');
-    rightHandle.className = 'column-resize-handle';
-    rightHandle.innerHTML = '<div class="resize-indicator"></div>';
-    mainContent.insertBefore(rightHandle, rightCharts);
-
-    leftHandle.addEventListener('mousedown', (e) => startColumnResize(e, leftCharts, centerSection));
-    leftHandle.addEventListener('touchstart', (e) => startColumnResize(e, leftCharts, centerSection), { passive: false });
-    rightHandle.addEventListener('mousedown', (e) => startColumnResize(e, centerSection, rightCharts));
-    rightHandle.addEventListener('touchstart', (e) => startColumnResize(e, centerSection, rightCharts), { passive: false });
+    document.querySelectorAll('[data-resizable-columns]').forEach(layout => {
+        const columns = [...layout.children];
+        columns.slice(1).forEach((nextColumn, index) => {
+            const currentColumn = columns[index];
+            const handle = document.createElement('div');
+            handle.className = 'column-resize-handle';
+            layout.insertBefore(handle, nextColumn);
+            const resize = e => startColumnResize(e, currentColumn, nextColumn);
+            handle.addEventListener('mousedown', resize);
+            handle.addEventListener('touchstart', resize, { passive: false });
+        });
+    });
 
     document.addEventListener('mousemove', doColumnResize);
     document.addEventListener('mouseup', stopColumnResize);
@@ -1784,8 +1627,9 @@ function doColumnResize(e) {
     const newNextWidth = columnResizeState.nextStartWidth - deltaX;
 
     if (newWidth >= 200 && newNextWidth >= 200) {
-        columnResizeState.currentColumn.style.flex = `0 0 ${newWidth}px`;
-        columnResizeState.nextColumn.style.flex = `0 0 ${newNextWidth}px`;
+        const layoutWidth = columnResizeState.currentColumn.parentElement.clientWidth;
+        columnResizeState.currentColumn.style.flex = `0 1 ${newWidth / layoutWidth * 100}%`;
+        columnResizeState.nextColumn.style.flex = `0 1 ${newNextWidth / layoutWidth * 100}%`;
         requestAnimationFrame(resizeAllCharts);
     }
 }
@@ -1864,18 +1708,17 @@ function exportJSON(timestamp) {
 function exportCharts() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const charts = [
-        { chart: speedChart, name: 'hiz-grafigi' },
-        { chart: speedometerChart, name: 'hiz-gostergesi' },
         { chart: fvChart, name: 'yakit-voltaj' },
         { chart: faChart, name: 'yakit-akim' },
         { chart: fwChart, name: 'yakit-watt' },
         { chart: ftempChart, name: 'yakit-sicaklik' },
-        { chart: batteryVCChart, name: 'batarya-voltaj-akim' },
+        { chart: bvChart, name: 'batarya-voltaj' },
+        { chart: bcChart, name: 'batarya-akim' },
+        { chart: bwChart, name: 'batarya-guc' },
         { chart: batteryTempChart, name: 'batarya-sicaklik' },
         { chart: jvChart, name: 'joule-voltaj' },
         { chart: jcChart, name: 'joule-akim' },
-        { chart: jwChart, name: 'joule-watt' },
-        { chart: jwhChart, name: 'joule-watt-saat' }
+        { chart: jwChart, name: 'joule-watt' }
     ];
 
     charts.forEach(({ chart, name }) => {
@@ -1906,7 +1749,6 @@ let animationFrameId = null;
 // Initialize everything when DOM is ready
 document.addEventListener('DOMContentLoaded', function () {
     initMap();
-    initSpeedometer();
     initCharts();
     initDragAndDrop();
     initCardResize();
@@ -1969,7 +1811,6 @@ function setupVisibilityHandler() {
 // Tüm Chart.js grafiklerini sıfırla (artık sadece gerektiğinde çağrılır)
 function resetAllCharts() {
     const chartInstances = [
-        'speedometerChart',
         'fvChart',
         'faChart',
         'fwChart',

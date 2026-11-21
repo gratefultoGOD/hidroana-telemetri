@@ -1,0 +1,79 @@
+{
+  "arac": "prototip",
+  "aciklama": "Mevcut kodda kabul edilen alanların sözlüğüdür; canlı ölçüm içermez. Ortak alanlar hem MQTT hem HTTP için geçerlidir.",
+  "ortak_alanlar": {
+    "h": "Araç hızı (km/h)",
+    "x": "Enlem (derece; mevcut harita kodunun kullandığı cihaz formatı)",
+    "y": "Boylam (derece; mevcut harita kodunun kullandığı cihaz formatı)",
+    "gs": "GSM sinyal seviyesi (ham değer)",
+    "fv": "Yakıt hücresi gerilimi (V)",
+    "fa": "Yakıt hücresi akımı (A)",
+    "fw": "Yakıt hücresi gücü (W)",
+    "fet": "Yakıt hücresi dış sıcaklığı (°C)",
+    "fit": "Yakıt hücresi iç sıcaklığı (°C)",
+    "bv": "Batarya gerilimi (V)",
+    "bc": "Batarya akımı (A)",
+    "bw": "Batarya gücü (W)",
+    "bwh": "Batarya enerji sayacı (Wh)",
+    "t1": "Batarya sıcaklığı 1 (°C)",
+    "t2": "Batarya sıcaklığı 2 (°C)",
+    "t3": "Batarya sıcaklığı 3 (°C)",
+    "soc": "Batarya doluluk oranı (%)",
+    "ke": "Kalan enerji (arayüzde kWh)",
+    "jv": "Joulmetre gerilimi (V)",
+    "jc": "Joulmetre akımı (A)",
+    "jw": "Joulmetre gücü (W)",
+    "jwh": "Joulmetre enerji sayacı (Wh)",
+    "mt": "Mesafe sayacı (m)",
+    "gx": "X ekseni açısal hızı (arayüzde °/s)",
+    "gy": "Y ekseni açısal hızı (arayüzde °/s)",
+    "gz": "Z ekseni açısal hızı (arayüzde °/s)",
+    "gsmspeed": "GSM modülünden gelen hız (km/h)",
+    "watt": "Süperkapasitör gücü (W)",
+    "ppm": "Gaz kaçağı sensörü değeri (ppm)",
+    "ax": "X ekseni ivmesi (arayüzde m/s²)",
+    "ay": "Y ekseni ivmesi (arayüzde m/s²)",
+    "az": "Z ekseni ivmesi (arayüzde m/s²)",
+    "flow": "Teorik anlık akış (L/dk)",
+    "totalflow": "Teorik toplam akış (L)",
+    "pitch": "Öne/arkaya eğim açısı (derece)",
+    "roll": "Yana yatış açısı (derece)",
+    "yaw": "Yön açısı (derece)",
+    "driver_pot": "Sürücü potansiyometresi değeri (alan adına göre; ölçek kodda belirtilmemiş)",
+    "direksiyon_angle": "Direksiyon açısı (birim kodda belirtilmemiş)"
+  },
+  "yalniz_http_alanlari": {
+    "gp": "GPS konum sabitleme durumu (GPS fix)",
+    "kz": "Kabul ediliyor; anlamı ve birimi kodda açıklanmamış",
+    "id": "Kimlik alanı (anlamı kodda detaylandırılmamış)"
+  },
+  "ayri_mqtt_flow_kaynagindan_eklenenler": {
+    "realInstantFlow": "Gerçek anlık akış (L/dk); eşleşme yoksa null",
+    "realTotalFlow": "Gerçek toplam akış (L); eşleşme yoksa null",
+    "hasRealFlow": "Gerçek akış kaydıyla eşleşme bulunup bulunmadığı (boolean)"
+  },
+  "sunucunun_ekledigi_alanlar": {
+    "date": "Veri alım tarihi (UTC, YYYY-MM-DD)",
+    "time": "Veri alım saati (sunucunun yerel saat dilimi, HH:mm:ss.SSS)",
+    "timestamp": "Veri alım zamanı (Unix, milisaniye)",
+    "receivedAt": "Veri alım zamanı (Unix, milisaniye)",
+    "dataCounter": "Sunucu çalışması boyunca alınan prototip telemetri paketi sayısı"
+  },
+  "notlar": [
+    "MQTT ana telemetri paketi 39 alan içerir. HTTP bu alanların tamamını aynı adla ve ayrıca gp, kz, id alanlarını kabul eder (toplam 42). Listeler her sensörün veri gönderdiğini göstermez.",
+    "MQTT yıldızla ayrılmış metni, HTTP ise GET /data sorgu parametrelerini alır. Ölçüm değerleri mevcut prototip alım kodunda sayıya dönüştürülmeden metin olarak taşınır; eksik alanlar null olabilir.",
+    "HTTP'ye özgü gp, kz ve id API/SSE nesnesinde bulunur; mevcut günlük CSV başlıklarında yer almaz.",
+    "Gerçek akış ayrı MQTT flow topic'inden gelir; ana telemetriye en fazla 5 saniyelik pencerede zaman eşleştirmesiyle eklenir. Bağımsız flow_update SSE mesajında ayrıca type ve flowTimestamp bulunur.",
+    "x/y için eski açıklamalar ve örnek MQTT yayıncısı ters eşleme içerir; bu sözlük güncel harita tüketimini (x=enlem, y=boylam) esas alır.",
+    "Test kaydında ayrıca test_time alanı eklenir."
+  ],
+  "kaynak_dosyalar": [
+    "src/config.js",
+    "src/routes/source.js",
+    "src/services/dataPipeline.js",
+    "src/services/dataSource.js",
+    "src/services/flow.js",
+    "app.js",
+    "3dview.html"
+  ]
+}

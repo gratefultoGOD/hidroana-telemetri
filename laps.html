@@ -840,6 +840,7 @@
             </div>
         </div>
         <div class="header-right">
+            <span id="vehicleBadge" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid rgba(255,107,157,0.3);color:#ff6b9d;background:rgba(255,107,157,0.12);white-space:nowrap;">🏎️ Proto</span>
             <span class="live-dot" id="connStatus">
                 <span class="dot connecting" id="connDot"></span>
                 <span id="connText">Bağlanıyor</span>
@@ -927,7 +928,7 @@
             <!-- Energy -->
             <div class="energy-section">
                 <div class="energy-card">
-                    <div class="energy-card-label">Joulmetre Watt</div>
+                    <div class="energy-card-label" id="jwCardLabel">Joulmetre Watt</div>
                     <div class="energy-card-value jwh-total" id="currentJw">—</div>
                     <div class="energy-card-unit">W (anlık)</div>
                 </div>
@@ -969,6 +970,7 @@
         // ══════════════════════════════════════════
         let currentUserRole = 'user';
         let isAdmin = false;
+        let currentVehicle = 'proto'; // Aktif araç: 'proto' | 'urban' — /api/settings'ten okunur
         let raceState = {
             active: false,
             startTime: null,
@@ -1040,11 +1042,40 @@
                     document.getElementById('nonAdminMsg').style.display = 'block';
                 }
 
+                // Aktif aracı öğren (URBAN/PROTO) — telemetri stream'i ve etiketler buna göre ayarlanır
+                await loadActiveVehicle();
+                applyVehicleUI();
+
                 // After auth, connect SSE streams
                 connectLapSSE();
                 connectTelemSSE();
             } catch(e) {
                 window.location.href = '/login';
+            }
+        }
+
+        // Aktif aracı sunucu ayarlarından oku (URBAN test/veri farklı stream kullanır)
+        async function loadActiveVehicle() {
+            try {
+                const res = await fetch('/api/settings');
+                if (res.ok) {
+                    const d = await res.json();
+                    if (d.vehicle === 'urban' || d.vehicle === 'proto') currentVehicle = d.vehicle;
+                }
+            } catch (e) { /* varsayılan proto */ }
+        }
+
+        // Araca göre etiket ve rozeti güncelle (Joulmetre ↔ Motor)
+        function applyVehicleUI() {
+            const isUrban = currentVehicle === 'urban';
+            const jwLabel = document.getElementById('jwCardLabel');
+            if (jwLabel) jwLabel.textContent = isUrban ? 'Motor Watt' : 'Joulmetre Watt';
+            const badge = document.getElementById('vehicleBadge');
+            if (badge) {
+                badge.textContent = isUrban ? '🚙 Urban' : '🏎️ Proto';
+                badge.style.color = isUrban ? '#43e97b' : '#ff6b9d';
+                badge.style.background = isUrban ? 'rgba(67,233,123,0.12)' : 'rgba(255,107,157,0.12)';
+                badge.style.borderColor = isUrban ? 'rgba(67,233,123,0.3)' : 'rgba(255,107,157,0.3)';
             }
         }
 
@@ -1120,7 +1151,9 @@
         // ══════════════════════════════════════════
         function connectTelemSSE() {
             if (telemSource) telemSource.close();
-            telemSource = new EventSource('/api/telemetry/stream');
+            // URBAN aktifse URBAN telemetri stream'i, değilse ana (PROTO) stream
+            const url = currentVehicle === 'urban' ? '/api/urban-telemetry/stream' : '/api/telemetry/stream';
+            telemSource = new EventSource(url);
 
             telemSource.onmessage = (event) => {
                 try {
@@ -1515,6 +1548,7 @@
                     const fNameJs = JSON.stringify(race.fileName).replace(/"/g, '&quot;');
                     const displayName = race.fileName.replace(/\.csv$/, '');
                     const adminActions = isAdmin ? `
+                        <button class="race-download-btn" onclick="downloadPastRace(${fNameJs})">📥 CSV İndir</button>
                         <button class="race-rename-btn" onclick="renameRace(${fNameJs})" title="Yeniden Adlandır">✏️ Yeniden Adlandır</button>
                         <button class="race-delete-btn" onclick="deleteRace(${fNameJs})" title="Sil">🗑️</button>
                     ` : '';
@@ -1542,9 +1576,6 @@
                                 </div>
                             </div>
                             <div class="race-card-actions">
-                                <button class="race-download-btn" onclick="downloadPastRace(${fNameJs})">
-                                    📥 CSV İndir
-                                </button>
                                 ${adminActions}
                             </div>
                         </div>`;

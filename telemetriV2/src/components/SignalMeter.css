@@ -1,0 +1,49 @@
+.signal-meter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.signal-meter__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 28px;
+}
+
+.signal-meter__bar {
+  width: 6px;
+  border-radius: 1px;
+  background: var(--border);
+}
+
+.signal-meter__bar.is-active {
+  background: var(--accent);
+}
+
+.signal-meter[data-zone='warning'] .signal-meter__bar.is-active {
+  background: var(--warning);
+}
+
+.signal-meter[data-zone='danger'] .signal-meter__bar.is-active {
+  background: var(--danger);
+}
+
+.signal-meter__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.signal-meter__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.signal-meter__level {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}

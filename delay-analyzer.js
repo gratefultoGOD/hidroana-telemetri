@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { listTestPaths, parseTestCsv } = require('./src/services/testArchive');
 
 // Ayarlar
 const TEST_DIR = path.join(__dirname, 'test_data');
@@ -143,25 +144,20 @@ function analyzeCSVFile(filePath, isTestFile = false) {
     }
 
     const content = fs.readFileSync(filePath, 'utf8');
-    // BOM karakterini temizle
-    const cleanContent = content.replace(/^\uFEFF/, '');
-    const lines = cleanContent.split('\n').filter(line => line.trim());
+    const { headers, telemetry } = parseTestCsv(content);
 
-    if (lines.length < 2) {
+    if (telemetry.length < 1) {
         console.log(colorize(`⚠️ Yeterli veri yok: ${path.basename(filePath)}`, 'yellow'));
         return null;
     }
 
-    const headers = lines[0].split(';').map(h => h.trim());
     const timeIndex = headers.indexOf('time');
     const testTimeIndex = headers.indexOf('test_time');
 
     // Zaman verilerini çıkar
     const timestamps = [];
 
-    for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(';');
-
+    for (const values of telemetry) {
         if (isTestFile && testTimeIndex !== -1) {
             // Test dosyası için test_time kullan
             const testTime = values[testTimeIndex]?.trim();
@@ -195,7 +191,7 @@ function analyzeCSVFile(filePath, isTestFile = false) {
 
     return {
         fileName: path.basename(filePath),
-        totalRecords: lines.length - 1,
+        totalRecords: telemetry.length,
         validDelays: delays.length,
         stats: calculateStats(delays),
         delays: delays
@@ -370,8 +366,11 @@ async function main() {
         } else if (fs.existsSync(path.join(DATA_DIR, fileName))) {
             filePath = path.join(DATA_DIR, fileName);
         } else {
-            console.log(colorize(`\n❌ Dosya bulunamadı: ${fileName}`, 'red'));
-            return;
+            filePath = (await listTestPaths(TEST_DIR)).find(file => file.fileName === fileName)?.filePath;
+            if (!filePath) {
+                console.log(colorize(`\n❌ Dosya bulunamadı: ${fileName}`, 'red'));
+                return;
+            }
         }
 
         const isTest = filePath.includes('test_') || filePath.includes(TEST_DIR);
@@ -396,7 +395,7 @@ async function main() {
         return;
     }
 
-    const testFiles = fs.readdirSync(TEST_DIR).filter(f => f.endsWith('.csv'));
+    const testFiles = await listTestPaths(TEST_DIR);
 
     if (testFiles.length === 0) {
         console.log(colorize('\n⚠️ Test dosyası bulunamadı.', 'yellow'));
@@ -408,8 +407,7 @@ async function main() {
     // Özet tablo
     const allResults = [];
 
-    testFiles.forEach(file => {
-        const filePath = path.join(TEST_DIR, file);
+    testFiles.forEach(({ filePath }) => {
         const result = analyzeCSVFile(filePath, true);
 
         if (result && result.stats) {

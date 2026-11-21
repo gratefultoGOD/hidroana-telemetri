@@ -1,0 +1,120 @@
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  /* Kadran boyutu ekran YÜKSEKLİĞİNE göre ölçeklenir: Windows'ta %125/%150
+     ölçeklemede viewport kısaldığında kadranlar da küçülür → sayfa sığar. */
+  --gauge-size: clamp(70px, 11.5vh, 148px);
+  width: var(--gauge-size);
+  max-width: 100%;
+}
+
+.gauge__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* İbre ve SVG boyutu aynı; yalnızca çift değer satırı sütun genişliğini kullanır. */
+.gauge.gauge--paired {
+  width: 100%;
+  min-width: 0;
+}
+
+.gauge--paired .gauge__svg {
+  width: var(--gauge-size);
+  max-width: 100%;
+}
+
+.gauge--paired .gauge__readout {
+  max-width: 100%;
+}
+
+/* Çift değerler de normal kadran yazı boyutunu kullanır. Dar sütunda
+   küçültmek yerine ayırıcıdaki boşluklardan satır kırılabilir. */
+.gauge--paired .gauge__value {
+  max-width: 100%;
+  text-align: center;
+}
+
+.gauge--paired .gauge__unit {
+  margin-left: 0.05rem;
+}
+
+.gauge--paired .gauge__label {
+  margin-top: 0.5rem;
+}
+
+.gauge__separator {
+  color: var(--text-muted);
+}
+
+.gauge__secondary {
+  color: var(--text);
+}
+
+.gauge__track {
+  stroke: var(--gauge-track);
+}
+
+.gauge__zone {
+  opacity: 0.5;
+}
+
+.gauge__zone--warning {
+  stroke: var(--gauge-warning);
+}
+
+.gauge__zone--danger {
+  stroke: var(--gauge-danger);
+}
+
+.gauge__tick {
+  stroke: var(--gauge-tick);
+  stroke-width: 2;
+}
+
+.gauge__needle {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: all 0.25s ease;
+}
+
+.gauge__hub {
+  fill: var(--gauge-hub);
+  stroke: var(--gauge-tick);
+  stroke-width: 2;
+}
+
+.gauge__readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -0.5rem;
+}
+
+.gauge__value {
+  font-size: clamp(0.8rem, 1.95vh, 1.3rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.25s ease;
+  line-height: 1.1;
+}
+
+.gauge__unit {
+  font-size: clamp(0.55rem, 1.2vh, 0.78rem);
+  font-weight: 400;
+  margin-left: 0.2rem;
+  color: var(--text-muted);
+}
+
+.gauge__label {
+  margin-top: 0.1rem;
+  font-size: clamp(0.5rem, 1.05vh, 0.72rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}

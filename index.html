@@ -1,377 +1,342 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hidroana Telemetri</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="styles.css">
+    <title>Prototip Araç Telemetrisi · Hidroana</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="/dashboard-assets/theme.css">
+    <link rel="stylesheet" href="/dashboard-assets/gauge.css">
+    <link rel="stylesheet" href="/dashboard-assets/test/test-ui.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <link rel="icon" type="image/x-icon" href="/logo.ico">
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>Hidroana Telemetri</h1>
-            <div class="status-indicators">
-                <span class="status-badge" id="mqttStatus">
-                    <span class="status-dot"></span>
-                    <span>Bağlanıyor...</span>
-                </span>
-                <span class="gsm-signal" id="gsmSignal" title="GSM Sinyal Kalitesi">
-                    <svg width="20" height="16" viewBox="0 0 20 16">
-                        <rect class="bar bar-1" x="0" y="12" width="4" height="4" />
-                        <rect class="bar bar-2" x="5" y="8" width="4" height="8" />
-                        <rect class="bar bar-3" x="10" y="4" width="4" height="12" />
-                        <rect class="bar bar-4" x="15" y="0" width="4" height="16" />
-                    </svg>
-                    <span id="gsmValue">--</span>
-                </span>
-                <span class="last-data-badge" id="lastDataBadge" title="Son alınan verinin tarihi ve saati">
-                    <span class="last-data-icon">Son veri: </span>
-                    <span id="lastDataTime">-- : --</span>
-                </span>
-            </div>
-            <span class="coordinate-container" id="coordinate-label">--</span>
-            <div class="user-info" id="userInfo">
-                <span id="username"></span>
-                <button class="logout-btn" onclick="logout()">Çıkış</button>
-            </div>
-            <!-- Dark / Light Mode Toggle -->
-            <div class="pull-cord-container" onclick="pullCordTheme()" title="Tema değiştir (Koyu / Açık)">
-                <div class="cord-string" id="cordString"></div>
-                <div class="cord-handle" id="cordHandle">
-                    <span id="themeIcon"
-                        style="font-size: 14px; display: block; text-align: center; line-height: 24px;">🌙</span>
+    <main class="container">
+        <div class="dashboard-overview">
+            <header class="dashboard-header">
+                <div class="dashboard-header__bar">
+                    <h1><span aria-hidden="true">⚡</span> Prototip Araç Telemetrisi</h1>
+                    <div class="status-indicators">
+                        <span class="status-badge" id="mqttStatus">
+                            <span class="status-dot" aria-hidden="true"></span>
+                            <span>Bağlanıyor...</span>
+                        </span>
+                        <span class="last-data-badge" title="Son alınan verinin tarihi ve saati">
+                            <span>Son veri</span>
+                            <strong id="lastDataTime">-- : --</strong>
+                        </span>
+                    </div>
+                    <div class="user-info">
+                        <span id="username"></span>
+                        <button class="control-btn" type="button" id="themeButton" onclick="toggleDashboardTheme()">
+                            <span id="themeIcon" aria-hidden="true">☀</span>
+                            <span id="themeLabel">Aydınlık</span>
+                        </button>
+                        <a class="control-btn" href="/settings" title="Araç ve protokol ayarları">⚙ Ayarlar</a>
+                        <button class="control-btn" type="button" onclick="logout()">Çıkış</button>
+                    </div>
                 </div>
-            </div>
-
-            <input type="checkbox" id="themeCheckbox" style="display:none;" onchange="toggleTheme(this.checked)">
-            <span id="themeLabel" style="display:none;">Koyu</span>
-            <div class="filter-buttons">
-                <button class="filter-btn active" data-category="all" onclick="toggleFilter('all', this)">Tümü</button>
-                <button class="filter-btn active" data-category="speed"
-                    onclick="toggleFilter('speed', this)">Hız</button>
-                <button class="filter-btn active" data-category="fuel" onclick="toggleFilter('fuel', this)">Yakıt
-                    Hücresi</button>
-                <button class="filter-btn active" data-category="battery"
-                    onclick="toggleFilter('battery', this)">Batarya</button>
-                <button class="filter-btn active" data-category="joule"
-                    onclick="toggleFilter('joule', this)">Joulmetre</button>
-                <button class="filter-btn" onclick="window.location.href='/fullmap'">Mobil Görünüm</button>
-
-            </div>
-            <div class="export-buttons">
-                <div class="source-toggle admin-only" id="sourceToggle" title="Veri Kaynağı" style="display:none;">
-                    <span class="source-label">Kaynak:</span>
-                    <button class="source-btn active" id="mqttBtn" onclick="switchSource('MQTT')">MQTT</button>
-                    <button class="source-btn" id="httpBtn" onclick="switchSource('HTTP')">HTTP</button>
+                <div class="dashboard-toolbar">
+                    <div class="filter-buttons" role="group" aria-label="Gösterge filtreleri">
+                        <button class="control-btn filter-btn active" data-category="all" aria-pressed="true" onclick="toggleFilter('all', this)">Tümü</button>
+                        <button class="control-btn filter-btn active" data-category="speed" aria-pressed="true" onclick="toggleFilter('speed', this)">Hız</button>
+                        <button class="control-btn filter-btn active" data-category="battery" aria-pressed="true" onclick="toggleFilter('battery', this)">Batarya</button>
+                        <button class="control-btn filter-btn active" data-category="fuel" aria-pressed="true" onclick="toggleFilter('fuel', this)">Yakıt Hücresi</button>
+                        <button class="control-btn filter-btn active" data-category="joule" aria-pressed="true" onclick="toggleFilter('joule', this)">Joulmetre</button>
+                    </div>
+                    <div class="source-toggle admin-only" id="sourceToggle" role="group" aria-label="Veri kaynağı" style="display:none;">
+                        <span class="source-label">Kaynak</span>
+                        <button class="control-btn source-btn active" id="mqttBtn" onclick="switchSource('MQTT')">MQTT</button>
+                        <button class="control-btn source-btn" id="httpBtn" onclick="switchSource('HTTP')">HTTP</button>
+                    </div>
+                    <div class="test-controls admin-only" id="testControls" style="display:none;">
+                        <button class="control-btn test-btn" id="testStartBtn" type="button" disabled>Test Başlat</button>
+                        <button class="control-btn test-btn test-pause-btn" id="testPauseBtn" type="button" style="display:none;">⏸ Duraklat</button>
+                        <button class="control-btn" id="testPauseNoteBtn" type="button" style="display:none;">Duraklama notu</button>
+                        <span class="test-timer" id="testTimer" style="display:none;">00:00:00</span>
+                        <span class="test-control-context" id="testVehicleName"></span>
+                        <span class="test-ui-error" id="testFeedback" role="alert"></span>
+                    </div>
                 </div>
-                <div class="test-controls admin-only" id="testControls" style="display:none;">
-                    <button class="test-btn" id="testStartBtn" onclick="toggleTest()"> Test Başlat</button>
-                    <button class="test-btn test-pause-btn" id="testPauseBtn" onclick="togglePauseTest()" style="display:none;">⏸ Duraklat</button>
-                    <span class="test-timer" id="testTimer" style="display:none;">00:00:00</span>
-                </div>
-                <button class="export-btn admin-only" id="testFilesBtn" onclick="showTestFilesModal()"
-                    title="Test kayıtlarını görüntüle" style="display:none;">
-                    Testler
-                </button>
-                <button class="export-btn admin-only" id="recordsBtn" onclick="showDaysModal()"
-                    title="Günlük kayıtları görüntüle" style="display:none;">
-                    📅 Kayıtlar
-                </button>
-                <button class="export-btn server-csv admin-only" id="downloadTodayBtn" onclick="downloadTodayCSV()"
-                    title="Bugünün verilerini CSV olarak indir" style="display:none;">
-                    📥 Bugün (<span id="dataCount">0</span>)
-                </button>
+                <nav class="dashboard-toolbar" aria-label="Telemetri sayfaları ve kayıtları">
+                    <a class="control-btn" href="#grafikler">Grafikler</a>
+                    <a class="control-btn" href="/fullmap">Mobil Görünüm</a>
+                    <a class="control-btn" href="/race">Yarış İzle</a>
+                    <a class="control-btn" href="/laps">Tur Takip</a>
+                    <a class="control-btn" href="/3dview" title="Aracı 3D haritada canlı izle">3D Görünüm</a>
+                    <a class="control-btn admin-only" href="/sectors" style="display:none;">Sektör Oluştur</a>
+                    <a class="control-btn admin-only" id="playPageBtn" href="/play" style="display:none;">Test Oynat</a>
+                    <button class="control-btn admin-only" id="testFilesBtn" type="button" style="display:none;">Testler</button>
+                    <button class="control-btn admin-only" id="recordsBtn" onclick="showDaysModal()" style="display:none;">Kayıtlar</button>
+                    <button class="control-btn admin-only" id="downloadTodayBtn" onclick="downloadTodayCSV()" title="Bugünün verilerini CSV olarak indir" style="display:none;">Bugün (<span id="dataCount">0</span>)</button>
+                    <button class="control-btn admin-only" id="tubitakFilesBtn" onclick="showTubitakModal()" style="display:none;">TÜBİTAK Kayıtları</button>
+                </nav>
+            </header>
 
-                <!-- <button class="export-btn admin-only" id="clearDataBtn" onclick="clearServerData()"
-                    title="Bugünün verilerini temizle" style="display:none;">🗑️</button> -->
-
-                <button class="export-btn admin-only" style="display: none;"
-                    onclick="window.location.href='/sectors'">🏁 Sektör Oluştur</button>
-                <button class="export-btn" onclick="window.location.href='/race'">🏎️
-                    Yarış İzle</button>
-                <button class="export-btn" onclick="window.location.href='/laps'">🏁
-                    Tur Takip</button>
-                <button class="export-btn" onclick="window.location.href='/3dview'"
-                    title="Aracı 3D Haritada Canlı İzle">🌍 3D Görünüm</button>
-                <button class="export-btn admin-only" id="playPageBtn" style="display:none;"
-                    onclick="window.location.href='/play'">🎥 Test Oynat</button>
-                <button class="export-btn admin-only" id="tubitakFilesBtn" onclick="showTubitakModal()"
-                    title="TÜBİTAK formatındaki kayıtları görüntüle" style="display:none;">
-                    📊 TÜBİTAK Kayıtları
-                </button>
-
-            </div>
-        </header>
-
-        <div class="main-content">
-            <!-- Left Column -->
-            <div class="left-charts">
-                <!-- Speedometer -->
-                <div class="stat-card speedometer-card collapsible speed-related" data-card-id="speedometer">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Anlık Hız</span></div>
-                        <div class="card-header-right"><span id="white-rabbit" class="toggle-icon"
-                                onclick="toggleCard(this)">−</span>
+            <div class="dashboard-columns" data-resizable-columns>
+                <div class="dashboard-column dashboard-column--route" data-card-column>
+                    <section class="stat-card speed-panel collapsible speed-related" data-card-id="speedometer">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">🚗</span>
+                            <h2>Araç Hızı</h2>
+                            <span id="white-rabbit" aria-hidden="true"></span>
+                            <button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Hız göstergesini aç veya kapat">−</button>
                         </div>
-                    </div>
-                    <div class="card-content">
-                        <canvas id="speedometer"></canvas>
-                        <div class="speed-value" id="speedValue">0 km/h</div>
-                        <div class="speed-value" id="gsmSpeedValue">GPS Speed: 0 km/h</div>
-                    </div>
+                        <div class="card-content speed-panel__body">
+                            <div class="gauge" data-gauge="h" data-label="Hız"></div>
+                            <div class="speed-panel__metric">
+                                <span>GSM Hızı</span>
+                                <strong id="gsmSpeedValue">-- km/h</strong>
+                            </div>
+                            <div class="speed-panel__metric">
+                                <span>GSM Sinyali</span>
+                                <strong class="gsm-signal" id="gsmSignal" title="GSM Sinyal Kalitesi">
+                                    <svg width="20" height="16" viewBox="0 0 20 16" aria-hidden="true">
+                                        <rect class="bar" x="0" y="12" width="4" height="4"/>
+                                        <rect class="bar" x="5" y="8" width="4" height="8"/>
+                                        <rect class="bar" x="10" y="4" width="4" height="12"/>
+                                        <rect class="bar" x="15" y="0" width="4" height="16"/>
+                                    </svg>
+                                    <span id="gsmValue">--</span>
+                                </strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="map-section" data-card-id="map">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">◈</span>
+                            <h2>Canlı Harita</h2>
+                            <span class="coordinate-container" id="coordinate-label">--</span>
+                        </div>
+                        <div id="map" class="map-view" aria-label="Aracın canlı konumu"></div>
+                    </section>
                 </div>
 
-                <!-- New Data Boxes -->
-                <div class="stats-row" style="margin-bottom: 8px;">
-                    <div class="mini-stat-card" style="padding: 10px;">
-                        <div class="mini-stat-icon">📏</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Metre</span>
-                            <span class="mini-stat-value" id="valMT" style="font-size: 14px;">--</span>
+                <div class="dashboard-column dashboard-column--gauges" data-card-column>
+                    <section class="stat-card gauge-panel battery-related" data-card-id="battery">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">🔋</span>
+                            <h2>Batarya</h2>
                         </div>
-                    </div>
-                    <div class="mini-stat-card" style="padding: 10px;">
-                        <div class="mini-stat-icon">⚡</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Supercap W</span>
-                            <span class="mini-stat-value" id="valWATT" style="font-size: 14px;">-- W</span>
+                        <div class="gauge-panel__dials">
+                            <div class="gauge" data-gauge="bv" data-label="Voltaj"></div>
+                            <div class="gauge" data-gauge="bc" data-label="Akım"></div>
+                            <div class="gauge" data-gauge="bw" data-label="Güç"></div>
                         </div>
-                    </div>
-                    <div class="mini-stat-card" style="padding: 10px;">
-                        <div class="mini-stat-icon">💨</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Kaçak</span>
-                            <span class="mini-stat-value" id="valPPM" style="font-size: 14px;">-- ppm</span>
+                        <dl class="panel-metrics">
+                            <div>
+                                <dt>SOC</dt>
+                                <dd id="socValue">--%</dd>
+                                <dd class="soc-bar" aria-hidden="true"><div class="soc-fill" id="socFill"></div></dd>
+                            </div>
+                            <div><dt>Kalan Enerji</dt><dd id="keValue">-- kWh</dd></div>
+                            <div><dt>Batarya Enerjisi</dt><dd id="bwhValue">-- Wh</dd></div>
+                        </dl>
+                    </section>
+
+                    <section class="stat-card gauge-panel fuel-related" data-card-id="fuel">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">⚗</span>
+                            <h2>Yakıt Hücresi</h2>
                         </div>
-                    </div>
+                        <div class="gauge-panel__dials">
+                            <div class="gauge" data-gauge="fv" data-label="Voltaj"></div>
+                            <div class="gauge" data-gauge="fa" data-label="Akım"></div>
+                            <div class="gauge" data-gauge="fw" data-label="Güç"></div>
+                        </div>
+                        <dl class="panel-metrics">
+                            <div><dt>Dış Sıcaklık</dt><dd id="fuelOuterTemp">-- °C</dd></div>
+                            <div><dt>İç Sıcaklık</dt><dd id="fuelInnerTemp">-- °C</dd></div>
+                        </dl>
+                    </section>
+
+                    <section class="stat-card gauge-panel joule-related" data-card-id="joule">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">◉</span>
+                            <h2>Joulmetre</h2>
+                        </div>
+                        <div class="gauge-panel__dials">
+                            <div class="gauge" data-gauge="jv" data-label="Voltaj"></div>
+                            <div class="gauge" data-gauge="jc" data-label="Akım"></div>
+                            <div class="gauge" data-gauge="jw" data-label="Güç"></div>
+                        </div>
+                        <dl class="panel-metrics">
+                            <div><dt>Joulmetre Enerjisi</dt><dd id="jwhValue">-- Wh</dd></div>
+                        </dl>
+                    </section>
                 </div>
 
-                <!-- Flow Veri Satırı -->
-                <div class="stats-row" style="margin-bottom: 8px; position: relative;">
-                    <!-- Teorik Flow (data topic'ten gelen flow + totalflow alanları) -->
-                    <div class="mini-stat-card" style="padding: 10px; position: relative;">
-                        <div class="mini-stat-icon">💧</div>
-                        <div class="mini-stat-content" style="gap: 2px;">
-                            <span class="mini-stat-label">Flow (Teorik)</span>
-                            <span class="mini-stat-value" id="valFLOW" style="font-size: 13px;">Anlık: --</span>
-                            <span style="font-size: 11px; color: #aaa; margin-top: 2px;" id="valTotalFLOW">Toplam:
-                                --</span>
+                <div class="dashboard-column dashboard-column--status" data-card-column>
+                    <section class="stat-card status-panel" data-card-id="status">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">◈</span>
+                            <h2>Araç Durumu</h2>
                         </div>
-                        <div
-                            style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #aaa; opacity: 0.7; letter-spacing: 0.5px;">
-                            TEORİK</div>
-                    </div>
-                    <!-- Gerçek Flow kartı — yalnızca flow topic'inden veri geliyorsa gösterilir -->
-                    <div class="mini-stat-card" id="realFlowCard"
-                        style="padding: 10px; display: none; position: relative; border: 1px solid rgba(78, 141, 247, 0.4); background: rgba(78, 141, 247, 0.08);">
-                        <div class="mini-stat-icon">🌊</div>
-                        <div class="mini-stat-content" style="gap: 2px;">
-                            <span class="mini-stat-label" style="color: #4e8df7;">Gerçek Flow</span>
-                            <span class="mini-stat-value" id="valRealInstantFlow"
-                                style="font-size: 13px; color: #4e8df7;">Anlık: --</span>
-                            <span style="font-size: 11px; color: #7eb8ff; margin-top: 2px;"
-                                id="valRealTotalFlow">Toplam: --</span>
-                        </div>
-                        <div
-                            style="position: absolute; top: 4px; right: 6px; font-size: 9px; color: #4e8df7; opacity: 0.7; letter-spacing: 0.5px;">
-                            CANLI</div>
-                    </div>
-                </div>
+                        <dl class="status-metrics">
+                            <div><dt>Mesafe</dt><dd id="valMT">-- m</dd></div>
+                            <div><dt>Süperkapasitör</dt><dd id="valWATT">-- W</dd></div>
+                            <div><dt>Hidrojen Kaçağı</dt><dd id="valPPM">-- ppm</dd></div>
+                        </dl>
+                    </section>
 
-                <!-- Fuel Cell Voltage -->
-                <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvCurrent"
-                                    class="current-val-label"></span> <span id="fvAvg" class="avg-label"></span></span>
+                    <section class="stat-card status-panel battery-related" data-card-id="battery-temperatures">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">🌡</span>
+                            <h2>Batarya Sıcaklıkları</h2>
                         </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="fvChart"></canvas></div>
-                </div>
-                <!-- Fuel Cell Current -->
-                <div class="chart-container collapsible fuel-related" data-card-id="fa-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faCurrent"
-                                    class="current-val-label"></span> <span id="faAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="faChart"></canvas></div>
-                </div>
-                <!-- Fuel Cell Watt -->
-                <div class="chart-container collapsible fuel-related" data-card-id="fw-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwCurrent"
-                                    class="current-val-label"></span> <span id="fwAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="fwChart"></canvas></div>
-                </div>
-                <!-- Fuel Cell Temperature -->
-                <div class="chart-container collapsible fuel-related" data-card-id="ftemp-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span
-                                    id="ftempCurrent" class="current-val-label"></span> <span id="ftempAvg"
-                                    class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="ftempChart"></canvas></div>
-                </div>
-            </div>
+                        <dl class="status-metrics">
+                            <div><dt>T1</dt><dd id="batteryTemp1">-- °C</dd></div>
+                            <div><dt>T2</dt><dd id="batteryTemp2">-- °C</dd></div>
+                            <div><dt>T3</dt><dd id="batteryTemp3">-- °C</dd></div>
+                        </dl>
+                    </section>
 
-            <!-- Center Section -->
-            <div class="center-section">
-                <div class="map-section" data-card-id="map">
-                    <div class="drag-handle">⋮⋮</div>
-                    <div id="map"></div>
+                    <section class="stat-card status-panel" data-card-id="flow">
+                        <div class="card-header">
+                            <span class="panel-icon" aria-hidden="true">💧</span>
+                            <h2>Hidrojen Akışı</h2>
+                        </div>
+                        <div class="flow-readout">
+                            <h3>Teorik Akış</h3>
+                            <span id="valFLOW">Anlık: --</span>
+                            <span id="valTotalFLOW">Toplam: --</span>
+                        </div>
+                        <div class="flow-readout" id="realFlowCard" style="display:none;">
+                            <h3>Gerçek Akış</h3>
+                            <span id="valRealInstantFlow">Anlık: --</span>
+                            <span id="valRealTotalFlow">Toplam: --</span>
+                        </div>
+                    </section>
                 </div>
-                <!-- Battery Stats -->
-                <div class="stats-row battery-related">
-                    <div class="mini-stat-card">
-                        <div class="mini-stat-icon">🔋</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">SOC</span>
-                            <span class="mini-stat-value" id="socValue">--%</span>
-                        </div>
-                        <div class="soc-bar">
-                            <div class="soc-fill" id="socFill"></div>
-                        </div>
-                    </div>
-                    <div class="mini-stat-card">
-                        <div class="mini-stat-icon">⚡</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Kalan Enerji</span>
-                            <span class="mini-stat-value" id="keValue">-- kWh</span>
-                        </div>
-                    </div>
-                    <div class="mini-stat-card">
-                        <div class="mini-stat-icon">🔌</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Batarya Güç</span>
-                            <span class="mini-stat-value" id="bwValue">-- W</span>
-                        </div>
-                    </div>
-                    <div class="mini-stat-card">
-                        <div class="mini-stat-icon">📊</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Batarya Wh</span>
-                            <span class="mini-stat-value" id="bwhValue">-- Wh</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- Removed SOC and KE charts as requested -->
-                <!-- Battery Power Chart -->
-                <div class="chart-container collapsible battery-related" data-card-id="bw-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwCurrent"
-                                    class="current-val-label"></span> <span id="bwAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="bwChart"></canvas></div>
-                </div>
-                <!-- Removed bwh chart as requested -->
-                <!-- Battery Voltage Chart -->
-                <div class="chart-container collapsible battery-related" data-card-id="bv-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Voltaj <span id="bvCurrent"
-                                    class="current-val-label"></span> <span id="bvAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="bvChart"></canvas></div>
-                </div>
-                <!-- Battery Current Chart -->
-                <div class="chart-container collapsible battery-related" data-card-id="bc-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Akım <span id="bcCurrent"
-                                    class="current-val-label"></span> <span id="bcAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="bcChart"></canvas></div>
-                </div>
-                <!-- Battery Temperature -->
-                <div class="chart-container collapsible battery-related" data-card-id="battery-temp-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3) <span
-                                    id="btempCurrent" class="current-val-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="batteryTempChart"></canvas></div>
-                </div>
-            </div>
-
-            <!-- Right Column -->
-            <div class="right-charts">
-                <!-- Joulemeter Stats -->
-                <div class="stats-row joule-related">
-                    <div class="mini-stat-card wide">
-                        <div class="mini-stat-icon">⚡</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Joulmetre Güç</span>
-                            <span class="mini-stat-value" id="jwValue">-- W</span>
-                        </div>
-                    </div>
-                    <div class="mini-stat-card wide">
-                        <div class="mini-stat-icon">📈</div>
-                        <div class="mini-stat-content">
-                            <span class="mini-stat-label">Joulmetre Wh</span>
-                            <span class="mini-stat-value" id="jwhValue">-- Wh</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- Joulemeter Voltage -->
-                <div class="chart-container collapsible joule-related" data-card-id="jv-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvCurrent"
-                                    class="current-val-label"></span> <span id="jvAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="jvChart"></canvas></div>
-                </div>
-                <!-- Joulemeter Current -->
-                <div class="chart-container collapsible joule-related" data-card-id="jc-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcCurrent"
-                                    class="current-val-label"></span> <span id="jcAvg" class="avg-label"></span></span>
-                        </div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="jcChart"></canvas></div>
-                </div>
-                <!-- Joulemeter Watt -->
-                <div class="chart-container collapsible joule-related" data-card-id="jw-chart">
-                    <div class="card-header">
-                        <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwCurrent"
-                                    class="current-val-label"></span> <span id="jwAvgLabel"
-                                    class="avg-label"></span></span></div>
-                        <div class="card-header-right"><span class="toggle-icon" onclick="toggleCard(this)">−</span>
-                        </div>
-                    </div>
-                    <div class="card-content"><canvas id="jwChart"></canvas></div>
-                </div>
-                <!-- Removed jwh chart as requested -->
             </div>
         </div>
-    </div>
+
+        <section class="chart-history" id="grafikler" aria-labelledby="chartHistoryTitle">
+            <h2 id="chartHistoryTitle">Canlı Grafikler</h2>
+            <div class="chart-columns" data-resizable-columns>
+                <div class="history-column" data-card-column>
+                    <div class="chart-container collapsible fuel-related" data-card-id="fv-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Yakıt Hücresi Voltaj <span id="fvCurrent"
+                                        class="current-val-label"></span> <span id="fvAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="fvChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible fuel-related" data-card-id="fa-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Yakıt Hücresi Akım <span id="faCurrent"
+                                        class="current-val-label"></span> <span id="faAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="faChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible fuel-related" data-card-id="fw-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Yakıt Hücresi Watt <span id="fwCurrent"
+                                        class="current-val-label"></span> <span id="fwAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="fwChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible fuel-related" data-card-id="ftemp-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Yakıt Hücresi Sıcaklık <span
+                                        id="ftempCurrent" class="current-val-label"></span> <span id="ftempAvg"
+                                        class="avg-label"></span></span></div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="ftempChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="history-column" data-card-column>
+                    <div class="chart-container collapsible battery-related" data-card-id="bw-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Batarya Güç <span id="bwCurrent"
+                                        class="current-val-label"></span> <span id="bwAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="bwChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible battery-related" data-card-id="bv-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Batarya Voltaj <span id="bvCurrent"
+                                        class="current-val-label"></span> <span id="bvAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="bvChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible battery-related" data-card-id="bc-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Batarya Akım <span id="bcCurrent"
+                                        class="current-val-label"></span> <span id="bcAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="bcChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible battery-related" data-card-id="battery-temp-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Batarya Sıcaklıkları (T1, T2, T3) <span
+                                        id="btempCurrent" class="current-val-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="batteryTempChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="history-column" data-card-column>
+                    <div class="chart-container collapsible joule-related" data-card-id="jv-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Joulmetre Voltaj <span id="jvCurrent"
+                                        class="current-val-label"></span> <span id="jvAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="jvChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible joule-related" data-card-id="jc-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Joulmetre Akım <span id="jcCurrent"
+                                        class="current-val-label"></span> <span id="jcAvg" class="avg-label"></span></span>
+                            </div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="jcChart"></canvas></div>
+                    </div>
+                    <div class="chart-container collapsible joule-related" data-card-id="jw-chart">
+                        <div class="card-header">
+                            <div class="card-header-left"><span class="card-title">Joulmetre Watt <span id="jwCurrent"
+                                        class="current-val-label"></span> <span id="jwAvgLabel"
+                                        class="avg-label"></span></span></div>
+                            <div class="card-header-right"><button class="toggle-icon" type="button" onclick="toggleCard(this)" aria-expanded="true" aria-label="Grafiği aç veya kapat">−</button>
+                            </div>
+                        </div>
+                        <div class="card-content"><canvas id="jwChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- <script src='//api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js'></script> -->
@@ -398,24 +363,6 @@
         </div>
     </div>
 
-    <!-- Test Dosyaları Modal -->
-    <div id="testFilesModal" class="modal" style="display:none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Test Kayıtları</h2>
-                <span class="modal-close" onclick="closeTestFilesModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="testFilesList" class="days-list">
-                    <p>Yükleniyor...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="modal-btn secondary" onclick="closeTestFilesModal()">Kapat</button>
-            </div>
-        </div>
-    </div>
-
     <!-- TÜBİTAK Kayıtları Modal -->
     <div id="tubitakModal" class="modal" style="display:none;">
         <div class="modal-content">
@@ -424,9 +371,9 @@
                 <span class="modal-close" onclick="closeTubitakModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <p style="color:#aaa;font-size:12px;margin-bottom:12px;">TÜBİTAK'a sunulmak üzere hazırlanan format:
+                <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">TÜBİTAK'a sunulmak üzere hazırlanan format:
                     <code
-                        style="color:#43e97b;">zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh;</code><br>Her
+                        style="color:var(--success);">zaman_ms;hiz_kmh;T_bat_C;T_tank_C;V_bat_V;kalan_enerji_Wh;</code><br>Her
                     server başlatılmasında yeni bir eşsiz dosya oluşturulur. Kayıtlar arasında en fazla 5 saniye fark
                     vardır.
                 </p>
@@ -441,7 +388,7 @@
     </div>
 
     <!-- Kaçak Alarm Popup -->
-    <div id="leakAlarmPopup" class="leak-alarm-popup">
+    <div id="leakAlarmPopup" class="leak-alarm-popup" role="alert">
         <div class="leak-alarm-popup-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -455,7 +402,7 @@
             <div class="leak-alarm-popup-title">Hidrojen Kaçağı</div>
             <div class="leak-alarm-popup-text">PPM Seviyesi: <span id="alarmPpmValue">--</span></div>
         </div>
-        <button class="leak-alarm-popup-close" onclick="closeLeakAlarm()">×</button>
+        <button class="leak-alarm-popup-close" aria-label="Kaçak uyarısını kapat" onclick="closeLeakAlarm()">×</button>
     </div>
 
     <style>
@@ -473,7 +420,7 @@
         }
 
         .modal-content {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: var(--surface);
             border-radius: 12px;
             width: fit-content;
             min-width: min(600px, 90vw);
@@ -481,7 +428,7 @@
             max-height: 80vh;
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
         }
@@ -491,24 +438,24 @@
             justify-content: space-between;
             align-items: center;
             padding: 16px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid var(--border);
         }
 
         .modal-header h2 {
             margin: 0;
-            color: #fff;
+            color: var(--text);
             font-size: 18px;
         }
 
         .modal-close {
-            color: #aaa;
+            color: var(--text-muted);
             font-size: 28px;
             cursor: pointer;
             line-height: 1;
         }
 
         .modal-close:hover {
-            color: #fff;
+            color: var(--text);
         }
 
         .modal-body {
@@ -520,10 +467,11 @@
 
         .modal-footer {
             padding: 16px 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid var(--border);
             display: flex;
             gap: 10px;
             justify-content: flex-end;
+            flex-wrap: wrap;
         }
 
         .modal-btn {
@@ -532,12 +480,13 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--accent);
             color: white;
         }
 
         .modal-btn.secondary {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--surface-raised);
+            color: var(--text);
         }
 
         .modal-btn:hover {
@@ -555,15 +504,15 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--bg);
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border);
             gap: 15px;
             min-width: max-content;
         }
 
         .day-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--surface-raised);
         }
 
         .day-info {
@@ -573,15 +522,36 @@
         }
 
         .day-date {
-            color: #fff;
+            color: var(--text);
             font-weight: 600;
             font-size: 15px;
             white-space: nowrap;
         }
 
         .day-stats {
-            color: #aaa;
+            color: var(--text-muted);
             font-size: 12px;
+        }
+
+        .vehicle-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .vehicle-badge--proto {
+            background: rgba(102, 126, 234, 0.18);
+            color: #a5b1ff;
+        }
+
+        .vehicle-badge--urban {
+            background: rgba(40, 167, 69, 0.18);
+            color: #6bdb8a;
         }
 
         .day-actions {
@@ -621,78 +591,8 @@
 
         .no-data {
             text-align: center;
-            color: #aaa;
+            color: var(--text-muted);
             padding: 40px;
-        }
-
-        /* Test Controls */
-        .test-controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .test-btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: #1a1a2e;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .test-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
-        }
-
-        .test-btn.active {
-            background: linear-gradient(135deg, #ff4444 0%, #ff6b6b 100%);
-            color: white;
-            animation: pulse 1.5s infinite;
-        }
-
-        .test-pause-btn {
-            background: linear-gradient(135deg, #feca57 0%, #ff9f43 100%) !important;
-            color: #1a1a2e !important;
-            animation: none !important;
-        }
-
-        .test-pause-btn.resumed {
-            background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%) !important;
-            color: #1a1a2e !important;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4);
-            }
-
-            50% {
-                box-shadow: 0 0 0 10px rgba(255, 68, 68, 0);
-            }
-        }
-
-        .test-timer {
-            font-family: 'Courier New', monospace;
-            font-size: 16px;
-            font-weight: bold;
-            color: #43e97b;
-            background: rgba(67, 233, 123, 0.1);
-            padding: 6px 12px;
-            border-radius: 6px;
-            border: 1px solid rgba(67, 233, 123, 0.3);
-        }
-
-        .test-timer.active {
-            color: #ff4444;
-            background: rgba(255, 68, 68, 0.1);
-            border-color: rgba(255, 68, 68, 0.3);
         }
     </style>
 
@@ -863,272 +763,6 @@
         setInterval(updateDataCount, 5000);
         updateDataCount();
 
-        // Test modu değişkenleri
-        let testActive = false;
-        let testPaused = false;
-        let testTimerInterval = null;
-        let testStartTime = null;
-        let testPausedElapsed = 0;  // İstemci tarafında duraklatma hesabı için
-
-        // Test başlat/durdur
-        function toggleTest() {
-            if (testActive) {
-                stopTest();
-            } else {
-                startTest();
-            }
-        }
-
-        function startTest() {
-            fetch('/api/test/start', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testActive = true;
-                        testPaused = false;
-                        testPausedElapsed = 0;
-                        testStartTime = Date.now();
-                        updateTestUI(true, false);
-                        startTestTimer();
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test başlatılamadı'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function stopTest() {
-            fetch('/api/test/stop', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testActive = false;
-                        testPaused = false;
-                        testPausedElapsed = 0;
-                        stopTestTimer();
-                        updateTestUI(false, false);
-                        alert(`Test tamamlandı!\n\nDosya: ${data.testName}\nSüre: ${data.duration}\nVeri sayısı: ${data.dataCount}`);
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test durdurulamadı'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        // Duraklat / Devam Et toggle
-        function togglePauseTest() {
-            if (!testActive) return;
-            if (testPaused) {
-                resumeTest();
-            } else {
-                pauseTest();
-            }
-        }
-
-        function pauseTest() {
-            fetch('/api/test/pause', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testPaused = true;
-                        // Sayacı durdur
-                        stopTestTimer();
-                        updateTestUI(true, true);
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test duraklatılamadı'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function resumeTest() {
-            fetch('/api/test/resume', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testPaused = false;
-                        // Duraklatılan süreyi güncelleyerek sayacı devam ettir
-                        // Sunucudan gerçek elapsed çek ve güncelle
-                        fetch('/api/test/status')
-                            .then(r => r.json())
-                            .then(st => {
-                                if (st.active && !st.paused) {
-                                    testStartTime = Date.now() - st.elapsed;
-                                    updateTestUI(true, false);
-                                    startTestTimer();
-                                }
-                            });
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test devam ettirilemedi'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function updateTestUI(active, paused) {
-            const btn = document.getElementById('testStartBtn');
-            const pauseBtn = document.getElementById('testPauseBtn');
-            const timer = document.getElementById('testTimer');
-
-            if (active) {
-                btn.textContent = '⏹️ Test Durdur';
-                btn.classList.add('active');
-                timer.style.display = 'inline-block';
-                timer.classList.add('active');
-                // Duraklat butonu göster
-                pauseBtn.style.display = 'inline-block';
-                if (paused) {
-                    pauseBtn.textContent = '▶️ Devam Et';
-                    pauseBtn.classList.add('resumed');
-                    timer.classList.add('paused-style');
-                } else {
-                    pauseBtn.textContent = '⏸ Duraklat';
-                    pauseBtn.classList.remove('resumed');
-                    timer.classList.remove('paused-style');
-                }
-            } else {
-                btn.textContent = ' Test Başlat';
-                btn.classList.remove('active');
-                timer.style.display = 'none';
-                timer.classList.remove('active');
-                timer.classList.remove('paused-style');
-                timer.textContent = '00:00:00';
-                pauseBtn.style.display = 'none';
-                pauseBtn.classList.remove('resumed');
-            }
-        }
-
-        function startTestTimer() {
-            testTimerInterval = setInterval(() => {
-                const elapsed = Date.now() - testStartTime;
-                document.getElementById('testTimer').textContent = formatTime(elapsed);
-            }, 100);
-        }
-
-        function stopTestTimer() {
-            if (testTimerInterval) {
-                clearInterval(testTimerInterval);
-                testTimerInterval = null;
-            }
-        }
-
-        function formatTime(ms) {
-            const hours = Math.floor(ms / 3600000);
-            const minutes = Math.floor((ms % 3600000) / 60000);
-            const seconds = Math.floor((ms % 60000) / 1000);
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        // Sayfa yüklendiginde test durumunu kontrol et
-        function checkTestStatus() {
-            fetch('/api/test/status')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.active) {
-                        testActive = true;
-                        testPaused = data.paused || false;
-                        testStartTime = Date.now() - data.elapsed;
-                        updateTestUI(true, testPaused);
-                        if (!testPaused) {
-                            startTestTimer();
-                        }
-                    }
-                })
-                .catch(() => { });
-        }
-        checkTestStatus();
-
-        // Test dosyaları modalı
-        function showTestFilesModal() {
-            document.getElementById('testFilesModal').style.display = 'flex';
-            loadTestFilesList();
-        }
-
-        function closeTestFilesModal() {
-            document.getElementById('testFilesModal').style.display = 'none';
-        }
-
-        function loadTestFilesList() {
-            const listEl = document.getElementById('testFilesList');
-            listEl.innerHTML = '<p style="color:#aaa;text-align:center;">Yükleniyor...</p>';
-
-            fetch('/api/test/files')
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.files || data.files.length === 0) {
-                        listEl.innerHTML = '<div class="no-data">Henüz test kaydı yok</div>';
-                        return;
-                    }
-
-                    listEl.innerHTML = data.files.map(file => `
-                        <div class="day-item">
-                            <div class="day-info">
-                                <span class="day-date"> ${file.fileName.replace('.csv', '')}</span>
-                                <span class="day-stats">${file.dataCount} kayıt • ${formatFileSize(file.fileSize)}</span>
-                            </div>
-                            <div class="day-actions">
-                                <button class="day-btn rename" onclick="renameTestFile('${file.fileName}')" title="Yeniden Adlandır">✏️</button>
-                                <button class="day-btn" onclick="downloadTestFile('${file.fileName}')" title="CSV olarak indir">📥 CSV</button>
-                                <button class="day-btn xlsx" onclick="downloadTestFileXLSX('${file.fileName}')" title="Excel olarak indir">📊 Excel</button>
-                                <button class="day-btn delete" onclick="deleteTestFile('${file.fileName}', '${file.date} ${file.time}')">🗑️</button>
-                            </div>
-                        </div>
-                    `).join('');
-                })
-                .catch(err => {
-                    listEl.innerHTML = '<div class="no-data">❌ Yüklenirken hata oluştu</div>';
-                });
-        }
-
-        function downloadTestFile(fileName) {
-            window.location.href = '/api/test/download/' + encodeURIComponent(fileName);
-        }
-
-        function downloadTestFileXLSX(fileName) {
-            window.location.href = '/api/test/download-xlsx/' + encodeURIComponent(fileName);
-        }
-
-        function renameTestFile(fileName) {
-            // Mevcut dosya adını göster (.csv uzantısını kaldır)
-            const currentName = fileName.replace('.csv', '');
-            const newName = prompt('Yeni dosya adını girin:', currentName);
-
-            if (newName === null || newName.trim() === '') {
-                return; // İptal edildi veya boş bırakıldı
-            }
-
-            fetch('/api/test/rename/' + encodeURIComponent(fileName), {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newName: newName.trim() })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        loadTestFilesList();
-                        alert(`Dosya adı değiştirildi:\n${data.newName}`);
-                    } else {
-                        alert('Hata: ' + data.error);
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function deleteTestFile(fileName, dateTime) {
-            if (confirm(`${dateTime} tarihli test silinecek. Emin misiniz?`)) {
-                fetch('/api/test/delete/' + encodeURIComponent(fileName), { method: 'DELETE' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            loadTestFilesList();
-                        } else {
-                            alert('Hata: ' + data.error);
-                        }
-                    })
-                    .catch(err => alert('Hata: ' + err.message));
-            }
-        }
-
         // TÜBİTAK kayıtları modalı
         function showTubitakModal() {
             document.getElementById('tubitakModal').style.display = 'flex';
@@ -1234,12 +868,10 @@
             if (!dot || !text) return;
 
             if (data.connected) {
-                dot.style.background = '#43e97b';
                 text.textContent = 'Bağlı';
                 statusEl.classList.add('connected');
                 statusEl.classList.remove('disconnected');
             } else {
-                dot.style.background = '#ff4444';
                 text.textContent = 'Bağlantı Yok';
                 statusEl.classList.remove('connected');
                 statusEl.classList.add('disconnected');
@@ -1251,7 +883,42 @@
         setInterval(checkCurrentSource, 2000);
     </script>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
+    <script type="module">
+        import { createTestControls } from '/dashboard-assets/test/test-controls.mjs';
+        import { openTestRecords } from '/dashboard-assets/test/test-records.mjs';
+
+        const start = document.getElementById('testStartBtn');
+        const pause = document.getElementById('testPauseBtn');
+        const note = document.getElementById('testPauseNoteBtn');
+        const timer = document.getElementById('testTimer');
+        const vehicle = document.getElementById('testVehicleName');
+        const feedback = document.getElementById('testFeedback');
+        let testActive = false;
+        const controls = createTestControls('proto', ({ active, paused, elapsed, busy, error, vehicleName }) => {
+            testActive = active;
+            start.textContent = active ? '⏹️ Test Durdur' : 'Test Başlat';
+            start.classList.toggle('active', active);
+            pause.textContent = paused ? '▶️ Devam Et' : '⏸ Duraklat';
+            pause.style.display = active ? '' : 'none';
+            note.style.display = paused ? '' : 'none';
+            timer.style.display = active ? '' : 'none';
+            timer.classList.toggle('active', active);
+            timer.classList.toggle('paused-style', paused);
+            timer.textContent = elapsed;
+            vehicle.textContent = vehicleName;
+            feedback.textContent = error;
+            start.disabled = pause.disabled = note.disabled = busy;
+        });
+        start.addEventListener('click', () => testActive ? controls.stop() : controls.start());
+        pause.addEventListener('click', controls.togglePause);
+        note.addEventListener('click', () => controls.editPauseNote());
+        document.getElementById('testFilesBtn').addEventListener('click', openTestRecords);
+    </script>
+    <script type="module">
+        import { createGaugeScale, getGaugeReading } from '/dashboard-assets/gauge-geometry.mjs';
+        initDashboardGauges(createGaugeScale, getGaugeReading);
+    </script>
 
     <!-- ========== EASTER EGG – Palyaço 🤡 ========== -->
     <div id="easterEggClown" class="easter-egg-clown">
