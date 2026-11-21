@@ -50,6 +50,7 @@ router.get('/3dview', requireAuth, servePage('3dview.html'));
 router.get('/dashboard-assets/theme.css', requireAuth, servePage('telemetriV2/src/index.css'));
 router.get('/dashboard-assets/gauge.css', requireAuth, servePage('telemetriV2/src/components/GaugeDial.css'));
 router.get('/dashboard-assets/gauge-geometry.mjs', requireAuth, servePage('telemetriV2/src/components/gaugeGeometry.mjs'));
+router.use('/dashboard-assets/test', requireAuth, express.static(path.join(ROOT_DIR, 'telemetriV2/src/test'), { index: false }));
 
 router.get('/urban', requireAuth, (req, res, next) => {
     if (!readVehicleCookie(req)) return res.redirect('/settings');

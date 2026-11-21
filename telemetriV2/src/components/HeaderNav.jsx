@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import RecordsModal from './RecordsModal'
+import { openTestRecords } from '../test/test-records.mjs'
 import './HeaderNav.css'
 
 // Urban panelinde yalnızca bu araçta kullanılan izleme sayfaları bulunur.
@@ -14,7 +15,7 @@ const NAV = [
 export default function HeaderNav() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
-  const [modal, setModal] = useState(null) // 'test' | 'daily' | 'tubitak' | null
+  const [modal, setModal] = useState(null) // 'daily' | 'tubitak' | null
 
   useEffect(() => {
     fetch('/api/auth/check', { credentials: 'same-origin' })
@@ -40,7 +41,7 @@ export default function HeaderNav() {
       {/* Kayıt modalları yalnızca admin (indirme/silme içerir) */}
       {isAdmin && (
         <>
-          <button className="header-nav__btn" onClick={() => setModal('test')}>🧪 Testler</button>
+          <button className="header-nav__btn" onClick={openTestRecords}>🧪 Testler</button>
           <button className="header-nav__btn" onClick={() => setModal('daily')}>📅 Kayıtlar</button>
           <button className="header-nav__btn" onClick={() => setModal('tubitak')}>📊 TÜBİTAK</button>
         </>

@@ -7,6 +7,7 @@
     <title>Test Oynatıcı — Hidroana Telemetri</title>
     <link rel="icon" type="image/x-icon" href="/logo.ico">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/dashboard-assets/test/test-ui.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
@@ -118,12 +119,29 @@
             padding: 7px 12px;
             font-size: 13px;
             min-width: 220px;
+            max-width: min(43vw, 520px);
             cursor: pointer;
             outline: none;
         }
 
         .file-selector select:focus {
             border-color: var(--primary);
+        }
+
+        .play-test-filters {
+            flex-basis: 100%;
+        }
+
+        .play-test-filters summary {
+            width: fit-content;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .play-test-filters .test-filters {
+            max-width: 52rem;
+            margin: 0.6rem 0 0;
         }
 
         .header-right {
@@ -603,6 +621,10 @@
             white-space: nowrap;
         }
 
+        .vehicle-badge[hidden] {
+            display: none;
+        }
+
         .vehicle-badge--proto {
             color: #ff6b9d;
             background: rgba(255, 107, 157, 0.12);
@@ -730,6 +752,7 @@
             .file-selector select {
                 width: 100%;
                 min-width: unset;
+                max-width: none;
             }
 
             .header-right {
@@ -865,14 +888,14 @@
             <div class="header-left">
                 <a href="/" class="back-link">← Ana Sayfa</a>
                 <h1>🎬 Test Oynatıcı</h1>
-                <span id="vehicleBadge" class="vehicle-badge vehicle-badge--proto">🏎️ Proto</span>
+                <span id="vehicleBadge" class="vehicle-badge vehicle-badge--proto" hidden></span>
                 <div id="playingBadge" style="display:none;" class="playing-badge">
                     <span class="dot"></span>OYNATILIYOR
                 </div>
             </div>
 
             <div class="file-selector">
-                <select id="fileSelect" onchange="loadSelectedFile()">
+                <select id="fileSelect" onchange="loadSelectedFile()" aria-label="Test kaydı">
                     <option value="">Yükleniyor...</option>
                 </select>
                 <span id="loadingIndicator" style="font-size:12px;color:var(--text-muted);display:none;">⏳
@@ -887,6 +910,10 @@
                     <span id="header-gs" style="font-size:14px;font-weight:700;color:#a0c4ff;">--</span>
                 </div>
             </div>
+            <details id="playTestFilterPanel" class="play-test-filters" hidden>
+                <summary>Test filtreleri</summary>
+                <div id="playTestFilters" class="test-filters"></div>
+            </details>
         </div>
 
         <!-- MAIN -->
@@ -1277,7 +1304,7 @@
 
     <script>
         // =============================================
-        // AUTH CHECK — Admin only
+        // AUTH CHECK
         // =============================================
         fetch('/api/auth/check')
             .then(r => r.json())
@@ -1343,6 +1370,7 @@
         let playbackTimeout = null;
         let lastBearing = 0;
         let currentVehicle = 'proto'; // Yüklenen test dosyasının aracı: 'proto' | 'urban'
+        let fileLoad;
 
         const MAX_CHART_POINTS = 10;
 
@@ -1444,58 +1472,84 @@
             sel.disabled = true;
             ind.style.display = '';
             try {
-                const res = await fetch('/api/test/files');
-                if (!res.ok) throw new Error('Listelenemedi: ' + res.status);
-                const data = await res.json();
-                sel.innerHTML = '';
-                if (!data.files || data.files.length === 0) {
-                    sel.innerHTML = '<option value="">Test dosyası bulunamadı</option>';
-                    return;
-                }
-                // En son dosya başta (API zaten tarihe göre sıralar)
-                data.files.forEach((f, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = f.fileName;
-                    opt.dataset.vehicle = f.vehicle;
-                    opt.textContent = `${f.fileName}  (${f.dataCount} satır, ${f.date} ${f.time})`;
-                    sel.appendChild(opt);
+                const [{ mountTestFilters, groupTestRecords }, { testFileUrl, testRequest }] = await Promise.all([
+                    import('/dashboard-assets/test/test-records.mjs'), import('/dashboard-assets/test/test-api.mjs')
+                ]);
+                const { files } = await testRequest('/api/test/files');
+                const playable = files.filter(file => file.dataCount > 0);
+                const filterPanel = document.getElementById('playTestFilterPanel');
+                filterPanel.hidden = !playable.length;
+                let initial = true;
+                const setFiles = mountTestFilters(document.getElementById('playTestFilters'), (matching, total) => {
+                    const previous = sel.value;
+                    const options = [new Option(matching.length ? 'Test seçin' : total ? 'Filtrelere uyan test yok' : 'Oynatılabilir test yok', '')];
+                    for (const [year, records] of groupTestRecords(matching)) {
+                        const group = document.createElement('optgroup');
+                        group.label = year;
+                        for (const record of records) {
+                            const label = `${record.fileName.replace(/\.csv$/, '')} (${record.dataCount} satır)`;
+                            const option = new Option(label, testFileUrl('content', record));
+                            option.dataset.vehicle = record.vehicle;
+                            group.append(option);
+                        }
+                        options.push(group);
+                    }
+                    sel.replaceChildren(...options);
+                    sel.disabled = !matching.length;
+                    sel.value = previous;
+                    if (initial && matching.length) sel.selectedIndex = 1;
+                    else if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+                    if (initial || sel.value !== previous) void loadSelectedFile();
+                    initial = false;
                 });
-                // İlk (en son) dosyayı otomatik seç ve yükle
-                sel.selectedIndex = 0;
-                await loadSelectedFile();
+                setFiles(playable);
             } catch (e) {
-                sel.innerHTML = '<option value="">❌ Listelenemedi</option>';
+                sel.replaceChildren(new Option('Testler listelenemedi', ''));
                 console.error(e);
             } finally {
-                sel.disabled = false;
-                ind.style.display = 'none';
+                if (!fileLoad) ind.style.display = 'none';
             }
         }
 
         async function loadSelectedFile() {
             const sel = document.getElementById('fileSelect');
-            const fileName = sel.value;
-            if (!fileName) return;
-            // Araç türü API tarafından CSV başlıklarından belirlenir; yeniden
-            // adlandırma dosyanın Urban/Proto türünü değiştirmez.
-            const selectedVehicle = sel.options[sel.selectedIndex]?.dataset.vehicle;
-            currentVehicle = selectedVehicle === 'urban' || selectedVehicle === 'proto'
-                ? selectedVehicle
-                : (fileName.startsWith('test_urban_') ? 'urban' : 'proto');
             const ind = document.getElementById('loadingIndicator');
+            fileLoad?.abort();
+            fileLoad = null;
+            fileData = [];
+            resetPlayer(false);
+            document.getElementById('dataMeta').textContent = '';
+            document.getElementById('vehicleBadge').hidden = true;
+            document.getElementById('chartsGroup').style.display = 'none';
+            document.getElementById('emptyState').style.display = '';
+            for (const layer of [trackPolyline, visitedPolyline, vehicleMarker]) layer?.remove();
+            trackPolyline = visitedPolyline = vehicleMarker = null;
+            if (!sel.value) {
+                ind.style.display = 'none';
+                return;
+            }
+
+            const request = new AbortController();
+            fileLoad = request;
+            const selectedVehicle = sel.selectedOptions[0]?.dataset.vehicle;
             ind.style.display = '';
             try {
-                const res = await fetch('/api/test/content/' + encodeURIComponent(fileName));
+                const res = await fetch(sel.value, { signal: request.signal });
                 if (!res.ok) throw new Error('İndirilemedi: ' + res.status);
                 const text = await res.text();
+                if (request.signal.aborted) return;
+                currentVehicle = selectedVehicle === 'urban' ? 'urban' : 'proto';
                 fileData = parseCSV(text);
                 if (currentVehicle === 'urban') fileData = normalizeUrbanRows(fileData);
                 if (fileData.length === 0) { alert('Dosya boş veya format hatalı.'); return; }
                 initPlayer();
             } catch (e) {
-                alert('Dosya yüklenemedi: ' + e.message);
+                if (!request.signal.aborted) alert('Dosya yüklenemedi: ' + e.message);
             } finally {
-                ind.style.display = 'none';
+                if (fileLoad === request) {
+                    fileLoad = null;
+                    ind.style.display = 'none';
+                }
             }
         }
 
@@ -1730,7 +1784,8 @@
             // Rozet
             const badge = document.getElementById('vehicleBadge');
             if (badge) {
-                badge.textContent = isUrban ? '🚙 Urban' : '🏎️ Proto';
+                badge.hidden = false;
+                badge.textContent = isUrban ? '🚙 Dorlion V2' : '🏎️ Gece';
                 badge.className = 'vehicle-badge ' + (isUrban ? 'vehicle-badge--urban' : 'vehicle-badge--proto');
             }
         }

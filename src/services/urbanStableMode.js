@@ -107,7 +107,7 @@ function observeRealUrbanHttpData(data, receivedAt = Date.now()) {
 }
 
 function contextAllowsGeneration() {
-    return state.activeVehicle === 'urban' && state.connectionStatus.source === 'HTTP';
+    return (state.testVehicle ?? state.activeVehicle) === 'urban' && state.connectionStatus.source === 'HTTP';
 }
 
 function stopSyntheticRun(message = null) {

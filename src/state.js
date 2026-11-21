@@ -39,7 +39,9 @@ const state = {
 
     // Aktif araç modu: 'proto' | 'urban' — ayarlar sayfasından seçilir,
     // gelen 'data' string'inin hangi formatta parse edileceğini belirler
-    activeVehicle: 'proto'
+    activeVehicle: 'proto',
+    // Test sürerken telemetri bu araç protokolüyle alınır.
+    testVehicle: null
 };
 
 module.exports = state;

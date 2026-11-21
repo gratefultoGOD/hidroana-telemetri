@@ -139,7 +139,11 @@ async function flushAllPending() {
     await telemetryStore.flushDataToFile();
     await urbanTelemetryStore.flushDataToFile();
     if (testModeService.testMode.active) {
-        await testModeService.flushTestDataToFile();
+        try {
+            await testModeService.stopTest();
+        } catch (error) {
+            console.error('Sunucu kapanırken test kaydedilemedi:', error);
+        }
     }
     await tubitak.flushTubitakData(true); // force flush
 }

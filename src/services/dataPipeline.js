@@ -85,7 +85,7 @@ function processIncomingUrbanData(data, receivedAt = Date.now(), tubitakOptions 
     urbanTelemetryStore.enqueueData(dataWithTimestamp);
 
     // Test modu aktifse test verilerini de kaydet (duraklatılmışsa kaydedilmez)
-    testModeService.recordTestData(dataWithTimestamp, now);
+    testModeService.recordTestData(dataWithTimestamp, now, 'urban');
 
     // TÜBİTAK kaydı yalnızca URBAN aracından alınır.
     tubitak.recordTubitakData(dataWithTimestamp, now, recordOptions);
@@ -150,7 +150,7 @@ function processIncomingData(data) {
     telemetryStore.enqueueData(dataWithTimestamp);
 
     // Test modu aktifse test verilerini de kaydet (duraklatılmışsa kaydedilmez)
-    testModeService.recordTestData(dataWithTimestamp, now);
+    testModeService.recordTestData(dataWithTimestamp, now, 'proto');
 
     state.connectionStatus.connected = true;
     state.connectionStatus.lastUpdate = now.toISOString();

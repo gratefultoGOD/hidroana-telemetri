@@ -19,4 +19,4 @@ Thumbs.db
 
 # Telemetri verileri (her sunucuda farklı)
 telemetry_data/*.csv
-test_data/*.csv
+test_data/**/*.csv

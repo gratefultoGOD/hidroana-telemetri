@@ -45,7 +45,7 @@ function setActiveVehicle(vehicle) {
 }
 
 function getActiveVehicle() {
-    return state.activeVehicle;
+    return state.testVehicle ?? state.activeVehicle;
 }
 
 module.exports = {

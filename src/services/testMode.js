@@ -1,50 +1,84 @@
-// ============================================
-// TEST MODU SERVİSİ
-// Test kaydı başlat/durdur/duraklat ve test CSV dosya yönetimi
-// ============================================
 const fs = require('fs');
-const fsPromises = require('fs').promises;
 const path = require('path');
 
-const config = require('../config');
+const { TEST_DIR, TEST_CSV_HEADERS, URBAN_TEST_CSV_HEADERS, FLUSH_THRESHOLD } = require('../config');
 const state = require('../state');
 const { timestampedFileName, formatDuration } = require('../utils/helpers');
+const { csvRow } = require('../utils/csv');
 const { getActiveVehicle } = require('./systemSettings');
+const { VEHICLE_NAMES, testDateAndTime, testArchiveYear } = require('./testDetails');
+const {
+    TEST_EVENT_HEADERS, testFilePath, availableTestName, testStartRecord,
+    listTestPaths, readTestRecord, detectTestVehicle
+} = require('./testArchive');
 
-const { TEST_DIR, TEST_CSV_HEADERS, URBAN_TEST_CSV_HEADERS, FLUSH_THRESHOLD } = config;
-
-// Test modu durumu
-const testMode = {
+const idleTest = {
     active: false,
-    stopping: false,      // Son satırlar yazılırken yeni veri kabul edilmez.
+    stopping: false,
     startTime: null,
     testName: null,
-    vehicle: null,        // 'proto' | 'urban' — test başlarken aktif araç sabitlenir
+    vehicle: null,
+    archiveYear: null,
     pendingTestData: [],
-    paused: false,       // Duraklatılmış mı?
-    pausedAt: null,      // Duraklatma zamanı (ms, epoch)
-    pausedElapsed: 0     // Toplam duraklatılmış süre (ms)
+    dataCount: 0,
+    fileSize: 0,
+    paused: false,
+    pausedAt: null,
+    pausedElapsed: 0,
+    pauseNote: ''
 };
+const testMode = { ...idleTest };
+let stoppingTest = null;
+let activeTestFlush = null;
 
-// Dosya varlık cache'i — senkron fs.existsSync çağrısını önler
-const _testFileExists = {};
+function getTestStatus(now = Date.now()) {
+    const { active, paused, testName, vehicle, archiveYear, startTime, pausedAt, pausedElapsed, pauseNote, pendingTestData } = testMode;
+    if (!active) return { active, paused };
+    const elapsed = Math.max(0, (pausedAt ?? now) - startTime - pausedElapsed);
+    return {
+        active, paused, testName, vehicle, vehicleName: VEHICLE_NAMES[vehicle], archiveYear, pausedAt, pauseNote, elapsed,
+        startTime: new Date(startTime).toISOString(), elapsedFormatted: formatDuration(elapsed),
+        pendingData: pendingTestData.length
+    };
+}
 
-// Test başlat — dosya adı ve başlangıç zamanı ayarlanır
-function startTest() {
+function startTest(details) {
     const now = new Date();
-    const vehicle = getActiveVehicle();
-    testMode.active = true;
-    testMode.startTime = now.getTime();
-    testMode.vehicle = vehicle;
-    testMode.testName = timestampedFileName(`test_${vehicle}`, now);
-    testMode.pendingTestData = [];
-    return { testName: testMode.testName, startTime: now.toISOString(), vehicle };
+    const vehicle = details?.vehicle ?? getActiveVehicle();
+    const archiveYear = details ? testArchiveYear(now) : null;
+    let suggestedName = timestampedFileName(`test_${vehicle}`, now);
+    if (details) {
+        const { date } = testDateAndTime(now);
+        const pilot = details.pilotName.replace(/[<>:"/\\|?*]/g, ' ').replace(/\.{2,}/g, '.')
+            .replace(/\s+/g, ' ').trim().replace(/\.+$/, '').trimEnd();
+        suggestedName = `${date} - ${VEHICLE_NAMES[vehicle]} - ${details.motor} - ${pilot || 'Pilot'}.csv`;
+    }
+    const directory = path.dirname(testFilePath(TEST_DIR, suggestedName, archiveYear));
+    fs.mkdirSync(directory, { recursive: true });
+    const testName = availableTestName(directory, suggestedName);
+    Object.assign(testMode, {
+        ...idleTest, active: true, startTime: now.getTime(), testName, vehicle, archiveYear,
+        pendingTestData: details ? [testStartRecord(details, archiveYear, now)] : []
+    });
+    state.testVehicle = vehicle;
+    if (details) void flushTestDataToFile();
+    return getTestStatus(now.getTime());
+}
+
+function isActiveTestFile(fileName, archiveYear) {
+    return testMode.active && testMode.testName === fileName && testMode.archiveYear === archiveYear;
+}
+
+function pauseRecord(endedAt) {
+    const { pausedAt, startTime, pausedElapsed, pauseNote } = testMode;
+    return {
+        record_type: 'pause', test_time: formatDuration(pausedAt - startTime - pausedElapsed),
+        event_started_at: new Date(pausedAt).toISOString(), event_ended_at: new Date(endedAt).toISOString(),
+        event_duration_ms: endedAt - pausedAt, pause_note: pauseNote
+    };
 }
 
 // Eşzamanlı durdurma istekleri aynı yazma işleminin tamamlanmasını bekler.
-let stoppingTest = null;
-
-// Test durdur — devam eden yazmayı ve bekleyen son satırları tamamlar.
 function stopTest() {
     if (stoppingTest) return stoppingTest;
     testMode.stopping = true;
@@ -56,85 +90,68 @@ function stopTest() {
 }
 
 async function finishTest() {
-    // Süre ve dosya kimliği durdurma anına aittir; disk beklemesi süreye eklenmez.
-    const duration = Date.now() - testMode.startTime;
-    const testName = testMode.testName;
-    const realDuration = duration - testMode.pausedElapsed;
-    const vehicle = testMode.vehicle;
+    const { testName, archiveYear, vehicle, dataCount } = testMode;
+    const now = Date.now();
+    const realDuration = getTestStatus(now).elapsed;
+    const finalRows = [];
+    if (archiveYear) {
+        if (testMode.paused) finalRows.push(pauseRecord(now));
+        finalRows.push({
+            record_type: 'test_end', event_ended_at: new Date(now).toISOString(), event_duration_ms: realDuration
+        });
+    }
 
-    // active, dosya adı ve kuyruk yazma bitmeden sıfırlanmamalı. Bu sırada
-    // yeni test/araç değişikliği de mevcut active kontrolüyle engellenir.
-    if (!await flushTestDataToFile()) {
+    // Son olaylar başarısız bir durdurma girişiminden sonra yeniden oluşturulur.
+    if (!await flushTestDataToFile(finalRows)) {
         throw new Error('Test verileri dosyaya kaydedilemedi; kayıt kapatılmadı. Tekrar durdurmayı deneyin.');
     }
 
-    // Test dosyasındaki veri sayısını al
-    const filePath = path.join(TEST_DIR, testName);
-    let dataCount = 0;
-    if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, 'utf8');
-        const lines = content.split('\n').filter(line => line.trim());
-        dataCount = Math.max(0, lines.length - 1);
-    }
-
-    testMode.active = false;
-    testMode.startTime = null;
-    testMode.testName = null;
-    testMode.vehicle = null;
-    testMode.pendingTestData = [];
-    testMode.paused = false;
-    testMode.pausedAt = null;
-    testMode.pausedElapsed = 0;
-
-    return { testName, realDuration, dataCount, vehicle };
+    Object.assign(testMode, idleTest);
+    state.testVehicle = null;
+    return { testName, archiveYear, realDuration, dataCount, vehicle };
 }
 
-// Testi duraklat
 function pauseTest() {
     testMode.paused = true;
     testMode.pausedAt = Date.now();
-
-    // Bekleyen verileri hemen kaydet
-    if (testMode.pendingTestData.length > 0) {
-        flushTestDataToFile();
-    }
+    testMode.pauseNote = '';
+    void flushTestDataToFile();
+    return getTestStatus();
 }
 
-// Testi devam ettir — duraklatılmış süreyi birikimli olarak ekler
+function setPauseNote(note) {
+    testMode.pauseNote = note;
+}
+
 function resumeTest() {
-    const pauseDuration = Date.now() - testMode.pausedAt;
+    const now = Date.now();
+    const pauseDuration = now - testMode.pausedAt;
+    if (testMode.archiveYear) testMode.pendingTestData.push(pauseRecord(now));
     testMode.pausedElapsed += pauseDuration;
     testMode.paused = false;
     testMode.pausedAt = null;
+    testMode.pauseNote = '';
+    void flushTestDataToFile();
     return pauseDuration;
 }
 
-// Gelen telemetri verisini test kaydına ekle (aktif ve duraklatılmamışsa)
-function recordTestData(dataWithTimestamp, now) {
-    if (!testMode.active || testMode.stopping || testMode.paused || !testMode.startTime) return;
-
-    // Gerçek geçen süre = toplam süre - duraklatılmış süre
-    const elapsedMs = (now.getTime() - testMode.startTime) - testMode.pausedElapsed;
-
+function recordTestData(dataWithTimestamp, now, vehicle = testMode.vehicle) {
+    if (!testMode.active || testMode.stopping || testMode.paused || vehicle !== testMode.vehicle) return;
+    const elapsed = now.getTime() - testMode.startTime - testMode.pausedElapsed;
+    if (elapsed < 0) return;
     testMode.pendingTestData.push({
-        test_time: formatDuration(elapsedMs),
-        ...dataWithTimestamp
+        ...dataWithTimestamp, test_time: formatDuration(elapsed), record_type: 'telemetry'
     });
-
-    if (testMode.pendingTestData.length >= FLUSH_THRESHOLD) {
-        flushTestDataToFile();
-    }
+    testMode.dataCount++;
+    if (testMode.pendingTestData.length >= FLUSH_THRESHOLD) void flushTestDataToFile();
 }
 
-// Test verilerini dosyaya yaz - ASENKRON (non-blocking)
-let activeTestFlush = null;
-
-async function flushTestDataToFile() {
+async function flushTestDataToFile(finalRows = []) {
     // Kuyruk boş olsa bile, diske alınmış ama henüz tamamlanmamış parti beklenir.
     while (activeTestFlush) await activeTestFlush;
-    if (!testMode.active || testMode.pendingTestData.length === 0) return true;
+    if (!testMode.active || (!testMode.pendingTestData.length && !finalRows.length)) return true;
 
-    const operation = writePendingTestData();
+    const operation = writePendingTestData(finalRows);
     activeTestFlush = operation;
     try {
         return await operation;
@@ -143,128 +160,49 @@ async function flushTestDataToFile() {
     }
 }
 
-async function writePendingTestData() {
-    const dataToWrite = [...testMode.pendingTestData];
+async function writePendingTestData(finalRows) {
+    const pending = testMode.pendingTestData;
     testMode.pendingTestData = [];
 
-    const { testName, vehicle } = testMode;
-    const filePath = path.join(TEST_DIR, testName);
-    const csvHeaders = vehicle === 'urban' ? URBAN_TEST_CSV_HEADERS : TEST_CSV_HEADERS;
+    const { testName, vehicle, archiveYear, fileSize } = testMode;
+    const filePath = testFilePath(TEST_DIR, testName, archiveYear);
+    const telemetryHeaders = vehicle === 'urban' ? URBAN_TEST_CSV_HEADERS : TEST_CSV_HEADERS;
+    const headers = archiveYear ? [...telemetryHeaders, ...TEST_EVENT_HEADERS] : telemetryHeaders;
+    const header = fileSize ? '' : '\uFEFF' + csvRow(headers);
+    const content = header + [...pending, ...finalRows].map(data => csvRow(headers.map(key => data[key]))).join('');
 
     try {
-        // Dosya varlık cache'i — senkron existsSync yerine
-        let fileExists = _testFileExists[testName];
-        if (!fileExists) {
-            try {
-                await fsPromises.access(filePath);
-                fileExists = true;
-            } catch {
-                fileExists = false;
-            }
-        }
-
-        let csvContent = '';
-        if (!fileExists) {
-            csvContent = '\uFEFF' + csvHeaders.join(';') + '\n';
-        }
-
-        dataToWrite.forEach(data => {
-            const row = csvHeaders.map(h => data[h] !== undefined && data[h] !== null ? data[h] : '');
-            csvContent += row.join(';') + '\n';
-        });
-
-        // ASENKRON dosya yazma
-        await fsPromises.appendFile(filePath, csvContent, 'utf8');
-        _testFileExists[testName] = true;
-        const counter = vehicle === 'urban' ? state.urbanDataCounter : state.dataCounter;
-        if (counter % 10 === 0) {
-            console.log(`${dataToWrite.length} test verisi kaydedildi: ${testName}`);
-        }
+        await fs.promises.appendFile(filePath, content, 'utf8');
+        testMode.fileSize += Buffer.byteLength(content);
         return true;
     } catch (error) {
-        testMode.pendingTestData = [...dataToWrite, ...testMode.pendingTestData];
+        testMode.pendingTestData = [...pending, ...testMode.pendingTestData];
+        try {
+            const stats = await fs.promises.stat(filePath);
+            if (stats.size > fileSize) await fs.promises.truncate(filePath, fileSize);
+        } catch (rollbackError) {
+            if (rollbackError.code !== 'ENOENT') console.error('Test CSV yazımı geri alınamadı:', rollbackError);
+        }
         return false;
     }
 }
 
-function detectTestVehicle(headers, fileName = '') {
-    const urbanFields = new Set([
-        'T_tank_C', 'max_temperature', 'mv', 'mc', 'mw',
-        'ischarging', 'controller_speed', 'error_code'
-    ]);
-    if (headers.some(header => urbanFields.has(header))) return 'urban';
-    return fileName.startsWith('test_urban_') ? 'urban' : 'proto';
-}
-
-// Test dosyalarının listesini al (ASENKRON — event loop bloklamaz)
-async function getTestFiles() {
-    try {
-        await fsPromises.access(TEST_DIR);
-    } catch {
-        return [];
-    }
-
-    const allFiles = await fsPromises.readdir(TEST_DIR);
-    const csvFiles = allFiles.filter(f => f.endsWith('.csv'));
-
+async function getTestFiles({ includeDetails = true } = {}) {
+    const paths = await listTestPaths(TEST_DIR);
     const files = [];
-    for (const f of csvFiles) {
+    for (const entry of paths) {
+        if (isActiveTestFile(entry.fileName, entry.archiveYear)) continue;
         try {
-            const filePath = path.join(TEST_DIR, f);
-            const stats = await fsPromises.stat(filePath);
-            const content = await fsPromises.readFile(filePath, 'utf8');
-            const lines = content.split('\n').filter(line => line.trim());
-            const dataCount = Math.max(0, lines.length - 1);
-            const headers = lines.length > 0
-                ? lines[0].replace('\uFEFF', '').split(';').map(header => header.trim())
-                : [];
-            const vehicle = detectTestVehicle(headers, f);
-
-            // Dosya içeriğindeki ilk veri satırından tarih ve saat bilgisini çıkar
-            let dateStr = '', timeStr = '';
-            if (lines.length > 1) {
-                const firstDataRow = lines[1].split(';');
-                const dateIdx = headers.indexOf('date');
-                const timeIdx = headers.indexOf('time');
-                if (dateIdx !== -1 && timeIdx !== -1 && firstDataRow[dateIdx] && firstDataRow[timeIdx]) {
-                    dateStr = firstDataRow[dateIdx].trim();
-                    timeStr = firstDataRow[timeIdx].trim();
-                }
-            }
-
-            files.push({
-                fileName: f,
-                vehicle,
-                date: dateStr,
-                time: timeStr,
-                dataCount: dataCount,
-                fileSize: stats.size,
-                lastModified: stats.mtime
-            });
-        } catch {
-            // Hatalı dosyaları atla
+            files.push(await readTestRecord(entry, includeDetails));
+        } catch (error) {
+            if (error.code !== 'ENOENT') console.error('Test dosyası okunamadı:', entry.fileName, error);
         }
     }
-
-    files.sort((a, b) => {
-        const parseDateTime = (d, t) => {
-            if (!d || !t) return 0;
-            return new Date(`${d}T${t}`).getTime();
-        };
-        return parseDateTime(b.date, b.time) - parseDateTime(a.date, a.time);
-    });
-
-    return files;
+    const recordedAt = file => Date.parse(file.startTime || `${file.date}T${file.time || '00:00:00'}`) || file.lastModified.getTime();
+    return files.sort((a, b) => b.year - a.year || recordedAt(b) - recordedAt(a));
 }
 
 module.exports = {
-    testMode,
-    startTest,
-    stopTest,
-    pauseTest,
-    resumeTest,
-    recordTestData,
-    flushTestDataToFile,
-    detectTestVehicle,
-    getTestFiles
+    testMode, getTestStatus, startTest, stopTest, pauseTest, setPauseNote, resumeTest,
+    recordTestData, flushTestDataToFile, isActiveTestFile, detectTestVehicle, getTestFiles
 };

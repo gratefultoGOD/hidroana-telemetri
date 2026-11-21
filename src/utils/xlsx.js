@@ -2,16 +2,17 @@
 // CSV → XLSX DÖNÜŞTÜRME YARDIMCISI
 // ============================================
 const XLSX = require('xlsx');
+const { parseCsvRows } = require('./csv');
 
 // CSV içeriğini XLSX buffer'a dönüştür (semicolon separated)
-function csvToXlsxBuffer(csvContent, sheetName = 'Veri') {
-    // BOM karakterini kaldır
-    const cleanCsv = csvContent.replace(/^\uFEFF/, '');
-    const lines = cleanCsv.split('\n').filter(line => line.trim());
-    if (lines.length === 0) return null;
+function csvToXlsxBuffer(csvContent, sheetName = 'Veri', textColumns = []) {
+    const csv = parseCsvRows(csvContent);
+    if (csv.length === 0) return null;
+    const textIndices = new Set(textColumns.map(name => csv[0].indexOf(name)));
 
-    const rows = lines.map(line => {
-        return line.split(';').map(cell => {
+    const rows = csv.map(row => {
+        return row.map((cell, index) => {
+            if (textIndices.has(index)) return cell;
             const trimmed = cell.trim();
             // Sayısal değerleri number olarak dönüştür (date/time hariç)
             const num = Number(trimmed);

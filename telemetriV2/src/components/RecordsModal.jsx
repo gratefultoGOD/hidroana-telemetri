@@ -10,7 +10,6 @@ function formatFileSize(bytes) {
 // Her kayıt türü için başlık, liste ucu ve liste anahtarı.
 // Günlük kayıtlar URBAN aracının kendi veri kümesinden (urban_data) okunur.
 const CONFIG = {
-  test: { title: '🧪 Test Kayıtları', listUrl: '/api/test/files', key: 'files', empty: 'Henüz test kaydı yok' },
   daily: { title: '📅 Günlük Kayıtlar (URBAN)', listUrl: '/api/urban-telemetry/days', key: 'days', empty: 'Henüz kayıt yok' },
   tubitak: { title: '📊 TÜBİTAK Kayıtları', listUrl: '/api/tubitak/files', key: 'files', empty: 'Henüz TÜBİTAK kaydı yok' },
 }
@@ -41,43 +40,8 @@ export default function RecordsModal({ type, onClose }) {
       .catch((e) => window.alert('Hata: ' + e.message))
   }
 
-  const rename = (file) => {
-    const cur = file.fileName.replace('.csv', '')
-    const nn = window.prompt('Yeni dosya adını girin:', cur)
-    if (nn === null || nn.trim() === '') return
-    fetch('/api/test/rename/' + encodeURIComponent(file.fileName), {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ newName: nn.trim() }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (d.success) load(); else window.alert('Hata: ' + d.error) })
-      .catch((e) => window.alert('Bağlantı hatası: ' + e.message))
-  }
-
   function renderRow(file, i) {
     const enc = encodeURIComponent(file.fileName)
-
-    if (type === 'test') {
-      return (
-        <div className="rec-item" key={i}>
-          <div className="rec-info">
-            <span className="rec-title">
-              {file.fileName.replace('.csv', '')}
-              <span className={`rec-badge rec-badge--${file.vehicle}`}>{file.vehicle === 'urban' ? 'Urban' : 'Proto'}</span>
-            </span>
-            <span className="rec-sub">{file.dataCount} kayıt • {formatFileSize(file.fileSize)}</span>
-          </div>
-          <div className="rec-actions">
-            <button className="rec-btn" onClick={() => rename(file)} title="Yeniden Adlandır">✏️</button>
-            <button className="rec-btn" onClick={() => go(`/api/test/download/${enc}`)}>📥 CSV</button>
-            <button className="rec-btn" onClick={() => go(`/api/test/download-xlsx/${enc}`)}>📊 Excel</button>
-            <button className="rec-btn rec-btn--del" onClick={() => del(`/api/test/delete/${enc}`, `${file.date} ${file.time}`)}>🗑️</button>
-          </div>
-        </div>
-      )
-    }
 
     if (type === 'daily') {
       return (

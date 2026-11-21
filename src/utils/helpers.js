@@ -56,7 +56,7 @@ function isSafeFileName(fileName, { extension = '.csv', prefix = null } = {}) {
 
 // İndirme başlıklarını ayarla (RFC 5987 — Türkçe karakter ve boşluk desteği)
 function setDownloadHeaders(res, fileName, contentType) {
-    const encoded = encodeURIComponent(fileName);
+    const encoded = encodeURIComponent(fileName).replace(/['()*]/g, char => `%${char.charCodeAt(0).toString(16)}`);
     res.setHeader('Content-Type', contentType);
     res.setHeader(
         'Content-Disposition',

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="/dashboard-assets/theme.css">
     <link rel="stylesheet" href="/dashboard-assets/gauge.css">
+    <link rel="stylesheet" href="/dashboard-assets/test/test-ui.css">
     <link rel="stylesheet" href="styles.css?v=2">
     <link rel="icon" type="image/x-icon" href="/logo.ico">
 </head>
@@ -52,9 +53,12 @@
                         <button class="control-btn source-btn" id="httpBtn" onclick="switchSource('HTTP')">HTTP</button>
                     </div>
                     <div class="test-controls admin-only" id="testControls" style="display:none;">
-                        <button class="control-btn test-btn" id="testStartBtn" onclick="toggleTest()">Test Başlat</button>
-                        <button class="control-btn test-btn test-pause-btn" id="testPauseBtn" onclick="togglePauseTest()" style="display:none;">⏸ Duraklat</button>
+                        <button class="control-btn test-btn" id="testStartBtn" type="button" disabled>Test Başlat</button>
+                        <button class="control-btn test-btn test-pause-btn" id="testPauseBtn" type="button" style="display:none;">⏸ Duraklat</button>
+                        <button class="control-btn" id="testPauseNoteBtn" type="button" style="display:none;">Duraklama notu</button>
                         <span class="test-timer" id="testTimer" style="display:none;">00:00:00</span>
+                        <span class="test-control-context" id="testVehicleName"></span>
+                        <span class="test-ui-error" id="testFeedback" role="alert"></span>
                     </div>
                 </div>
                 <nav class="dashboard-toolbar" aria-label="Telemetri sayfaları ve kayıtları">
@@ -65,7 +69,7 @@
                     <a class="control-btn" href="/3dview" title="Aracı 3D haritada canlı izle">3D Görünüm</a>
                     <a class="control-btn admin-only" href="/sectors" style="display:none;">Sektör Oluştur</a>
                     <a class="control-btn admin-only" id="playPageBtn" href="/play" style="display:none;">Test Oynat</a>
-                    <button class="control-btn admin-only" id="testFilesBtn" onclick="showTestFilesModal()" style="display:none;">Testler</button>
+                    <button class="control-btn admin-only" id="testFilesBtn" type="button" style="display:none;">Testler</button>
                     <button class="control-btn admin-only" id="recordsBtn" onclick="showDaysModal()" style="display:none;">Kayıtlar</button>
                     <button class="control-btn admin-only" id="downloadTodayBtn" onclick="downloadTodayCSV()" title="Bugünün verilerini CSV olarak indir" style="display:none;">Bugün (<span id="dataCount">0</span>)</button>
                     <button class="control-btn admin-only" id="tubitakFilesBtn" onclick="showTubitakModal()" style="display:none;">TÜBİTAK Kayıtları</button>
@@ -355,24 +359,6 @@
                     style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">📊 Tüm Veriler
                     (Excel)</button>
                 <button class="modal-btn secondary" onclick="closeDaysModal()">Kapat</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Test Dosyaları Modal -->
-    <div id="testFilesModal" class="modal" style="display:none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Test Kayıtları</h2>
-                <span class="modal-close" onclick="closeTestFilesModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="testFilesList" class="days-list">
-                    <p>Yükleniyor...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="modal-btn secondary" onclick="closeTestFilesModal()">Kapat</button>
             </div>
         </div>
     </div>
@@ -777,272 +763,6 @@
         setInterval(updateDataCount, 5000);
         updateDataCount();
 
-        // Test modu değişkenleri
-        let testActive = false;
-        let testPaused = false;
-        let testTimerInterval = null;
-        let testStartTime = null;
-        let testPausedElapsed = 0;  // İstemci tarafında duraklatma hesabı için
-
-        // Test başlat/durdur
-        function toggleTest() {
-            if (testActive) {
-                stopTest();
-            } else {
-                startTest();
-            }
-        }
-
-        function startTest() {
-            fetch('/api/test/start', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testActive = true;
-                        testPaused = false;
-                        testPausedElapsed = 0;
-                        testStartTime = Date.now();
-                        updateTestUI(true, false);
-                        startTestTimer();
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test başlatılamadı'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function stopTest() {
-            fetch('/api/test/stop', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testActive = false;
-                        testPaused = false;
-                        testPausedElapsed = 0;
-                        stopTestTimer();
-                        updateTestUI(false, false);
-                        alert(`Test tamamlandı!\n\nDosya: ${data.testName}\nSüre: ${data.duration}\nVeri sayısı: ${data.dataCount}`);
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test durdurulamadı'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        // Duraklat / Devam Et toggle
-        function togglePauseTest() {
-            if (!testActive) return;
-            if (testPaused) {
-                resumeTest();
-            } else {
-                pauseTest();
-            }
-        }
-
-        function pauseTest() {
-            fetch('/api/test/pause', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testPaused = true;
-                        // Sayacı durdur
-                        stopTestTimer();
-                        updateTestUI(true, true);
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test duraklatılamadı'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function resumeTest() {
-            fetch('/api/test/resume', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        testPaused = false;
-                        // Duraklatılan süreyi güncelleyerek sayacı devam ettir
-                        // Sunucudan gerçek elapsed çek ve güncelle
-                        fetch('/api/test/status')
-                            .then(r => r.json())
-                            .then(st => {
-                                if (st.active && !st.paused) {
-                                    testStartTime = Date.now() - st.elapsed;
-                                    updateTestUI(true, false);
-                                    startTestTimer();
-                                }
-                            });
-                    } else {
-                        alert('Hata: ' + (data.error || 'Test devam ettirilemedi'));
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function updateTestUI(active, paused) {
-            const btn = document.getElementById('testStartBtn');
-            const pauseBtn = document.getElementById('testPauseBtn');
-            const timer = document.getElementById('testTimer');
-
-            if (active) {
-                btn.textContent = '⏹️ Test Durdur';
-                btn.classList.add('active');
-                timer.style.display = 'inline-block';
-                timer.classList.add('active');
-                // Duraklat butonu göster
-                pauseBtn.style.display = 'inline-block';
-                if (paused) {
-                    pauseBtn.textContent = '▶️ Devam Et';
-                    pauseBtn.classList.add('resumed');
-                    timer.classList.add('paused-style');
-                } else {
-                    pauseBtn.textContent = '⏸ Duraklat';
-                    pauseBtn.classList.remove('resumed');
-                    timer.classList.remove('paused-style');
-                }
-            } else {
-                btn.textContent = ' Test Başlat';
-                btn.classList.remove('active');
-                timer.style.display = 'none';
-                timer.classList.remove('active');
-                timer.classList.remove('paused-style');
-                timer.textContent = '00:00:00';
-                pauseBtn.style.display = 'none';
-                pauseBtn.classList.remove('resumed');
-            }
-        }
-
-        function startTestTimer() {
-            testTimerInterval = setInterval(() => {
-                const elapsed = Date.now() - testStartTime;
-                document.getElementById('testTimer').textContent = formatTime(elapsed);
-            }, 100);
-        }
-
-        function stopTestTimer() {
-            if (testTimerInterval) {
-                clearInterval(testTimerInterval);
-                testTimerInterval = null;
-            }
-        }
-
-        function formatTime(ms) {
-            const hours = Math.floor(ms / 3600000);
-            const minutes = Math.floor((ms % 3600000) / 60000);
-            const seconds = Math.floor((ms % 60000) / 1000);
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        // Sayfa yüklendiginde test durumunu kontrol et
-        function checkTestStatus() {
-            fetch('/api/test/status')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.active) {
-                        testActive = true;
-                        testPaused = data.paused || false;
-                        testStartTime = Date.now() - data.elapsed;
-                        updateTestUI(true, testPaused);
-                        if (!testPaused) {
-                            startTestTimer();
-                        }
-                    }
-                })
-                .catch(() => { });
-        }
-        checkTestStatus();
-
-        // Test dosyaları modalı
-        function showTestFilesModal() {
-            document.getElementById('testFilesModal').style.display = 'flex';
-            loadTestFilesList();
-        }
-
-        function closeTestFilesModal() {
-            document.getElementById('testFilesModal').style.display = 'none';
-        }
-
-        function loadTestFilesList() {
-            const listEl = document.getElementById('testFilesList');
-            listEl.innerHTML = '<p style="color:#aaa;text-align:center;">Yükleniyor...</p>';
-
-            fetch('/api/test/files')
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.files || data.files.length === 0) {
-                        listEl.innerHTML = '<div class="no-data">Henüz test kaydı yok</div>';
-                        return;
-                    }
-
-                    listEl.innerHTML = data.files.map(file => `
-                        <div class="day-item">
-                            <div class="day-info">
-                                <span class="day-date"> ${file.fileName.replace('.csv', '')}<span class="vehicle-badge vehicle-badge--${file.vehicle}">${file.vehicle === 'urban' ? 'Urban' : 'Proto'}</span></span>
-                                <span class="day-stats">${file.dataCount} kayıt • ${formatFileSize(file.fileSize)}</span>
-                            </div>
-                            <div class="day-actions">
-                                <button class="day-btn rename" onclick="renameTestFile('${file.fileName}')" title="Yeniden Adlandır">✏️</button>
-                                <button class="day-btn" onclick="downloadTestFile('${file.fileName}')" title="CSV olarak indir">📥 CSV</button>
-                                <button class="day-btn xlsx" onclick="downloadTestFileXLSX('${file.fileName}')" title="Excel olarak indir">📊 Excel</button>
-                                <button class="day-btn delete" onclick="deleteTestFile('${file.fileName}', '${file.date} ${file.time}')">🗑️</button>
-                            </div>
-                        </div>
-                    `).join('');
-                })
-                .catch(err => {
-                    listEl.innerHTML = '<div class="no-data">❌ Yüklenirken hata oluştu</div>';
-                });
-        }
-
-        function downloadTestFile(fileName) {
-            window.location.href = '/api/test/download/' + encodeURIComponent(fileName);
-        }
-
-        function downloadTestFileXLSX(fileName) {
-            window.location.href = '/api/test/download-xlsx/' + encodeURIComponent(fileName);
-        }
-
-        function renameTestFile(fileName) {
-            // Mevcut dosya adını göster (.csv uzantısını kaldır)
-            const currentName = fileName.replace('.csv', '');
-            const newName = prompt('Yeni dosya adını girin:', currentName);
-
-            if (newName === null || newName.trim() === '') {
-                return; // İptal edildi veya boş bırakıldı
-            }
-
-            fetch('/api/test/rename/' + encodeURIComponent(fileName), {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newName: newName.trim() })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        loadTestFilesList();
-                        alert(`Dosya adı değiştirildi:\n${data.newName}`);
-                    } else {
-                        alert('Hata: ' + data.error);
-                    }
-                })
-                .catch(err => alert('Bağlantı hatası: ' + err.message));
-        }
-
-        function deleteTestFile(fileName, dateTime) {
-            if (confirm(`${dateTime} tarihli test silinecek. Emin misiniz?`)) {
-                fetch('/api/test/delete/' + encodeURIComponent(fileName), { method: 'DELETE' })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            loadTestFilesList();
-                        } else {
-                            alert('Hata: ' + data.error);
-                        }
-                    })
-                    .catch(err => alert('Hata: ' + err.message));
-            }
-        }
-
         // TÜBİTAK kayıtları modalı
         function showTubitakModal() {
             document.getElementById('tubitakModal').style.display = 'flex';
@@ -1164,6 +884,37 @@
     </script>
 
     <script src="app.js?v=2"></script>
+    <script type="module">
+        import { createTestControls } from '/dashboard-assets/test/test-controls.mjs';
+        import { openTestRecords } from '/dashboard-assets/test/test-records.mjs';
+
+        const start = document.getElementById('testStartBtn');
+        const pause = document.getElementById('testPauseBtn');
+        const note = document.getElementById('testPauseNoteBtn');
+        const timer = document.getElementById('testTimer');
+        const vehicle = document.getElementById('testVehicleName');
+        const feedback = document.getElementById('testFeedback');
+        let testActive = false;
+        const controls = createTestControls('proto', ({ active, paused, elapsed, busy, error, vehicleName }) => {
+            testActive = active;
+            start.textContent = active ? '⏹️ Test Durdur' : 'Test Başlat';
+            start.classList.toggle('active', active);
+            pause.textContent = paused ? '▶️ Devam Et' : '⏸ Duraklat';
+            pause.style.display = active ? '' : 'none';
+            note.style.display = paused ? '' : 'none';
+            timer.style.display = active ? '' : 'none';
+            timer.classList.toggle('active', active);
+            timer.classList.toggle('paused-style', paused);
+            timer.textContent = elapsed;
+            vehicle.textContent = vehicleName;
+            feedback.textContent = error;
+            start.disabled = pause.disabled = note.disabled = busy;
+        });
+        start.addEventListener('click', () => testActive ? controls.stop() : controls.start());
+        pause.addEventListener('click', controls.togglePause);
+        note.addEventListener('click', () => controls.editPauseNote());
+        document.getElementById('testFilesBtn').addEventListener('click', openTestRecords);
+    </script>
     <script type="module">
         import { createGaugeScale, getGaugeReading } from '/dashboard-assets/gauge-geometry.mjs';
         initDashboardGauges(createGaugeScale, getGaugeReading);

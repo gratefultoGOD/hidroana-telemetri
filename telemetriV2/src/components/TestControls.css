@@ -50,13 +50,3 @@
 .test-controls__timer.is-paused {
   color: var(--warning);
 }
-
-.test-controls__note {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.test-controls__error {
-  font-size: 0.75rem;
-  color: var(--danger);
-}

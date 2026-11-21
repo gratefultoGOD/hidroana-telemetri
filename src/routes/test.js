@@ -1,261 +1,183 @@
-// ============================================
-// TEST MODU API ROUTES (/api/test/*)
-// ============================================
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 
 const { TEST_DIR } = require('../config');
 const testModeService = require('../services/testMode');
+const { TEST_OPTIONS, readTestDetails, readTestNote } = require('../services/testDetails');
+const {
+    YEAR_FOLDER, TEST_TEXT_COLUMNS, isTestFileName, testFilePath, testPlaybackCsv, appendTestAfterNote
+} = require('../services/testArchive');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { formatDuration, isSafeFileName, setDownloadHeaders } = require('../utils/helpers');
+const { formatDuration, setDownloadHeaders } = require('../utils/helpers');
 const { csvToXlsxBuffer } = require('../utils/xlsx');
 
 const router = express.Router();
 const { testMode } = testModeService;
 
-// Test başlat (SADECE ADMIN)
+router.get('/api/test/options', requireAdmin, (req, res) => {
+    res.json(TEST_OPTIONS);
+});
+
 router.post('/api/test/start', requireAdmin, (req, res) => {
     if (testMode.active) {
         return res.status(400).json({ error: 'Zaten aktif bir test var', testName: testMode.testName });
     }
-
-    const { testName, startTime, vehicle } = testModeService.startTest();
-    console.log(`Test başlatıldı: ${testName}`);
-
-    res.json({
-        success: true,
-        message: 'Test başlatıldı',
-        testName,
-        startTime,
-        vehicle
-    });
+    let details;
+    try {
+        details = readTestDetails(req.body);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+    try {
+        const status = testModeService.startTest(details);
+        console.log(`Test başlatıldı: ${status.testName}`);
+        res.json({ success: true, ...status });
+    } catch (error) {
+        console.error('Test başlatılamadı:', error);
+        res.status(500).json({ error: 'Test arşivi açılamadı.' });
+    }
 });
 
-// Test durdur (SADECE ADMIN)
 router.post('/api/test/stop', requireAdmin, async (req, res) => {
-    if (!testMode.active) {
-        return res.status(400).json({ error: 'Aktif test yok' });
-    }
-
+    if (!testMode.active) return res.status(400).json({ error: 'Aktif test yok' });
     try {
-        const { testName, realDuration, dataCount, vehicle } = await testModeService.stopTest();
-
-        res.json({
-            success: true,
-            message: 'Test durduruldu',
-            testName: testName,
-            duration: formatDuration(realDuration),
-            durationMs: realDuration,
-            dataCount: dataCount,
-            vehicle
-        });
+        const { realDuration, ...record } = await testModeService.stopTest();
+        res.json({ success: true, ...record, duration: formatDuration(realDuration), durationMs: realDuration });
     } catch (error) {
         console.error('Test kaydı durdurulamadı:', error);
-        res.status(500).json({ error: 'Test verileri dosyaya kaydedilemedi; kayıt kapatılmadı. Tekrar durdurmayı deneyin.' });
+        res.status(500).json({ error: 'Test verileri dosyaya kaydedilemedi. Tekrar durdurmayı deneyin.' });
     }
 });
 
-// Test durumu
 router.get('/api/test/status', requireAuth, (req, res) => {
-    if (!testMode.active) {
-        return res.json({
-            active: false,
-            paused: false
-        });
-    }
-
-    const rawElapsed = Date.now() - testMode.startTime;
-    // Eğer şu an duraklatılmışsa, mevcut duraklatma süresini de ekle
-    const currentPausedMs = testMode.paused && testMode.pausedAt
-        ? (Date.now() - testMode.pausedAt)
-        : 0;
-    const elapsed = rawElapsed - testMode.pausedElapsed - currentPausedMs;
-
-    res.json({
-        active: true,
-        paused: testMode.paused,
-        testName: testMode.testName,
-        vehicle: testMode.vehicle,
-        startTime: new Date(testMode.startTime).toISOString(),
-        elapsed: elapsed,
-        elapsedFormatted: formatDuration(elapsed),
-        pendingData: testMode.pendingTestData.length
-    });
+    const status = testModeService.getTestStatus();
+    if (req.session?.userRole !== 'admin') delete status.pauseNote;
+    res.json(status);
 });
 
-// Test duraklat (SADECE ADMIN)
-router.post('/api/test/pause', requireAdmin, (req, res) => {
-    if (!testMode.active) {
-        return res.status(400).json({ error: 'Aktif test yok' });
-    }
-    if (testMode.paused) {
-        return res.status(400).json({ error: 'Test zaten duraklatılmış' });
-    }
+function requireRunningTest(req, res, next) {
+    if (!testMode.active) return res.status(400).json({ error: 'Aktif test yok' });
+    if (testMode.stopping) return res.status(409).json({ error: 'Test kaydı kapatılıyor.' });
+    next();
+}
 
-    testModeService.pauseTest();
-    res.json({ success: true, message: 'Test duraklatıldı', testName: testMode.testName });
+router.post('/api/test/pause', requireAdmin, requireRunningTest, (req, res) => {
+    if (testMode.paused) return res.status(400).json({ error: 'Test zaten duraklatılmış' });
+    res.json({ success: true, ...testModeService.pauseTest() });
 });
 
-// Test devam ettir (SADECE ADMIN)
-router.post('/api/test/resume', requireAdmin, (req, res) => {
-    if (!testMode.active) {
-        return res.status(400).json({ error: 'Aktif test yok' });
+router.patch('/api/test/pause-note', requireAdmin, requireRunningTest, (req, res) => {
+    if (!testMode.paused || req.body?.pausedAt !== testMode.pausedAt) {
+        return res.status(409).json({ error: 'Bu duraklama sona erdi.' });
     }
-    if (!testMode.paused) {
-        return res.status(400).json({ error: 'Test duraklatılmamış' });
+    try {
+        testModeService.setPauseNote(readTestNote(req.body.note));
+        res.json({ success: true, ...testModeService.getTestStatus() });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
+});
 
+router.post('/api/test/resume', requireAdmin, requireRunningTest, (req, res) => {
+    if (!testMode.paused) return res.status(400).json({ error: 'Test duraklatılmamış' });
     const pauseDuration = testModeService.resumeTest();
-    console.log(`▶️ Test devam ediyor: ${testMode.testName} | Duraklatma süresi: ${formatDuration(pauseDuration)}`);
-    res.json({ success: true, message: 'Test devam ediyor', testName: testMode.testName, pauseDuration });
+    res.json({ success: true, pauseDuration, ...testModeService.getTestStatus() });
 });
 
-// Test dosyalarını listele — izleme için tüm kullanıcılar (oynatıcı listesi)
-router.get('/api/test/files', requireAuth, async (req, res) => {
-    const files = await testModeService.getTestFiles();
-    res.json({ files });
-});
-
-// Test dosyası İÇERİĞİNİ oku — oynatma için (indirme DEĞİL, tüm kullanıcılar).
-// Content-Disposition yok: dosyayı diske kaydetmez, sadece oynatıcı okur.
-router.get('/api/test/content/:fileName', requireAuth, (req, res) => {
-    const fileName = req.params.fileName;
-
-    if (!isSafeFileName(fileName)) {
-        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+router.get('/api/test/files', requireAuth, async (req, res, next) => {
+    try {
+        const files = await testModeService.getTestFiles({ includeDetails: req.session?.userRole === 'admin' });
+        res.json({ files });
+    } catch (error) {
+        next(error);
     }
+});
 
-    const filePath = path.join(TEST_DIR, fileName);
-
-    if (!fs.existsSync(filePath)) {
+function requireTestFile(req, res, next) {
+    const { fileName } = req.params;
+    const year = req.query.year;
+    if (!isTestFileName(fileName) || (year !== undefined && (typeof year !== 'string' || !YEAR_FOLDER.test(year)))) {
+        return res.status(400).json({ error: 'Geçersiz test dosyası veya arşiv yılı.' });
+    }
+    const archiveYear = year === undefined ? null : Number(year);
+    if (testModeService.isActiveTestFile(fileName, archiveYear)) {
+        return res.status(409).json({ error: 'Bu testin kaydı sürüyor.' });
+    }
+    const filePath = testFilePath(TEST_DIR, fileName, archiveYear);
+    if (!fs.statSync(filePath, { throwIfNoEntry: false })?.isFile()) {
         return res.status(404).json({ error: 'Dosya bulunamadı' });
     }
+    req.testFile = { fileName, filePath };
+    next();
+}
 
-    res.set('Content-Type', 'text/csv; charset=utf-8');
-    res.set('Cache-Control', 'no-store');
-    res.sendFile(filePath);
+router.get('/api/test/content/:fileName', requireAuth, requireTestFile, async (req, res, next) => {
+    try {
+        const csv = await fs.promises.readFile(req.testFile.filePath, 'utf8');
+        res.type('text/csv').set('Cache-Control', 'no-store').send(testPlaybackCsv(csv));
+    } catch (error) {
+        next(error);
+    }
 });
 
-// Test dosyasını indir (SADECE ADMIN)
-router.get('/api/test/download/:fileName', requireAdmin, (req, res) => {
-    const fileName = req.params.fileName;
-
-    // Güvenlik kontrolü
-    if (!isSafeFileName(fileName)) {
-        return res.status(400).json({ error: 'Geçersiz dosya adı' });
-    }
-
-    const filePath = path.join(TEST_DIR, fileName);
-
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Dosya bulunamadı' });
-    }
-
+router.get('/api/test/download/:fileName', requireAdmin, requireTestFile, (req, res) => {
+    const { fileName, filePath } = req.testFile;
     setDownloadHeaders(res, fileName, 'text/csv; charset=utf-8');
     res.sendFile(filePath);
 });
 
-// Test dosyasını XLSX olarak indir (SADECE ADMIN)
-router.get('/api/test/download-xlsx/:fileName', requireAdmin, (req, res) => {
-    const fileName = req.params.fileName;
-
-    if (!isSafeFileName(fileName)) {
-        return res.status(400).json({ error: 'Geçersiz dosya adı' });
-    }
-
-    const filePath = path.join(TEST_DIR, fileName);
-
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Dosya bulunamadı' });
-    }
-
+router.get('/api/test/download-xlsx/:fileName', requireAdmin, requireTestFile, async (req, res) => {
+    const { fileName, filePath } = req.testFile;
     try {
-        const csvContent = fs.readFileSync(filePath, 'utf8');
-        const xlsxBuffer = csvToXlsxBuffer(csvContent, 'Test Verisi');
-        if (!xlsxBuffer) {
-            return res.status(404).json({ error: 'Dosya boş' });
-        }
-        const xlsxFileName = fileName.replace('.csv', '.xlsx');
-        setDownloadHeaders(res, xlsxFileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.send(xlsxBuffer);
+        const csv = await fs.promises.readFile(filePath, 'utf8');
+        const xlsx = csvToXlsxBuffer(csv, 'Test Verisi', TEST_TEXT_COLUMNS);
+        if (!xlsx) return res.status(404).json({ error: 'Dosya boş' });
+        setDownloadHeaders(res, fileName.replace(/\.csv$/, '.xlsx'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(xlsx);
     } catch (error) {
         res.status(500).json({ error: 'XLSX dosyası oluşturulamadı' });
     }
 });
 
-// Test dosyasını yeniden adlandır (SADECE ADMIN)
-router.patch('/api/test/rename/:fileName', requireAdmin, (req, res) => {
-    const oldFileName = req.params.fileName;
-    const { newName } = req.body;
-
-    // Güvenlik kontrolü - eski dosya adı
-    if (!isSafeFileName(oldFileName)) {
-        return res.status(400).json({ error: 'Geçersiz dosya adı' });
+router.post('/api/test/after-note/:fileName', requireAdmin, requireTestFile, (req, res) => {
+    let note;
+    try {
+        note = readTestNote(req.body?.note);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
     }
-
-    // Güvenlik kontrolü - yeni dosya adı
-    if (!newName || typeof newName !== 'string') {
-        return res.status(400).json({ error: 'Yeni dosya adı gerekli' });
+    try {
+        if (!appendTestAfterNote(req.testFile.filePath, note)) {
+            return res.status(400).json({ error: 'Bu test dosyasına test sonrası notu eklenemiyor.' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Test sonrası notu kaydedilemedi.' });
     }
+});
 
-    // Yeni dosya adını temizle ve formatla
-    let cleanName = newName.trim();
-
-    // .csv uzantısı yoksa ekle
-    if (!cleanName.endsWith('.csv')) {
-        cleanName += '.csv';
-    }
-
-    // Geçersiz karakterleri kontrol et
-    if (cleanName.includes('..') || cleanName.includes('/') || cleanName.includes('\\') || cleanName.includes(':')) {
-        return res.status(400).json({ error: 'Dosya adında geçersiz karakterler var' });
-    }
-
-    const oldFilePath = path.join(TEST_DIR, oldFileName);
-    const newFilePath = path.join(TEST_DIR, cleanName);
-
-    // Eski dosya var mı kontrol et
-    if (!fs.existsSync(oldFilePath)) {
-        return res.status(404).json({ error: 'Dosya bulunamadı' });
-    }
-
-    // Yeni isimde dosya zaten var mı kontrol et
-    if (fs.existsSync(newFilePath) && oldFileName !== cleanName) {
+router.patch('/api/test/rename/:fileName', requireAdmin, requireTestFile, (req, res) => {
+    const { fileName, filePath } = req.testFile;
+    const requestedName = typeof req.body?.newName === 'string' ? req.body.newName.trim() : '';
+    if (!requestedName) return res.status(400).json({ error: 'Yeni dosya adı gerekli' });
+    const newName = requestedName.endsWith('.csv') ? requestedName : requestedName + '.csv';
+    if (!isTestFileName(newName)) return res.status(400).json({ error: 'Dosya adında geçersiz karakterler var' });
+    const newPath = path.join(path.dirname(filePath), newName);
+    if (newName !== fileName && fs.existsSync(newPath)) {
         return res.status(409).json({ error: 'Bu isimde bir dosya zaten mevcut' });
     }
-
     try {
-        fs.renameSync(oldFilePath, newFilePath);
-        console.log(`📝 Test dosyası yeniden adlandırıldı: ${oldFileName} → ${cleanName}`);
-        res.json({
-            success: true,
-            message: `Dosya yeniden adlandırıldı`,
-            oldName: oldFileName,
-            newName: cleanName
-        });
+        fs.renameSync(filePath, newPath);
+        res.json({ success: true, oldName: fileName, newName });
     } catch (error) {
         res.status(500).json({ error: 'Dosya yeniden adlandırılamadı' });
     }
 });
 
-// Test dosyasını sil (SADECE ADMIN)
-router.delete('/api/test/delete/:fileName', requireAdmin, (req, res) => {
-    const fileName = req.params.fileName;
-
-    if (!isSafeFileName(fileName) || fileName.includes('~')) {
-        return res.status(400).json({ error: 'Geçersiz dosya adı' });
-    }
-
-    const filePath = path.join(TEST_DIR, fileName);
-
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Dosya bulunamadı' });
-    }
-
-    fs.unlinkSync(filePath);
-    console.log(`🗑️ Test dosyası silindi: ${fileName}`);
-    res.json({ success: true, message: `${fileName} silindi` });
+router.delete('/api/test/delete/:fileName', requireAdmin, requireTestFile, (req, res) => {
+    fs.unlinkSync(req.testFile.filePath);
+    res.json({ success: true });
 });
 
 module.exports = router;

@@ -1,4 +1,5 @@
 import useTestControls from '../hooks/useTestControls'
+import '../test/test-ui.css'
 import './TestControls.css'
 
 export default function TestControls() {
@@ -6,24 +7,17 @@ export default function TestControls() {
     isAdmin,
     active,
     paused,
-    elapsedFormatted,
-    vehicleMismatch,
+    elapsed,
+    vehicleName,
     busy,
     error,
     start,
     stop,
     togglePause,
+    editPauseNote,
   } = useTestControls()
 
   if (!isAdmin) return null
-
-  const handleStop = () => {
-    stop().then((result) => {
-      if (result) {
-        alert(`Test tamamlandı!\n\nDosya: ${result.testName}\nSüre: ${result.duration}\nKayıt: ${result.dataCount}`)
-      }
-    })
-  }
 
   return (
     <div className="test-controls">
@@ -34,21 +28,20 @@ export default function TestControls() {
       )}
       {active && (
         <>
-          <button className="test-controls__btn test-controls__btn--active" onClick={handleStop} disabled={busy}>
+          <button className="test-controls__btn test-controls__btn--active" onClick={stop} disabled={busy}>
             ⏹️ Testi Durdur
           </button>
           <button className="test-controls__btn test-controls__btn--pause" onClick={togglePause} disabled={busy}>
             {paused ? '▶️ Devam' : '⏸ Duraklat'}
           </button>
-          <span className={`test-controls__timer ${paused ? 'is-paused' : ''}`}>{elapsedFormatted}</span>
-          {vehicleMismatch && (
-            <span className="test-controls__note" title="Proto panelinden başlatılan bir test kaydı sürüyor">
-              (Proto testi)
-            </span>
+          {paused && (
+            <button className="test-controls__btn" onClick={editPauseNote} disabled={busy}>Duraklama notu</button>
           )}
+          <span className={`test-controls__timer ${paused ? 'is-paused' : ''}`}>{elapsed}</span>
+          <span className="test-control-context">{vehicleName}</span>
         </>
       )}
-      {error && <span className="test-controls__error">{error}</span>}
+      {error && <span className="test-ui-error" role="alert">{error}</span>}
     </div>
   )
 }

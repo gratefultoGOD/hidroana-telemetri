@@ -9,6 +9,7 @@ const config = require('../src/config');
 const { getDailyFileName } = require('../src/utils/helpers');
 const { parseUrbanHttpQuery, validateUrbanHttpQuery, buildUrbanHttpQuery } = require('../src/services/urbanPayload');
 const { URBAN_FILE_SUFFIX, resolveUrbanDailyFileName, combineUrbanCsvContents } = require('../src/utils/urbanCsv');
+const { parseTestCsv } = require('../src/services/testArchive');
 
 const ROOT = path.resolve(__dirname, '..');
 const quietConsole = { log() {}, error() {} };
@@ -79,23 +80,26 @@ function deferred() {
     return { promise, resolve };
 }
 
-function makeTestRecorder(directory, vehicle = 'urban', fileSystem = fs) {
+function makeTestRecorder(directory, vehicle = 'urban', fileSystem = fs, globals = {}) {
     return loadModule('src/services/testMode.js', {
         '../config': { ...config, TEST_DIR: directory, FLUSH_THRESHOLD: 100 },
         '../state': makeState(),
         './systemSettings': { getActiveVehicle: () => vehicle },
         fs: fileSystem,
-    }, { console: quietConsole });
+    }, { console: quietConsole, ...globals });
 }
 
 async function createTestApi(t, directory, recorder) {
-    const allow = (req, res, next) => next();
     const router = loadModule('src/routes/test.js', {
         '../config': { ...config, TEST_DIR: directory },
         '../services/testMode': recorder,
-        '../middleware/auth': { requireAuth: allow, requireAdmin: allow },
     }, { console: quietConsole });
     const app = express();
+    app.use(express.json());
+    app.use((req, res, next) => {
+        req.session = { userId: 'test-user', userRole: req.headers['x-test-role'] || 'admin' };
+        next();
+    });
     app.use(router);
     const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
     t.after(() => new Promise(resolve => server.close(resolve)));
@@ -605,6 +609,114 @@ test('Test durdurma API disk hatasında başarı dönmez; tekrar deneyince kayı
     assert.equal(result.dataCount, 1);
     assert.equal(result.testName, started.testName);
     assert.equal(recorder.testMode.active, false);
+});
+
+test('2027 test arşivi test ayrıntılarını ve duraklamaları CSV/Excel çıktısına taşır', async t => {
+    const directory = temporaryDirectory(t);
+    const startedAt = Date.parse('2026-11-21T22:05:06Z');
+    let now = startedAt;
+    class TestClock extends Date {
+        constructor(value = now) { super(value); }
+        static now() { return now; }
+    }
+    const recorder = makeTestRecorder(directory, 'proto', fs, { Date: TestClock });
+    const baseUrl = await createTestApi(t, directory, recorder);
+    const request = (route, method = 'GET', body, userRole = 'admin') => fetch(`${baseUrl}/api/test/${route}`, {
+        method, headers: { 'Content-Type': 'application/json', 'x-test-role': userRole }, body: JSON.stringify(body)
+    });
+    const legacy = '\uFEFFtest_time;date;time;h\n00:00:00.010;2026-08-09;13:43:03.704;10\n';
+    fs.writeFileSync(path.join(directory, 'onceki.csv'), legacy);
+    fs.writeFileSync(path.join(directory, 'eski-bicim.csv'), 't:2025-08-09;s:13:43:03.704;h:10;mv:50\n');
+    const details = {
+        vehicle: 'urban', motor: '0124', powerSource: 'Hibrit', purpose: 'Motor sürücü testi', track: 'MF arkası',
+        pilotName: "Öykü O'Connor.", vehicleWeightKg: '115.8', pilotWeightKg: '63.5', beforeNotes: 'İlk satır; "ölçüm"\nİkinci satır'
+    };
+    const rejected = await request('start', 'POST', { ...details, purpose: 'Farklı dişli oranları' });
+    assert.equal(rejected.status, 400);
+    const response = await request('start', 'POST', details);
+    assert.equal(response.status, 200);
+    const started = await response.json();
+    assert.equal(started.testName, "2026-11-22 - Dorlion V2 - 0124 - Öykü O'Connor.csv");
+    assert.equal(started.archiveYear, 2027);
+    assert.equal(started.vehicle, 'urban');
+    const entry = `${encodeURIComponent(started.testName)}?year=${started.archiveYear}`;
+    assert.equal((await request(`download/${entry}`)).status, 409);
+
+    recorder.recordTestData({ h: '9' }, new Date(startedAt + 1000), 'proto');
+    recorder.recordTestData({ h: '10' }, new Date(startedAt + 3000), 'urban');
+    now += 4000;
+    const firstPause = await (await request('pause', 'POST')).json();
+    const note = 'Lastik; basıncı "ölçüldü"\nTekrar kontrol';
+    const saved = await request('pause-note', 'PATCH', { pausedAt: firstPause.pausedAt, note });
+    assert.equal(saved.status, 200);
+    assert.equal((await (await request('status')).json()).pauseNote, note);
+    assert.equal(Object.hasOwn(await (await request('status', 'GET', undefined, 'user')).json(), 'pauseNote'), false);
+    recorder.recordTestData({ h: '99' }, new Date(now + 1000), 'urban');
+    now += 3000;
+    assert.equal((await request('resume', 'POST')).status, 200);
+    recorder.recordTestData({ h: '20' }, new Date(now + 2000), 'urban');
+    now = startedAt + 12500;
+    const secondPause = await (await request('pause', 'POST')).json();
+    assert.equal((await request('pause-note', 'PATCH', { pausedAt: firstPause.pausedAt, note: 'Eski istek' })).status, 409);
+    assert.equal((await request('pause-note', 'PATCH', { pausedAt: secondPause.pausedAt, note: 'Test burada bitti' })).status, 200);
+    now += 10000;
+    const result = await (await request('stop', 'POST')).json();
+    assert.equal(result.durationMs, 9500);
+    assert.equal(result.dataCount, 2);
+    const afterNotes = 'Sonuç; düzenli\nİkinci satır';
+    assert.equal((await request(`after-note/${entry}`, 'POST', { note: afterNotes })).status, 200);
+
+    const { files: [file, previous, keyValue] } = await (await request('files')).json();
+    assert.equal(file.year, 2027);
+    assert.equal(file.date, '2026-11-22');
+    assert.equal(file.time, '01:05:06');
+    assert.equal(file.motor, details.motor);
+    assert.equal(file.pilotName, details.pilotName);
+    assert.equal(file.vehicleWeightKg, 115.8);
+    assert.equal(file.pilotWeightKg, 63.5);
+    assert.equal(file.beforeNotes, details.beforeNotes);
+    assert.equal(file.afterNotes, afterNotes);
+    assert.deepEqual(file.pauses.map(pause => [pause.durationMs, pause.note]), [[3000, note], [10000, 'Test burada bitti']]);
+    assert.equal(previous.year, 2026);
+    assert.equal(previous.archiveYear, null);
+    assert.equal(keyValue.year, 2025);
+    assert.equal(keyValue.dataCount, 1);
+    assert.equal(keyValue.vehicle, 'urban');
+    const { files: [viewerFile] } = await (await request('files', 'GET', undefined, 'user')).json();
+    assert.equal(viewerFile.motor, details.motor);
+    assert.equal(Object.hasOwn(viewerFile, 'pauses'), false);
+    assert.equal((await request(`download/${entry}`, 'GET', undefined, 'user')).status, 403);
+
+    const download = await request(`download/${entry}`);
+    const csv = await download.text();
+    assert.match(download.headers.get('content-disposition'), /O%27Connor/);
+    assert.equal(csv.replace(/^\uFEFF/, ''), fs.readFileSync(path.join(directory, '2027', started.testName), 'utf8').replace(/^\uFEFF/, ''));
+    const { events, telemetry, headers } = parseTestCsv(csv);
+    assert.deepEqual(telemetry.map(row => row[headers.indexOf('h')]), ['10', '20']);
+    assert.deepEqual(events.map(event => event.record_type), ['test_start', 'pause', 'pause', 'test_end', 'after_note']);
+    assert.equal(events[1].pause_note, note);
+    const playback = parseTestCsv(await (await request(`content/${entry}`, 'GET', undefined, 'user')).text());
+    assert.equal(playback.telemetry.length, 2);
+    assert.deepEqual(playback.headers, config.URBAN_TEST_CSV_HEADERS);
+    assert.equal(playback.events.length, 0);
+    assert.equal((await (await request('content/onceki.csv')).text()).replace(/^\uFEFF/, ''), legacy.slice(1));
+
+    const xlsxResponse = await request(`download-xlsx/${entry}`);
+    assert.equal(xlsxResponse.status, 200);
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(await xlsxResponse.arrayBuffer());
+    const [xlsxHeaders, startRow, , pauseRow] = XLSX.utils.sheet_to_json(workbook.Sheets['Test Verisi'], { header: 1 });
+    assert.equal(startRow[xlsxHeaders.indexOf('motor')], '0124');
+    assert.equal(pauseRow[xlsxHeaders.indexOf('pause_note')], note);
+
+    const again = await (await request('start', 'POST', details)).json();
+    assert.match(again.testName, / - 2\.csv$/);
+    assert.equal((await request('stop', 'POST')).status, 200);
+    assert.equal((await request(`rename/${entry}`, 'PATCH', { newName: 'Yeni isim' })).status, 200);
+    const { files: renamed } = await (await request('files')).json();
+    assert.equal(renamed.find(record => record.fileName === 'Yeni isim.csv').afterNotes, afterNotes);
+    assert.equal((await request('delete/Yeni%20isim.csv?year=2027', 'DELETE')).status, 200);
+    assert.equal(fs.existsSync(path.join(directory, '2027', 'Yeni isim.csv')), false);
 });
 
 test('HTTP publisher kısa adlar ve EYS/Oran/Flow ile eksiksiz paket oluşturur', () => {
