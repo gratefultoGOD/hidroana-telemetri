@@ -1,25 +1,6 @@
 import { useMemo } from 'react'
+import { createGaugeScale, getGaugeReading } from './gaugeGeometry.mjs'
 import './GaugeDial.css'
-
-const START_ANGLE = -210
-const END_ANGLE = 30
-const SWEEP = END_ANGLE - START_ANGLE
-
-function polarToCartesian(cx, cy, r, angleDeg) {
-  const rad = (angleDeg * Math.PI) / 180
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-}
-
-function describeArc(cx, cy, r, startAngle, endAngle) {
-  const start = polarToCartesian(cx, cy, r, startAngle)
-  const end = polarToCartesian(cx, cy, r, endAngle)
-  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`
-}
-
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v))
-}
 
 export default function GaugeDial({
   label,
@@ -36,43 +17,9 @@ export default function GaugeDial({
   dangerAt = 0.9,
   size = 190,
 }) {
-  const ratio = clamp((value - min) / (max - min), 0, 1)
-  const valueAngle = START_ANGLE + ratio * SWEEP
-
-  const zone = ratio >= dangerAt ? 'danger' : ratio >= warningAt ? 'warning' : 'normal'
-  const activeColor = zone === 'danger' ? '#f87171' : zone === 'warning' ? '#f59e0b' : color
-
-  const cx = size / 2
-  const cy = size / 2 + size * 0.06
-  const r = size * 0.38
-
-  const trackPath = useMemo(() => describeArc(cx, cy, r, START_ANGLE, END_ANGLE), [cx, cy, r])
-  const warningStartAngle = START_ANGLE + warningAt * SWEEP
-  const dangerStartAngle = START_ANGLE + dangerAt * SWEEP
-  const warningPath = useMemo(
-    () => describeArc(cx, cy, r, warningStartAngle, dangerStartAngle),
-    [cx, cy, r, warningStartAngle, dangerStartAngle],
-  )
-  const dangerPath = useMemo(
-    () => describeArc(cx, cy, r, dangerStartAngle, END_ANGLE),
-    [cx, cy, r, dangerStartAngle],
-  )
-  const valuePath = useMemo(() => describeArc(cx, cy, r, START_ANGLE, valueAngle), [cx, cy, r, valueAngle])
-
-  const ticks = useMemo(() => {
-    const count = 6
-    return Array.from({ length: count + 1 }, (_, i) => {
-      const t = i / count
-      const angle = START_ANGLE + t * SWEEP
-      const outer = polarToCartesian(cx, cy, r + 8, angle)
-      const inner = polarToCartesian(cx, cy, r - 2, angle)
-      return { x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y, key: i }
-    })
-  }, [cx, cy, r])
-
-  const needleTip = polarToCartesian(cx, cy, r - 6, valueAngle)
-  const needleBase1 = polarToCartesian(cx, cy, size * 0.045, valueAngle + 90)
-  const needleBase2 = polarToCartesian(cx, cy, size * 0.045, valueAngle - 90)
+  const scale = useMemo(() => createGaugeScale({ size, warningAt, dangerAt }), [size, warningAt, dangerAt])
+  const { cx, cy, trackPath, warningPath, dangerPath, ticks } = scale
+  const { activeColor, valuePath, needleTip, needleBase1, needleBase2 } = getGaugeReading(scale, value, { min, max, color })
 
   const displayValue = Number.isFinite(value) ? value.toFixed(readoutDecimals) : '--'
   const secondaryDisplayValue = Number.isFinite(secondaryValue) ? secondaryValue.toFixed(readoutDecimals) : '--'

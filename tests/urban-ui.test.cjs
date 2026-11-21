@@ -58,7 +58,8 @@ test('Urban ekranı eski total_flow değerini yeni flow olarak gösterir; toplam
 });
 
 test('EYS değişince kadran ibresi/SVG değişmez; Fuel Cell değişince değişir', async () => {
-    const GaugeDial = await loadComponent('GaugeDial');
+    const geometry = await importLocal('telemetriV2/src/components/gaugeGeometry.mjs');
+    const GaugeDial = await loadComponent('GaugeDial', geometry);
     const props = { label: 'Voltaj', value: 38.74, min: 0, max: 50, unit: 'V', paired: true, readoutDecimals: 2 };
     const render = changes => renderToStaticMarkup(React.createElement(GaugeDial, { ...props, ...changes }));
     const first = render({ secondaryValue: 52.21 });
@@ -87,7 +88,8 @@ test('FC/EYS değerleri normal kadran yazı boyutunu kullanır; açıklama daha 
 });
 
 test('Urban kartında FC/EYS üç çift değer ve Oran/Flow alt satırı bulunur', async () => {
-    const GaugeDial = await loadComponent('GaugeDial');
+    const geometry = await importLocal('telemetriV2/src/components/gaugeGeometry.mjs');
+    const GaugeDial = await loadComponent('GaugeDial', geometry);
     const SystemPanel = await loadComponent('SystemPanel', { GaugeDial });
     const { RANGES } = await importLocal('telemetriV2/src/hooks/useTelemetryData.js');
     const html = renderToStaticMarkup(React.createElement(SystemPanel, {

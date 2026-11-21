@@ -47,6 +47,10 @@ router.get('/play', requireAuth, servePage('play.html'));
 router.get('/flow', requireAdmin, servePage('flow.html'));
 router.get('/3dview', requireAuth, servePage('3dview.html'));
 
+router.get('/dashboard-assets/theme.css', requireAuth, servePage('telemetriV2/src/index.css'));
+router.get('/dashboard-assets/gauge.css', requireAuth, servePage('telemetriV2/src/components/GaugeDial.css'));
+router.get('/dashboard-assets/gauge-geometry.mjs', requireAuth, servePage('telemetriV2/src/components/gaugeGeometry.mjs'));
+
 router.get('/urban', requireAuth, (req, res, next) => {
     if (!readVehicleCookie(req)) return res.redirect('/settings');
     next();
