@@ -107,7 +107,7 @@ async function openTestDetailsDialog(values, onSubmit, editing = false) {
     const required = !editing
     const motor = formControl('select', 'motor', { required })
     const powerSource = formControl('select', 'powerSource', { required })
-    const purpose = formControl('select', 'purpose', { required })
+    const purpose = formControl('input', 'purpose', { required, value: values.purpose ?? '' })
     const track = formControl('select', 'track', { required })
     const pilotName = formControl('input', 'pilotName', { required, maxLength: options.maxPilotNameLength, value: values.pilotName ?? '' })
     const weightOptions = { type: 'number', min: '0.01', step: 'any', inputMode: 'decimal', required }
@@ -120,10 +120,6 @@ async function openTestDetailsDialog(values, onSubmit, editing = false) {
     fillSelect(motor, options.motors, 'Motor seçin', values.motor)
     fillSelect(powerSource, options.powerSources, 'Güç kaynağı seçin', values.powerSource)
     fillSelect(track, options.tracks, 'Pist seçin', values.track)
-    const updatePurposes = selected => fillSelect(purpose,
-      options.purposes.filter(option => !option.motor || option.motor === motor.value), 'Amaç seçin', selected)
-    motor.addEventListener('change', () => updatePurposes(purpose.value))
-    updatePurposes(values.purpose)
 
     fields.append(labeledField('Araç', vehicle), labeledField('Motor', motor),
       labeledField('Güç kaynağı', powerSource), labeledField('Test amacı', purpose),

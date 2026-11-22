@@ -628,10 +628,10 @@ test('2027 test arşivi test ayrıntılarını ve duraklamaları CSV/Excel çık
     fs.writeFileSync(path.join(directory, 'onceki.csv'), legacy);
     fs.writeFileSync(path.join(directory, 'eski-bicim.csv'), 't:2025-08-09;s:13:43:03.704;h:10;mv:50\n');
     const details = {
-        vehicle: 'urban', motor: '0124', powerSource: 'Hibrit', purpose: 'Motor sürücü testi', track: 'MF arkası',
+        vehicle: 'urban', motor: '0124', powerSource: 'Hibrit', purpose: 'Düzlükte enerji ölçümü', track: 'Silesia Ring',
         pilotName: "Öykü O'Connor.", vehicleWeightKg: '115.8', pilotWeightKg: '63.5', beforeNotes: 'İlk satır; "ölçüm"\nİkinci satır'
     };
-    const rejected = await request('start', 'POST', { ...details, purpose: 'Farklı dişli oranları' });
+    const rejected = await request('start', 'POST', { ...details, purpose: '  ' });
     assert.equal(rejected.status, 400);
     const response = await request('start', 'POST', details);
     assert.equal(response.status, 200);
@@ -671,6 +671,8 @@ test('2027 test arşivi test ayrıntılarını ve duraklamaları CSV/Excel çık
     assert.equal(file.date, '2026-11-22');
     assert.equal(file.time, '01:05:06');
     assert.equal(file.motor, details.motor);
+    assert.equal(file.purpose, details.purpose);
+    assert.equal(file.track, details.track);
     assert.equal(file.pilotName, details.pilotName);
     assert.equal(file.vehicleWeightKg, 115.8);
     assert.equal(file.pilotWeightKg, 63.5);
@@ -749,12 +751,13 @@ test('Tamamlanmış ve eski testler düzenlenir, oynatma verileri korunur', asyn
     const before = (await list()).find(file => file.fileName === started.testName);
     const playback = await (await request(`content/${target(before)}`)).text();
     const changes = {
-        ...original, vehicle: 'proto', motor: '0548', pilotName: 'İkinci Pilot', purpose: 'Pilot seçimi',
+        ...original, vehicle: 'proto', motor: '0548', pilotName: 'İkinci Pilot',
+        purpose: 'Farklı dişli oranlarının karşılaştırılması', track: 'TÜBİTAK MAM',
         beforeNotes: 'Düzeltme; "kontrol"\nikinci satır', afterNotes: 'Test sonuçları',
         pauseNotes: ['Güncel duraklama notu'], revision: before.revision
     };
     assert.equal((await request(endpoint, 'PATCH', changes, 'user')).status, 403);
-    assert.equal((await request(endpoint, 'PATCH', { ...changes, purpose: 'Farklı dişli oranları' })).status, 400);
+    assert.equal((await request(endpoint, 'PATCH', { ...changes, purpose: 42 })).status, 400);
     const response = await request(endpoint, 'PATCH', changes);
     assert.equal(response.status, 200);
     const edited = await response.json();
@@ -770,6 +773,8 @@ test('Tamamlanmış ve eski testler düzenlenir, oynatma verileri korunur', asyn
     assert.equal(archived.vehicle, 'urban');
     assert.equal(archived.vehicleName, 'Gece');
     assert.equal(archived.testVehicle, 'proto');
+    assert.equal(archived.purpose, changes.purpose);
+    assert.equal(archived.track, changes.track);
     assert.equal(archived.startTime, before.startTime);
     assert.equal(archived.endTime, before.endTime);
     assert.equal(archived.durationMs, before.durationMs);

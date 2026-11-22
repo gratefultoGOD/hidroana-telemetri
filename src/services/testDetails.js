@@ -4,7 +4,6 @@ const MAX_NOTE_LENGTH = 4000;
 const MAX_PILOT_NAME_LENGTH = 80;
 
 const VEHICLE_NAMES = { proto: 'Gece', urban: 'Dorlion V2' };
-const GEAR_RATIO_PURPOSE = 'Farklı dişli oranları';
 const TEST_OPTIONS = {
     vehicles: Object.entries(VEHICLE_NAMES).map(([value, name]) => ({
         value,
@@ -12,12 +11,7 @@ const TEST_OPTIONS = {
     })),
     motors: ['1048', '0124', '0548'],
     powerSources: ['Batarya / Akülü', 'Hidrojenli', 'Hibrit'],
-    purposes: [
-        { value: 'Pilot seçimi', label: 'Pilot seçimi' },
-        { value: 'Motor sürücü testi', label: 'Motor sürücü testi' },
-        { value: GEAR_RATIO_PURPOSE, label: GEAR_RATIO_PURPOSE, motor: '1048' }
-    ],
-    tracks: ['MF arkası', 'Otopark', 'Atölye etrafı', 'S8 yolu'],
+    tracks: ['MF arkası', 'Otopark', 'Atölye etrafı', 'S8 yolu', 'Silesia Ring', 'TÜBİTAK MAM'],
     maxNoteLength: MAX_NOTE_LENGTH,
     maxPilotNameLength: MAX_PILOT_NAME_LENGTH
 };
@@ -64,9 +58,7 @@ function readTestDetails(input = {}, { allowIncomplete = false } = {}) {
     const shouldValidate = value => value !== '' || !allowIncomplete;
     if (shouldValidate(motor) && !TEST_OPTIONS.motors.includes(motor)) throw new Error('Motor seçin.');
     if (shouldValidate(powerSource) && !TEST_OPTIONS.powerSources.includes(powerSource)) throw new Error('Güç kaynağını seçin.');
-    if (shouldValidate(purpose) && !TEST_OPTIONS.purposes.some(option => option.value === purpose && (!option.motor || option.motor === motor))) {
-        throw new Error('Seçili motora uygun bir test amacı seçin.');
-    }
+    if (typeof purpose !== 'string' || (!purpose.trim() && !allowIncomplete)) throw new Error('Test amacını yazın.');
     if (shouldValidate(track) && !TEST_OPTIONS.tracks.includes(track)) throw new Error('Pist seçin.');
     const name = input.pilotName ?? '';
     const pilotName = typeof name === 'string' ? name.trim() : '';
@@ -75,7 +67,7 @@ function readTestDetails(input = {}, { allowIncomplete = false } = {}) {
         throw new Error(`Pilot adını girin. En fazla ${MAX_PILOT_NAME_LENGTH} karakter kullanabilirsiniz.`);
     }
     return {
-        vehicle, motor, powerSource, purpose, track, pilotName,
+        vehicle, motor, powerSource, purpose: purpose.trim(), track, pilotName,
         vehicleWeightKg: readWeight(input.vehicleWeightKg, 'Araç kilosu', allowIncomplete),
         pilotWeightKg: readWeight(input.pilotWeightKg, 'Pilot kilosu', allowIncomplete),
         beforeNotes: readTestNote(input.beforeNotes)
